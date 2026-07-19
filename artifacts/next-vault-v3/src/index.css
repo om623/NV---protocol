@@ -144,6 +144,15 @@
   animation: terminal-cursor 1s step-end infinite;
 }
 
+@keyframes btn-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 229, 188, 0.45); }
+  70%  { box-shadow: 0 0 0 10px rgba(0, 229, 188, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 229, 188, 0); }
+}
+.animate-btn-pulse {
+  animation: btn-pulse-ring 2.2s ease-out infinite;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
