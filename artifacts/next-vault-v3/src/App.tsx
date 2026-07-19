@@ -12,6 +12,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
+import {
+  type EnvMode, type NetworkConfig,
+  TESTNET_NETWORKS, MAINNET_NETWORKS,
+  DEFAULT_TESTNET, DEFAULT_MAINNET,
+  SIMULATED_WALLET_CHAIN_ID,
+} from './networks';
 
 const queryClient = new QueryClient();
 
@@ -54,11 +60,7 @@ const INITIAL_TRANSACTIONS = [
   { id: '3', fromToken: 'DAI', toToken: 'ETH', fromAmount: 1000, toAmount: 0.3112, time: '3 hrs ago', status: 'Success' }
 ];
 
-const NETWORKS = [
-  { id: 'sepolia', name: 'Ethereum Sepolia Testnet', color: 'bg-green-500' },
-  { id: 'mumbai', name: 'Polygon Mumbai', color: 'bg-purple-500' },
-  { id: 'goerli', name: 'Arbitrum Goerli', color: 'bg-blue-500' },
-];
+// Network lists live in ./networks.ts — imported above.
 
 const PIPELINE_STEPS = [
   { label: 'Conectando carteira...',          Icon: Wallet },
@@ -358,37 +360,95 @@ function TokenSelect({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-// ─── NetworkSelector ──────────────────────────────────────────────────────────
+// ─── EnvNetworkSelector ───────────────────────────────────────────────────────
+// Controlled component — state lives in Home and is passed via props.
+// Renders: env toggle tab (🧪 Testnet / 🌐 Mainnet) + filtered network list.
 
-function NetworkSelector() {
+interface EnvNetworkSelectorProps {
+  envMode: EnvMode;
+  activeNetwork: NetworkConfig;
+  onEnvChange: (mode: EnvMode) => void;
+  onNetworkChange: (network: NetworkConfig) => void;
+}
+
+function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChange }: EnvNetworkSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(NETWORKS[0]);
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const fn = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener('mousedown', fn);
     return () => document.removeEventListener('mousedown', fn);
   }, []);
+
+  const networks = envMode === 'testnet' ? TESTNET_NETWORKS : MAINNET_NETWORKS;
+  const envEmoji = envMode === 'testnet' ? '🧪' : '🌐';
+  const envLabel = envMode === 'testnet' ? 'Testnet' : 'Mainnet';
+
   return (
     <div className="relative hidden md:block" ref={ref}>
-      <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 bg-secondary/50 border border-border px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md cursor-pointer hover:bg-secondary transition-colors">
-        <div className={`w-2 h-2 rounded-full ${active.color} animate-pulse`} />
-        {active.name}
+      {/* Indicator button — shows active env + active network */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 bg-secondary/50 border border-border px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md cursor-pointer hover:bg-secondary transition-colors"
+      >
+        <span className="text-base leading-none">{envEmoji}</span>
+        <span className={envMode === 'testnet' ? 'text-amber-400 font-semibold' : 'text-foreground'}>
+          {envLabel}
+        </span>
+        <span className="text-muted-foreground/40 select-none">•</span>
+        <div className={`w-2 h-2 rounded-full ${activeNetwork.color} animate-pulse shrink-0`} />
+        <span>{activeNetwork.shortName}</span>
         <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
+
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -5, scale: 0.95 }} transition={{ duration: 0.15 }}
-            className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-xl p-1 shadow-2xl z-50 flex flex-col gap-1">
-            {NETWORKS.map(n => (
-              <button key={n.id} onClick={() => { setActive(n); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-xs font-mono cursor-pointer ${n.id === active.id ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}>
-                <div className={`w-2 h-2 rounded-full ${n.color}`} />
-                {n.name}
-              </button>
-            ))}
+          <motion.div
+            initial={{ opacity: 0, y: -5, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -5, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
+          >
+            {/* Env toggle tabs */}
+            <div className="flex gap-1 p-2 border-b border-border/50">
+              {(['testnet', 'mainnet'] as EnvMode[]).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => onEnvChange(mode)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
+                    envMode === mode
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <span>{mode === 'testnet' ? '🧪' : '🌐'}</span>
+                  <span className="capitalize">{mode}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Network list (filtered by env) */}
+            <div className="p-1 flex flex-col gap-0.5">
+              {networks.map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => { onNetworkChange(n); setOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-xs font-mono cursor-pointer ${
+                    n.id === activeNetwork.id
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-secondary text-foreground'
+                  }`}
+                >
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${n.color}`} />
+                  <span className="flex-1 text-left">{n.name}</span>
+                  {n.id === activeNetwork.id && <Check size={12} />}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -405,6 +465,14 @@ function Home() {
   const [amount,      setAmount]      = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
+
+  // ── Environment / network state ─────────────────────────────────────────────
+  // App always starts in Testnet mode on Sepolia.
+  // walletChainId simulates what chain the injected wallet is currently on.
+  // Phase 2 will replace this with a real provider.chainId query.
+  const [envMode,       setEnvMode]       = useState<EnvMode>('testnet');
+  const [activeNetwork, setActiveNetwork] = useState<NetworkConfig>(DEFAULT_TESTNET);
+  const [walletChainId, setWalletChainId] = useState<number | null>(null);
   const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
   const [swapModalOpen,  setSwapModalOpen]  = useState(false);
   const [swapStep,       setSwapStep]       = useState(0);
@@ -536,6 +604,27 @@ function Home() {
 
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
+  // ── Env / network handlers ──────────────────────────────────────────────────
+
+  const handleEnvChange = (mode: EnvMode) => {
+    setEnvMode(mode);
+    // Switch default network when env mode changes
+    setActiveNetwork(mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET);
+  };
+
+  const handleNetworkChange = (network: NetworkConfig) => {
+    setActiveNetwork(network);
+  };
+
+  // Simulates a wallet "Switch Network" request.
+  // Phase 2 will call provider.request({ method: 'wallet_switchEthereumChain', ... })
+  const handleSwitchNetwork = () => {
+    setWalletChainId(activeNetwork.chainId);
+  };
+
+  // True when the wallet is connected but on a different chain than the selected network
+  const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
+
   const handleSwap = () => {
     if (!isConnected) return;
     const n = parseFloat(amount);
@@ -637,11 +726,37 @@ function Home() {
           <span className="hover:text-foreground transition-colors cursor-pointer">STAKE</span>
         </div>
         <div className="flex items-center gap-3">
-          <NetworkSelector />
+          {/* Environment + network selector */}
+          <EnvNetworkSelector
+            envMode={envMode}
+            activeNetwork={activeNetwork}
+            onEnvChange={handleEnvChange}
+            onNetworkChange={handleNetworkChange}
+          />
+
+          {/* Network mismatch warning — only shown when wallet chain ≠ selected chain */}
+          <AnimatePresence>
+            {networkMismatch && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.88 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+                onClick={handleSwitchNetwork}
+                className="hidden md:flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-mono px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap"
+              >
+                <AlertTriangle size={11} />
+                Trocar para {activeNetwork.shortName}
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {/* Connect / wallet button */}
           <div className="relative">
             {!isConnected ? (
               <div className="relative p-[1px] rounded-lg overflow-hidden cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/50 via-accent/50 to-primary/50 shrink-0">
-                <button onClick={() => setIsConnected(true)}
+                <button
+                  onClick={() => { setIsConnected(true); setWalletChainId(SIMULATED_WALLET_CHAIN_ID); }}
                   className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-primary px-4 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono flex items-center justify-center whitespace-nowrap cursor-pointer">
                   Connect
                 </button>
@@ -651,7 +766,7 @@ function Home() {
                 <div className="relative p-[1px] rounded-lg overflow-hidden cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/30 via-accent/30 to-primary/30 shrink-0">
                   <button onClick={() => setShowDisconnect(!showDisconnect)}
                     className="relative flex items-center gap-2 bg-secondary/90 hover:bg-secondary px-3 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono whitespace-nowrap cursor-pointer">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <div className={`w-2 h-2 rounded-full ${networkMismatch ? 'bg-amber-400' : 'bg-green-500'} transition-colors`} />
                     <span className="text-foreground">0x8F4A...91C2</span>
                   </button>
                 </div>
@@ -659,7 +774,7 @@ function Home() {
                   {showDisconnect && (
                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}
                       className="absolute top-full right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50 w-full">
-                      <button onClick={() => { setIsConnected(false); setShowDisconnect(false); }}
+                      <button onClick={() => { setIsConnected(false); setShowDisconnect(false); setWalletChainId(null); }}
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer">
                         <LogOut size={14} /> Disconnect
                       </button>
@@ -766,7 +881,7 @@ function Home() {
             </AnimatePresence>
             {!isConnected ? (
               <div className="w-full mt-2 relative p-[1px] rounded-2xl overflow-hidden cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/50 via-accent/50 to-primary/50">
-                <button onClick={() => setIsConnected(true)}
+                <button onClick={() => { setIsConnected(true); setWalletChainId(SIMULATED_WALLET_CHAIN_ID); }}
                   className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-foreground text-lg font-semibold py-4 rounded-[15px] transition-colors flex items-center justify-center cursor-pointer">
                   Connect Wallet
                 </button>
