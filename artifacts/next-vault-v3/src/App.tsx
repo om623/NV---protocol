@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader2, Check, ArrowRight, Wallet, LogOut, CheckCircle2 } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader2, Check, ArrowRight, Wallet, LogOut, CheckCircle2, TrendingUp, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { twMerge } from 'tailwind-merge';
 
 const queryClient = new QueryClient();
 
@@ -60,15 +61,42 @@ const formatRate = (rate: number) => {
   return rate.toFixed(2);
 };
 
-function TokenIcon({ symbol, className = "" }: { symbol: string, className?: string }) {
-  const colors: Record<string, string> = {
-    ETH: 'bg-[#627EEA]',
-    USDC: 'bg-[#2775CA]',
-    DAI: 'bg-[#F5AC37]'
-  };
+const EthIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 32 32" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="16" cy="16" r="16" fill="#627EEA"/>
+    <path d="M15.86 5L15.65 5.7V20.1L15.86 20.32L23 16.1L15.86 5Z" fill="white" fillOpacity="0.9"/>
+    <path d="M15.86 5L8.72 16.1L15.86 20.32V5Z" fill="white" fillOpacity="0.5"/>
+    <path d="M15.86 21.61L15.74 21.75V26.47L15.86 26.82L23.01 17.4L15.86 21.61Z" fill="white" fillOpacity="0.8"/>
+    <path d="M15.86 26.82V21.61L8.72 17.4L15.86 26.82Z" fill="white" fillOpacity="0.5"/>
+    <path d="M15.86 20.32L23 16.1L15.86 12.87V20.32Z" fill="white" fillOpacity="0.4"/>
+    <path d="M8.72 16.1L15.86 20.32V12.87L8.72 16.1Z" fill="white" fillOpacity="0.8"/>
+  </svg>
+);
 
+const UsdcIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 32 32" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="16" cy="16" r="16" fill="#2775CA"/>
+    <path d="M21.2 11.5c-1.3-1.4-3.1-2.1-5.2-2.1-3.9 0-7 2.9-7 7.1 0 4.2 3 7.1 7 7.1 2.2 0 4-.8 5.3-2.2l-2.4-2.5c-.8.9-1.8 1.4-2.9 1.4-2.1 0-3.6-1.5-3.6-3.8 0-2.3 1.5-3.8 3.6-3.8 1.1 0 2.1.5 2.9 1.4l2.5-2.6z" fill="white"/>
+  </svg>
+);
+
+const DaiIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 32 32" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="16" cy="16" r="16" fill="#F5AC37"/>
+    <path d="M11 9h5c3.5 0 6 2 6 5.5S19.5 20 16 20h-5V9zm3 3v5h2c1.7 0 3-1 3-2.5S17.7 12 16 12h-2z" fill="white"/>
+    <path d="M10 11h11v2H10zM10 16h11v2H10z" fill="white"/>
+  </svg>
+);
+
+function TokenCryptoIcon({ symbol, className = "" }: { symbol: string, className?: string }) {
+  const finalClass = twMerge("w-6 h-6 rounded-full shadow-sm ring-2 ring-card z-10 shrink-0", className);
+  
+  if (symbol === 'ETH') return <EthIcon className={finalClass} />;
+  if (symbol === 'USDC') return <UsdcIcon className={finalClass} />;
+  if (symbol === 'DAI') return <DaiIcon className={finalClass} />;
+  
   return (
-    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-card z-10 ${colors[symbol] || 'bg-gray-500'} ${className}`}>
+    <div className={`flex items-center justify-center text-[10px] font-bold text-white bg-gray-500 ${finalClass}`}>
       {symbol[0]}
     </div>
   );
@@ -92,9 +120,9 @@ function TokenSelect({ value, onChange }: { value: string, onChange: (val: strin
     <div className="relative" ref={ref}>
       <button 
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground px-3 py-2 rounded-xl transition-colors font-medium border border-border/50 shadow-sm"
+        className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground px-3 py-2 rounded-xl transition-colors font-medium border border-border/50 shadow-sm cursor-pointer"
       >
-        <TokenIcon symbol={value} />
+        <TokenCryptoIcon symbol={value} className="w-5 h-5 ring-0 shadow-none" />
         {value}
         <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -112,9 +140,9 @@ function TokenSelect({ value, onChange }: { value: string, onChange: (val: strin
               <button
                 key={t.symbol}
                 onClick={() => { onChange(t.symbol); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${t.symbol === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${t.symbol === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}
               >
-                <TokenIcon symbol={t.symbol} />
+                <TokenCryptoIcon symbol={t.symbol} className="w-5 h-5 ring-0 shadow-none" />
                 <div className="text-left flex flex-col">
                   <span className="font-medium text-sm">{t.symbol}</span>
                   <span className="text-xs opacity-50">{t.name}</span>
@@ -126,6 +154,64 @@ function TokenSelect({ value, onChange }: { value: string, onChange: (val: strin
       </AnimatePresence>
     </div>
   )
+}
+
+const NETWORKS = [
+  { id: 'sepolia', name: 'Ethereum Sepolia Testnet', color: 'bg-green-500' },
+  { id: 'mumbai', name: 'Polygon Mumbai', color: 'bg-purple-500' },
+  { id: 'goerli', name: 'Arbitrum Goerli', color: 'bg-blue-500' },
+];
+
+function NetworkSelector() {
+  const [open, setOpen] = useState(false);
+  const [activeNetwork, setActiveNetwork] = useState(NETWORKS[0]);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative hidden md:block" ref={ref}>
+      <button 
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 bg-secondary/50 border border-border px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md cursor-pointer hover:bg-secondary transition-colors"
+      >
+        <div className={`w-2 h-2 rounded-full ${activeNetwork.color} animate-pulse`} />
+        {activeNetwork.name}
+        <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div 
+            initial={{ opacity: 0, y: -5, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -5, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-xl p-1 shadow-2xl z-50 flex flex-col gap-1"
+          >
+            {NETWORKS.map(n => (
+              <button
+                key={n.id}
+                onClick={() => { setActiveNetwork(n); setOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-xs font-mono cursor-pointer ${n.id === activeNetwork.id ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${n.color}`} />
+                {n.name}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function Home() {
@@ -161,9 +247,9 @@ function Home() {
     setSwapStep(0);
     
     setTimeout(() => setSwapStep(1), 800);
-    setTimeout(() => setSwapStep(2), 2000); // 800 + 1200
-    setTimeout(() => setSwapStep(3), 3500); // 2000 + 1500
-    setTimeout(() => setSwapStep(4), 5500); // 3500 + 2000
+    setTimeout(() => setSwapStep(2), 2000); 
+    setTimeout(() => setSwapStep(3), 3500); 
+    setTimeout(() => setSwapStep(4), 5500); 
   };
 
   const closeSwapModal = () => {
@@ -203,7 +289,7 @@ function Home() {
   };
 
   return (
-    <div className="relative min-h-[100dvh] w-full flex flex-col items-center justify-center overflow-hidden bg-background py-24 md:py-0">
+    <div className="relative min-h-[100dvh] w-full flex flex-col items-center justify-center overflow-hidden bg-background py-24 md:py-16">
       {/* Background Ambience */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/5 rounded-full blur-[120px] pointer-events-none translate-x-[20%] translate-y-[20%]" />
@@ -214,43 +300,46 @@ function Home() {
       {/* Top Nav */}
       <div className="absolute top-0 w-full p-6 flex justify-between items-center z-10">
         <div className="text-xl font-bold tracking-wider text-foreground flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/30 backdrop-blur-md relative group cursor-pointer">
-            <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Shield className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/30 backdrop-blur-md relative group cursor-pointer animate-shield-glow">
+            <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md opacity-50 transition-opacity" />
+            <Shield className="w-5 h-5 text-primary relative z-10" />
           </div>
           <div className="hidden sm:flex flex-col cursor-pointer">
             <span className="leading-none text-[1.1rem]">NEXT VAULT</span>
             <span className="text-primary font-mono text-[10px] tracking-widest uppercase mt-1 opacity-80">Protocol V3</span>
           </div>
         </div>
+        
         <div className="hidden lg:flex gap-8 text-sm font-mono text-muted-foreground tracking-wide">
           <span className="text-foreground border-b border-primary/50 pb-1 cursor-pointer">SWAP</span>
           <span className="hover:text-foreground transition-colors cursor-pointer">POOLS</span>
           <span className="hover:text-foreground transition-colors cursor-pointer">STAKE</span>
         </div>
+        
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 bg-secondary/50 border border-border px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            Mainnet
-          </div>
+          <NetworkSelector />
           
           <div className="relative">
             {!isConnected ? (
-              <button 
-                onClick={() => setIsConnected(true)}
-                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors font-mono cursor-pointer"
-              >
-                Connect
-              </button>
+              <div className="relative p-[1px] rounded-lg overflow-hidden group cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/50 via-accent/50 to-primary/50 shrink-0">
+                <button 
+                  onClick={() => setIsConnected(true)}
+                  className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-primary px-4 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono flex items-center justify-center whitespace-nowrap cursor-pointer"
+                >
+                  Connect
+                </button>
+              </div>
             ) : (
               <div className="relative">
-                <button 
-                  onClick={() => setShowDisconnect(!showDisconnect)}
-                  className="flex items-center gap-2 bg-secondary/80 hover:bg-secondary border border-border px-3 py-2 rounded-lg text-sm font-medium transition-colors font-mono cursor-pointer"
-                >
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  0x8F4A...91C2
-                </button>
+                <div className="relative p-[1px] rounded-lg overflow-hidden group cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/30 via-accent/30 to-primary/30 shrink-0">
+                  <button 
+                    onClick={() => setShowDisconnect(!showDisconnect)}
+                    className="relative flex items-center gap-2 bg-secondary/90 hover:bg-secondary px-3 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono whitespace-nowrap cursor-pointer"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-foreground">0x8F4A...91C2</span>
+                  </button>
+                </div>
                 
                 <AnimatePresence>
                   {showDisconnect && (
@@ -279,10 +368,53 @@ function Home() {
       {/* Main Container */}
       <div className="relative z-10 w-full max-w-[480px] flex flex-col gap-6 px-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
         
-        {/* Swap Card */}
-        <div className="w-full p-[1px] rounded-[2rem] bg-gradient-to-b from-border/80 to-transparent shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-          <div className="bg-card rounded-[calc(2rem-1px)] p-5 backdrop-blur-2xl border border-white/[0.02]">
+        {/* Portfolio Card */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="w-full p-[1px] rounded-[2rem] bg-gradient-to-br from-white/10 via-white/5 to-transparent shadow-[0_0_30px_rgba(0,0,0,0.3)] hover:scale-[1.002] transition-all duration-300 group"
+        >
+          <div 
+            className="bg-card rounded-[calc(2rem-1px)] p-6 backdrop-blur-xl group-hover:border-white/10 border-white/[0.02] border transition-colors duration-300"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)' }}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex flex-col gap-1">
+                <span className="uppercase tracking-widest text-muted-foreground text-[10px] font-mono">Portfolio Overview</span>
+                <div className="text-3xl font-mono font-medium text-foreground mt-1">$46,382.17</div>
+                <div className="flex items-center gap-1.5 text-green-400 text-sm mt-1">
+                  <TrendingUp size={14} />
+                  <span>+2.8% today</span>
+                </div>
+              </div>
+            </div>
             
+            <div className="h-[1px] w-full bg-border/50 my-4" />
+            
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex items-center gap-2 bg-secondary/50 rounded-xl py-2 px-3 border border-border/30 whitespace-nowrap">
+                <TokenCryptoIcon symbol="ETH" className="w-5 h-5 ring-0" />
+                <span className="text-sm font-mono"><span className="text-muted-foreground">ETH</span> 12.48 <span className="text-muted-foreground/50">·</span> $40,133.28</span>
+              </div>
+              <div className="flex items-center gap-2 bg-secondary/50 rounded-xl py-2 px-3 border border-border/30 whitespace-nowrap">
+                <TokenCryptoIcon symbol="USDC" className="w-5 h-5 ring-0" />
+                <span className="text-sm font-mono"><span className="text-muted-foreground">USDC</span> 5,420.18 <span className="text-muted-foreground/50">·</span> $5,420.18</span>
+              </div>
+              <div className="flex items-center gap-2 bg-secondary/50 rounded-xl py-2 px-3 border border-border/30 whitespace-nowrap">
+                <TokenCryptoIcon symbol="DAI" className="w-5 h-5 ring-0" />
+                <span className="text-sm font-mono"><span className="text-muted-foreground">DAI</span> 1,834.72 <span className="text-muted-foreground/50">·</span> $1,834.72</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Swap Card */}
+        <div className="w-full p-[1px] rounded-[2rem] bg-gradient-to-br from-white/10 via-white/5 to-transparent shadow-[0_0_50px_rgba(0,0,0,0.5)] hover:scale-[1.002] transition-all duration-300 group">
+          <div 
+            className="bg-card rounded-[calc(2rem-1px)] p-5 backdrop-blur-xl group-hover:border-white/10 border-white/[0.02] border transition-colors duration-300"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)' }}
+          >
             <div className="flex justify-between items-center mb-6 px-1">
               <h2 className="text-xl font-medium text-foreground">Swap</h2>
               <div className="flex items-center gap-2">
@@ -360,14 +492,34 @@ function Home() {
               <span>1 {sourceToken} = {formatRate(rate)} {destToken}</span>
             </div>
 
+            <AnimatePresence>
+              {amount && parseFloat(amount) > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-3 pb-1 mt-2 mb-2 border-t border-border/50 flex justify-between text-xs font-mono px-3">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Flame size={12} className="text-orange-500" /> Est. Gas
+                    </span>
+                    <span className="text-muted-foreground/80">$1.24</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Swap Button */}
             {!isConnected ? (
-              <button 
-                onClick={() => setIsConnected(true)}
-                className="w-full mt-2 bg-secondary text-foreground text-lg font-semibold py-4 rounded-2xl transition-all duration-300 hover:bg-secondary/80 border border-border cursor-pointer"
-              >
-                Connect Wallet
-              </button>
+              <div className="w-full mt-2 relative p-[1px] rounded-2xl overflow-hidden group cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/50 via-accent/50 to-primary/50">
+                <button 
+                  onClick={() => setIsConnected(true)}
+                  className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-foreground text-lg font-semibold py-4 rounded-[15px] transition-colors flex items-center justify-center cursor-pointer"
+                >
+                  Connect Wallet
+                </button>
+              </div>
             ) : (
               <button 
                 onClick={handleSwap}
@@ -379,7 +531,7 @@ function Home() {
                 }`}
               >
                 <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
-                  Swap!
+                  Swap
                 </span>
                 {amount && parseFloat(amount) > 0 && (
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
@@ -390,8 +542,11 @@ function Home() {
         </div>
 
         {/* Recent Transactions */}
-        <div className="w-full p-[1px] rounded-[2rem] bg-gradient-to-b from-border/50 to-transparent shadow-[0_0_30px_rgba(0,0,0,0.2)]">
-          <div className="bg-card rounded-[calc(2rem-1px)] p-5 backdrop-blur-2xl border border-white/[0.02]">
+        <div className="w-full p-[1px] rounded-[2rem] bg-gradient-to-br from-white/10 via-white/5 to-transparent shadow-[0_0_30px_rgba(0,0,0,0.2)] hover:scale-[1.002] transition-all duration-300 group">
+          <div 
+            className="bg-card rounded-[calc(2rem-1px)] p-5 backdrop-blur-xl group-hover:border-white/10 border-white/[0.02] border transition-colors duration-300"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)' }}
+          >
             <h3 className="text-sm font-medium text-muted-foreground mb-4 px-1">Recent Transactions</h3>
             <div className="flex flex-col">
               <AnimatePresence initial={false}>
@@ -406,8 +561,8 @@ function Home() {
                     <div className="mb-3 flex items-center justify-between bg-secondary/30 rounded-xl p-3 border border-border/50 hover:bg-secondary/50 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center -space-x-2">
-                          <TokenIcon symbol={tx.fromToken} />
-                          <TokenIcon symbol={tx.toToken} />
+                          <TokenCryptoIcon symbol={tx.fromToken} />
+                          <TokenCryptoIcon symbol={tx.toToken} />
                         </div>
                         <div className="flex items-center gap-2 text-sm font-mono">
                           <span className="text-foreground">{tx.fromAmount} {tx.fromToken}</span>
@@ -511,12 +666,12 @@ function Home() {
                     <div className="flex flex-col items-center gap-4 mb-6">
                       <div className="flex items-center justify-center gap-4 bg-secondary/50 border border-border/50 rounded-2xl p-4 w-full">
                         <div className="flex flex-col items-center gap-2">
-                          <TokenIcon symbol={pendingSwap?.fromToken || ''} />
+                          <TokenCryptoIcon symbol={pendingSwap?.fromToken || ''} />
                           <span className="font-mono text-sm text-foreground">{pendingSwap?.fromAmount?.toFixed(4)}</span>
                         </div>
                         <ArrowRight className="text-muted-foreground" size={16} />
                         <div className="flex flex-col items-center gap-2">
-                          <TokenIcon symbol={pendingSwap?.toToken || ''} />
+                          <TokenCryptoIcon symbol={pendingSwap?.toToken || ''} />
                           <span className="font-mono text-sm text-primary">{pendingSwap?.toAmount?.toFixed(4)}</span>
                         </div>
                       </div>
@@ -562,4 +717,3 @@ function App() {
 }
 
 export default App;
-
