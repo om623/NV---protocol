@@ -136,6 +136,14 @@
   background: hsl(var(--muted-foreground));
 }
 
+@keyframes terminal-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-cursor {
+  animation: terminal-cursor 1s step-end infinite;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
