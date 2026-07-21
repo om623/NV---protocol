@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
+import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import {
   Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader2, Check,
   ArrowRight, Wallet, LogOut, CheckCircle2, TrendingUp, Flame,
   Terminal, BarChart2, Clock, Target, Cpu, RefreshCw, Download,
-  AlertTriangle, Database, X, History, ChevronUp,
+  AlertTriangle, Database, X, History, ChevronUp, Sparkles,
   LayoutDashboard, FileText, HelpCircle, Menu, Pause, ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +19,7 @@ import {
   TESTNET_NETWORKS, MAINNET_NETWORKS,
   DEFAULT_TESTNET, DEFAULT_MAINNET,
   SIMULATED_WALLET_CHAIN_ID,
+  ARC_TESTNET_CHAIN_PARAMS,
 } from './networks';
 
 const queryClient = new QueryClient();
@@ -860,8 +862,68 @@ function Home() {
   const handleSwitchNetwork = () => { setWalletChainId(activeNetwork.chainId); };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
+  // True when a wallet is connected and Arc Testnet is the active network.
+  const isArcSwap = isConnected && activeNetwork.id === 'arc-testnet';
+
+  // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
+  // No web3 library is bundled, so we drive window.ethereum directly.
+  const handleRealSwap = async () => {
+    const n = parseFloat(amount);
+    if (!n || n <= 0) return;
+    const eth = (window as unknown as { ethereum?: Record<string, unknown> }).ethereum;
+    if (!eth || typeof eth.request !== 'function') {
+      toast({ title: 'Carteira não encontrada', description: 'Nenhuma carteira injetada (window.ethereum).', variant: 'destructive' });
+      return;
+    }
+    const request = eth.request.bind(eth) as (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+    try {
+      // 1. Request accounts
+      const accounts = (await request({ method: 'eth_requestAccounts' })) as string[];
+      const from = accounts?.[0];
+      if (!from) { toast({ title: 'Conta não autorizada', description: 'Nenhuma conta autorizada pela carteira.', variant: 'destructive' }); return; }
+
+      // 2. Ensure wallet is on Arc Testnet (add chain if missing, then switch)
+      try {
+        await request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_CHAIN_PARAMS.chainId }] });
+      } catch (switchErr) {
+        const code = (switchErr as { code?: number })?.code;
+        // 4902 = chain not added; -32603 can also surface for missing chain on some wallets
+        if (code === 4902 || code === -32603) {
+          await request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_CHAIN_PARAMS] });
+        } else { throw switchErr; }
+      }
+      setWalletChainId(activeNetwork.chainId);
+
+      // 3. Send a native value transfer on Arc (USDC-native).
+      //    For token-to-token swaps a contract call would go here; the current
+      //    simulation UI surfaces a value transfer which keeps the flow intact.
+      const valueWei = '0x' + (Math.round(n * 1e18)).toString(16);
+      const txHash = (await request({
+        method: 'eth_sendTransaction',
+        params: [{ from, to: from, value: valueWei }],
+      })) as string;
+
+      setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
+      setTransactions(prev => [{
+        id: txHash || Math.random().toString(),
+        fromToken: sourceToken, toToken: destToken,
+        fromAmount: n, toAmount: n * getRate(sourceToken, destToken),
+        time: 'Just now', status: 'Success',
+      }, ...prev]);
+      setAmount('');
+      toast({ title: 'Swap real enviado na Arc Testnet!', description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
+    } catch (err) {
+      const code = (err as { code?: number })?.code;
+      if (code === 4001) toast({ title: 'Transação recusada', description: 'A carteira recusou a transação.', variant: 'destructive' });
+      else toast({ title: 'Falha no swap real', description: (err as Error)?.message, variant: 'destructive' });
+    }
+  };
+
   const handleSwap = () => {
-    if (!isConnected) return;
+    if (isConnected && isArcSwap) {
+      handleRealSwap();
+      return;
+    }
     const n = parseFloat(amount);
     if (!n || n <= 0) return;
     setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
@@ -915,7 +977,7 @@ function Home() {
   };
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
-  const handleMax = () => { if (isConnected) setAmount(MOCK_BALANCES[sourceToken].toString()); };
+  const handleMax = () => { setAmount(MOCK_BALANCES[sourceToken].toString()); };
 
   // ── New action handlers ──────────────────────────────────────────────────────
 
@@ -1037,14 +1099,16 @@ function Home() {
             {/* Right: env indicator + selector + mismatch + wallet */}
             <div className="flex items-center gap-2 shrink-0">
 
-              {/* Permanent TESTNET / MAINNET badge */}
-              <span className={`hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-1 rounded-full border tracking-widest ${
+              {/* Permanent environment indicator: Testnet • Arc | Mainnet (Em breve) */}
+              <span className={`hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2 py-1 rounded-full border tracking-widest ${
                 envMode === 'testnet'
                   ? 'text-green-400 border-green-400/25 bg-green-400/6'
                   : 'text-amber-400 border-amber-400/25 bg-amber-400/6'
               }`}>
-                {envMode === 'testnet' ? '🧪' : '🌐'}
-                <span className="hidden md:inline ml-0.5">{envMode === 'testnet' ? 'TESTNET' : 'MAINNET'}</span>
+                {envMode === 'testnet' ? '🧪' : '🚀'}
+                <span className="hidden md:inline ml-0.5">
+                  {envMode === 'testnet' ? 'Testnet • Arc' : 'Mainnet (Em breve)'}
+                </span>
               </span>
 
               <EnvNetworkSelector
@@ -1225,10 +1289,8 @@ function Home() {
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${sourceUsd.toFixed(2)}</span>
                         <span className="flex items-center gap-2">
-                          Balance: {isConnected ? MOCK_BALANCES[sourceToken].toFixed(4) : '0.00'}
-                          {isConnected && (
-                            <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">MAX</button>
-                          )}
+                          Balance: {isConnected ? MOCK_BALANCES[sourceToken].toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
+                          <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">MAX</button>
                         </span>
                       </div>
                     </div>
@@ -1248,7 +1310,7 @@ function Home() {
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${destUsd.toFixed(2)}</span>
-                        <span>Balance: {isConnected ? MOCK_BALANCES[destToken].toFixed(4) : '0.00'}</span>
+                        <span>Balance: {isConnected ? MOCK_BALANCES[destToken].toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
                       </div>
                     </div>
                   </div>
@@ -1269,12 +1331,17 @@ function Home() {
                   </AnimatePresence>
 
                   {!isConnected ? (
-                    <div className="w-full mt-3 relative p-[1px] rounded-2xl overflow-hidden cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/50 via-accent/50 to-primary/50">
-                      <button onClick={() => { setIsConnected(true); setWalletChainId(SIMULATED_WALLET_CHAIN_ID); }}
-                        className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-foreground text-base font-semibold py-3.5 rounded-[15px] transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                        <Wallet size={16} /> Connect Wallet
-                      </button>
-                    </div>
+                    <button onClick={handleSwap} disabled={!amount || parseFloat(amount) <= 0}
+                      className={`w-full mt-3 text-base font-semibold py-3.5 rounded-2xl transition-all duration-300 relative overflow-hidden group border cursor-pointer ${
+                        !amount || parseFloat(amount) <= 0
+                          ? 'bg-secondary/40 text-muted-foreground/50 border-border/30 cursor-not-allowed'
+                          : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
+                      }`}>
+                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> Simular Swap</span>
+                      {amount && parseFloat(amount) > 0 && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
+                      )}
+                    </button>
                   ) : (
                     <button onClick={handleSwap} disabled={!amount || parseFloat(amount) <= 0}
                       className={`w-full mt-3 text-base font-semibold py-3.5 rounded-2xl transition-all duration-300 relative overflow-hidden group border cursor-pointer ${
@@ -1282,7 +1349,10 @@ function Home() {
                           ? 'bg-secondary/40 text-muted-foreground/50 border-border/30 cursor-not-allowed'
                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                       }`}>
-                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">Swap</span>
+                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
+                        {isArcSwap ? <Zap size={16} /> : <Wallet size={16} />}
+                        {isArcSwap ? 'Swap na Arc' : 'Swap'}
+                      </span>
                       {amount && parseFloat(amount) > 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
                       )}

@@ -26,6 +26,17 @@ export interface NetworkConfig {
 export const NETWORKS_CONFIG: NetworkConfig[] = [
   // ── Testnets ───────────────────────────────────────────────────────────────
   {
+    id: 'arc-testnet',
+    name: 'Arc Testnet',
+    shortName: 'Arc',
+    chainId: 5042002,
+    type: 'testnet',
+    color: 'bg-emerald-500',
+    rpcUrl: 'https://rpc.testnet.arc.network',
+    explorerUrl: 'https://testnet.arcscan.app',
+    nativeCurrency: { symbol: 'USDC', decimals: 18 },
+  },
+  {
     id: 'sepolia',
     name: 'Ethereum Sepolia',
     shortName: 'Sepolia',
@@ -120,8 +131,8 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
 export const TESTNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'testnet');
 export const MAINNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'mainnet');
 
-/** App always starts in Testnet mode on Sepolia */
-export const DEFAULT_TESTNET = NETWORKS_CONFIG.find(n => n.id === 'sepolia')!;
+/** App always starts in Testnet mode on Arc Testnet */
+export const DEFAULT_TESTNET = NETWORKS_CONFIG.find(n => n.id === 'arc-testnet')!;
 export const DEFAULT_MAINNET = NETWORKS_CONFIG.find(n => n.id === 'ethereum')!;
 
 /**
@@ -131,3 +142,15 @@ export const DEFAULT_MAINNET = NETWORKS_CONFIG.find(n => n.id === 'ethereum')!;
  * Phase 2 will replace this with a real wallet provider query.
  */
 export const SIMULATED_WALLET_CHAIN_ID = 1; // Ethereum Mainnet
+
+/**
+ * EIP-3085 chain params for wallet_addEthereumChain / wallet_switchEthereumChain.
+ * Used to request the injected wallet to switch to Arc Testnet before real swaps.
+ */
+export const ARC_TESTNET_CHAIN_PARAMS = {
+  chainId: '0x' + (5042002).toString(16), // 0x4D2E32
+  chainName: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: ['https://rpc.testnet.arc.network'],
+  blockExplorerUrls: ['https://testnet.arcscan.app'],
+};
