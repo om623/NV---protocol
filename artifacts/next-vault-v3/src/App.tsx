@@ -12,6 +12,15 @@ import {
   AlertTriangle, Database, X, History, ChevronUp, Sparkles,
   LayoutDashboard, FileText, HelpCircle, Menu, Pause, ChevronRight,
 } from 'lucide-react';
+import {
+  type Eip1193Provider, type WalletBalances,
+  getProvider, getAccounts, getChainId, ensureArcNetwork,
+  transferNative, transferErc20, getAllBalances, shortAddress,
+  ARC_TOKENS,
+} from './lib/arc';
+import { ComingSoonModal } from './components/ComingSoonModal';
+import { PoolsView } from './components/PoolsView';
+import { WalletView } from './components/WalletView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -44,23 +53,23 @@ interface RoiPoint { t: number; roi: number; }
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TOKENS = [
-  { symbol: 'ETH', name: 'Ethereum' },
   { symbol: 'USDC', name: 'USD Coin' },
-  { symbol: 'DAI', name: 'Dai Stablecoin' }
+  { symbol: 'EURC', name: 'Euro Coin' },
+  { symbol: 'ETH',  name: 'Ethereum' },
 ];
 
-const MOCK_BALANCES: Record<string, number> = { ETH: 12.48, USDC: 5420.18, DAI: 1834.72 };
+const MOCK_BALANCES: Record<string, number> = { USDC: 5420.18, EURC: 3200.50, ETH: 12.48 };
 
 const EXCHANGE_RATES: Record<string, number> = {
-  'ETH-USDC': 3215.84, 'ETH-DAI': 3214.10,
-  'USDC-ETH': 0.000311, 'USDC-DAI': 1.0003,
-  'DAI-ETH': 0.000311, 'DAI-USDC': 0.9997,
+  'USDC-EURC': 0.92, 'USDC-ETH': 0.000311,
+  'EURC-USDC': 1.087, 'EURC-ETH': 0.000338,
+  'ETH-USDC': 3215.84, 'ETH-EURC': 2960.50,
 };
 
 const INITIAL_TRANSACTIONS = [
-  { id: '1', fromToken: 'ETH', toToken: 'USDC', fromAmount: 0.5, toAmount: 1607.92, time: '2 min ago', status: 'Success' },
-  { id: '2', fromToken: 'USDC', toToken: 'ETH', fromAmount: 500, toAmount: 0.1556, time: '1 hr ago', status: 'Success' },
-  { id: '3', fromToken: 'DAI', toToken: 'ETH', fromAmount: 1000, toAmount: 0.3112, time: '3 hrs ago', status: 'Success' }
+  { id: '1', fromToken: 'USDC', toToken: 'EURC', fromAmount: 500, toAmount: 460.0, time: '2 min ago', status: 'Success' },
+  { id: '2', fromToken: 'EURC', toToken: 'USDC', fromAmount: 200, toAmount: 217.4, time: '1 hr ago', status: 'Success' },
+  { id: '3', fromToken: 'USDC', toToken: 'ETH', fromAmount: 1000, toAmount: 0.3112, time: '3 hrs ago', status: 'Success' }
 ];
 
 // Network lists live in ./networks.ts — imported above.
@@ -103,15 +112,17 @@ const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-const SIDEBAR_ITEMS = [
-  { label: 'Dashboard',     Icon: LayoutDashboard, active: true  },
-  { label: 'Simulação',     Icon: Activity                       },
-  { label: 'Histórico',     Icon: History                        },
-  { label: 'Relatórios',    Icon: FileText                       },
-  { label: 'Pools',         Icon: Database                       },
-  { label: 'Carteira',      Icon: Wallet                         },
-  { label: 'Configurações', Icon: Settings                       },
-  { label: 'Ajuda',         Icon: HelpCircle                     },
+type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'configuracoes' | 'ajuda';
+
+const SIDEBAR_ITEMS: { label: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
+  { label: 'Dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
+  { label: 'Simulação',     Icon: Activity,        view: 'simulacao'      },
+  { label: 'Histórico',     Icon: History,         view: 'historico',     comingSoon: true },
+  { label: 'Relatórios',    Icon: FileText,        view: 'relatorios',    comingSoon: true },
+  { label: 'Pools',         Icon: Database,        view: 'pools'          },
+  { label: 'Carteira',      Icon: Wallet,          view: 'carteira'       },
+  { label: 'Configurações', Icon: Settings,        view: 'configuracoes', comingSoon: true },
+  { label: 'Ajuda',         Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -322,10 +333,18 @@ const DaiIcon = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
+const EurcIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 32 32" className={className} fill="none">
+    <circle cx="16" cy="16" r="16" fill="#003399"/>
+    <text x="16" y="21" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#FFCC00" fontFamily="sans-serif">EUR</text>
+  </svg>
+);
+
 function TokenCryptoIcon({ symbol, className = "" }: { symbol: string; className?: string }) {
   const cls = twMerge("w-6 h-6 rounded-full shadow-sm ring-2 ring-card z-10 shrink-0", className);
   if (symbol === 'ETH')  return <EthIcon className={cls} />;
   if (symbol === 'USDC') return <UsdcIcon className={cls} />;
+  if (symbol === 'EURC') return <EurcIcon className={cls} />;
   if (symbol === 'DAI')  return <DaiIcon className={cls} />;
   return <div className={`flex items-center justify-center text-[10px] font-bold text-white bg-gray-500 ${cls}`}>{symbol[0]}</div>;
 }
@@ -496,7 +515,7 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
 
 // ─── SidebarContent ───────────────────────────────────────────────────────────
 
-function SidebarContent({ onClose }: { onClose?: () => void }) {
+function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => void; activeView: SidebarView; onNavigate: (view: SidebarView) => void }) {
   return (
     <div className="flex flex-col h-full">
       {/* Brand header */}
@@ -522,21 +541,28 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       {/* Navigation */}
       <nav className="flex-1 p-3 flex flex-col gap-0.5 overflow-y-auto">
         <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/40 px-3 py-2 mt-1">Menu</div>
-        {SIDEBAR_ITEMS.map(({ label, Icon, active }) => (
-          <button key={label}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
-              active
-                ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
-                : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
-            }`}>
-            {active && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
-            )}
-            <Icon size={15} className={`shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
-            <span className="flex-1 text-left">{label}</span>
-            {active && <ChevronRight size={12} className="text-primary/40" />}
-          </button>
-        ))}
+        {SIDEBAR_ITEMS.map(({ label, Icon, view, comingSoon }) => {
+          const active = activeView === view;
+          return (
+            <button key={label}
+              onClick={() => { onNavigate(view); onClose?.(); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
+                active
+                  ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
+                  : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+              }`}>
+              {active && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
+              )}
+              <Icon size={15} className={`shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
+              <span className="flex-1 text-left">{label}</span>
+              {comingSoon && (
+                <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">Em breve</span>
+              )}
+              {active && <ChevronRight size={12} className="text-primary/40" />}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Footer */}
@@ -721,11 +747,20 @@ function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHist
 
 function Home() {
   // ── Existing state ──────────────────────────────────────────────────────────
-  const [sourceToken, setSourceToken] = useState('ETH');
-  const [destToken,   setDestToken]   = useState('USDC');
+  const [sourceToken, setSourceToken] = useState('USDC');
+  const [destToken,   setDestToken]   = useState('EURC');
   const [amount,      setAmount]      = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
+
+  // Real wallet state
+  const [provider, setProvider] = useState<Eip1193Provider | null>(null);
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
+  const [realBalances, setRealBalances] = useState<WalletBalances | null>(null);
+
+  // View + coming-soon state
+  const [activeView, setActiveView] = useState<SidebarView>('dashboard');
+  const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
 
   // ── Environment / network state ─────────────────────────────────────────────
   const [envMode,       setEnvMode]       = useState<EnvMode>('testnet');
@@ -855,6 +890,10 @@ function Home() {
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
   const handleEnvChange = (mode: EnvMode) => {
+    if (mode === 'mainnet') {
+      setComingSoonFeature('Mainnet');
+      return;
+    }
     setEnvMode(mode);
     setActiveNetwork(mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET);
   };
@@ -865,43 +904,72 @@ function Home() {
   // True when a wallet is connected and Arc Testnet is the active network.
   const isArcSwap = isConnected && activeNetwork.id === 'arc-testnet';
 
+  const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
+    try {
+      const bal = await getAllBalances(prov, addr);
+      setRealBalances(bal);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
+  const handleConnect = async () => {
+    const prov = getProvider();
+    if (!prov) {
+      toast({ title: 'Carteira não encontrada', description: 'Instale MetaMask para conectar.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const accounts = await getAccounts(prov);
+      const addr = accounts?.[0];
+      if (!addr) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
+      await ensureArcNetwork(prov);
+      const chainId = await getChainId(prov);
+      setProvider(prov);
+      setConnectedAddress(addr);
+      setIsConnected(true);
+      setWalletChainId(chainId);
+      await refreshBalances(prov, addr);
+      toast({ title: 'Carteira conectada', description: `Endereço: ${shortAddress(addr)}` });
+    } catch (err) {
+      const code = (err as { code?: number })?.code;
+      if (code === 4001) toast({ title: 'Conexão recusada', variant: 'destructive' });
+      else toast({ title: 'Erro ao conectar', description: (err as Error)?.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDisconnect = () => {
+    setIsConnected(false);
+    setProvider(null);
+    setConnectedAddress(null);
+    setRealBalances(null);
+    setWalletChainId(null);
+    setShowDisconnect(false);
+  };
+
   // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
-  // No web3 library is bundled, so we drive window.ethereum directly.
   const handleRealSwap = async () => {
     const n = parseFloat(amount);
     if (!n || n <= 0) return;
-    const eth = (window as unknown as { ethereum?: Record<string, unknown> }).ethereum;
-    if (!eth || typeof eth.request !== 'function') {
-      toast({ title: 'Carteira não encontrada', description: 'Nenhuma carteira injetada (window.ethereum).', variant: 'destructive' });
+    const prov = provider ?? getProvider();
+    if (!prov) {
+      toast({ title: 'Carteira não encontrada', description: 'Conecte sua carteira MetaMask primeiro.', variant: 'destructive' });
       return;
     }
-    const request = eth.request.bind(eth) as (args: { method: string; params?: unknown[] }) => Promise<unknown>;
     try {
-      // 1. Request accounts
-      const accounts = (await request({ method: 'eth_requestAccounts' })) as string[];
+      const accounts = await getAccounts(prov);
       const from = accounts?.[0];
-      if (!from) { toast({ title: 'Conta não autorizada', description: 'Nenhuma conta autorizada pela carteira.', variant: 'destructive' }); return; }
-
-      // 2. Ensure wallet is on Arc Testnet (add chain if missing, then switch)
-      try {
-        await request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_CHAIN_PARAMS.chainId }] });
-      } catch (switchErr) {
-        const code = (switchErr as { code?: number })?.code;
-        // 4902 = chain not added; -32603 can also surface for missing chain on some wallets
-        if (code === 4902 || code === -32603) {
-          await request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_CHAIN_PARAMS] });
-        } else { throw switchErr; }
-      }
+      if (!from) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
+      await ensureArcNetwork(prov);
       setWalletChainId(activeNetwork.chainId);
 
-      // 3. Send a native value transfer on Arc (USDC-native).
-      //    For token-to-token swaps a contract call would go here; the current
-      //    simulation UI surfaces a value transfer which keeps the flow intact.
-      const valueWei = '0x' + (Math.round(n * 1e18)).toString(16);
-      const txHash = (await request({
-        method: 'eth_sendTransaction',
-        params: [{ from, to: from, value: valueWei }],
-      })) as string;
+      const fromTokenCfg = ARC_TOKENS[sourceToken];
+      let txHash: string;
+      if (fromTokenCfg && !fromTokenCfg.isNative) {
+        txHash = await transferErc20(prov, from, fromTokenCfg.address!, from, n, fromTokenCfg.decimals);
+      } else {
+        txHash = await transferNative(prov, from, from, n);
+      }
 
       setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
       setTransactions(prev => [{
@@ -911,6 +979,7 @@ function Home() {
         time: 'Just now', status: 'Success',
       }, ...prev]);
       setAmount('');
+      await refreshBalances(prov, from);
       toast({ title: 'Swap real enviado na Arc Testnet!', description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
     } catch (err) {
       const code = (err as { code?: number })?.code;
@@ -977,7 +1046,12 @@ function Home() {
   };
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
-  const handleMax = () => { setAmount(MOCK_BALANCES[sourceToken].toString()); };
+  const handleMax = () => {
+    const bal = realBalances
+      ? (sourceToken === 'USDC' ? realBalances.usdc : sourceToken === 'EURC' ? realBalances.eurc : realBalances.eth)
+      : MOCK_BALANCES[sourceToken];
+    setAmount(bal.toString());
+  };
 
   // ── New action handlers ──────────────────────────────────────────────────────
 
@@ -1043,7 +1117,11 @@ function Home() {
 
       {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-border/40 bg-background/95 backdrop-blur-xl min-h-screen z-10 relative">
-        <SidebarContent />
+        <SidebarContent activeView={activeView} onNavigate={(v) => {
+          const item = SIDEBAR_ITEMS.find(i => i.view === v);
+          if (item?.comingSoon) { setComingSoonFeature(item.label); return; }
+          setActiveView(v);
+        }} />
       </aside>
 
       {/* ── Mobile sidebar overlay ───────────────────────────────────────── */}
@@ -1060,7 +1138,11 @@ function Home() {
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               className="fixed inset-y-0 left-0 z-50 w-60 flex flex-col border-r border-border/50 bg-background/98 backdrop-blur-xl lg:hidden"
             >
-              <SidebarContent onClose={() => setSidebarOpen(false)} />
+              <SidebarContent onClose={() => setSidebarOpen(false)} activeView={activeView} onNavigate={(v) => {
+                const item = SIDEBAR_ITEMS.find(i => i.view === v);
+                if (item?.comingSoon) { setComingSoonFeature(item.label); return; }
+                setActiveView(v);
+              }} />
             </motion.aside>
           </>
         )}
@@ -1136,7 +1218,7 @@ function Home() {
                 {!isConnected ? (
                   <div className="relative p-[1px] rounded-lg overflow-hidden cursor-pointer animate-gradient-border bg-gradient-to-r from-primary/50 via-accent/50 to-primary/50 shrink-0">
                     <button
-                      onClick={() => { setIsConnected(true); setWalletChainId(SIMULATED_WALLET_CHAIN_ID); }}
+                      onClick={handleConnect}
                       className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-primary px-3 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono whitespace-nowrap cursor-pointer">
                       Connect
                     </button>
@@ -1147,7 +1229,7 @@ function Home() {
                       <button onClick={() => setShowDisconnect(!showDisconnect)}
                         className="relative flex items-center gap-2 bg-secondary/90 hover:bg-secondary px-3 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono whitespace-nowrap cursor-pointer">
                         <div className={`w-2 h-2 rounded-full ${networkMismatch ? 'bg-amber-400' : 'bg-green-500'} transition-colors`} />
-                        <span className="text-foreground hidden sm:inline">0x8F4A...91C2</span>
+                        <span className="text-foreground hidden sm:inline">{connectedAddress ? shortAddress(connectedAddress) : '0x8F4A...91C2'}</span>
                         <Wallet size={14} className="text-primary sm:hidden" />
                       </button>
                     </div>
@@ -1155,7 +1237,7 @@ function Home() {
                       {showDisconnect && (
                         <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}
                           className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 min-w-full">
-                          <button onClick={() => { setIsConnected(false); setShowDisconnect(false); setWalletChainId(null); }}
+                          <button onClick={handleDisconnect}
                             className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/8 transition-colors cursor-pointer whitespace-nowrap">
                             <LogOut size={14} /> Disconnect
                           </button>
@@ -1237,6 +1319,29 @@ function Home() {
           <main className="flex-1 overflow-y-auto">
             <div className="max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5">
 
+              {/* ── Pools View ─────────────────────────────────────────────── */}
+              {activeView === 'pools' && (
+                <PoolsView
+                  provider={provider}
+                  connectedAddress={connectedAddress}
+                  onAddLiquidity={() => setComingSoonFeature('Adicionar Liquidez')}
+                />
+              )}
+
+              {/* ── Wallet View ────────────────────────────────────────────── */}
+              {activeView === 'carteira' && (
+                <WalletView
+                  provider={provider}
+                  connectedAddress={connectedAddress}
+                  onConnect={handleConnect}
+                  explorerUrl={activeNetwork.explorerUrl}
+                />
+              )}
+
+              {/* ── Dashboard / Simulation View (default) ──────────────────── */}
+              {activeView === 'dashboard' && (
+                <>
+
               {/* ── Portfolio card ──────────────────────────────────────── */}
               <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}
                 className={nvCard}>
@@ -1245,7 +1350,11 @@ function Home() {
                   <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-5 -mt-1" />
                   <div className="flex flex-col gap-0.5 mb-4">
                     <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">Portfolio Overview</span>
-                    <div className="text-3xl font-mono font-semibold text-foreground mt-1">$46,382.17</div>
+                    <div className="text-3xl font-mono font-semibold text-foreground mt-1">
+                      {realBalances
+                        ? `${((realBalances.usdc + realBalances.eurc * 1.087 + realBalances.eth * 3215.84)).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`
+                        : '$46,382.17'}
+                    </div>
                     <div className="flex items-center gap-1.5 text-green-400 text-sm mt-1">
                       <TrendingUp size={13} /><span>+2.8% today</span>
                     </div>
@@ -1253,15 +1362,18 @@ function Home() {
                   <div className="h-px w-full bg-border/40 my-4" />
                   <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     {[
-                      { sym: 'ETH',  val: '12.48 · $40,133.28' },
-                      { sym: 'USDC', val: '5,420.18 · $5,420.18' },
-                      { sym: 'DAI',  val: '1,834.72 · $1,834.72' },
-                    ].map(({ sym, val }) => (
-                      <div key={sym} className="flex items-center gap-2 bg-secondary/40 hover:bg-secondary/60 rounded-xl py-2 px-3 border border-border/30 hover:border-primary/15 whitespace-nowrap transition-all duration-200 cursor-pointer">
-                        <TokenCryptoIcon symbol={sym} className="w-5 h-5 ring-0" />
-                        <span className="text-sm font-mono"><span className="text-muted-foreground/60">{sym}</span> <span className="text-foreground/90">{val}</span></span>
-                      </div>
-                    ))}
+                      { sym: 'USDC', amt: realBalances?.usdc ?? 5420.18 },
+                      { sym: 'EURC', amt: realBalances?.eurc ?? 3200.50 },
+                      { sym: 'ETH',  amt: realBalances?.eth  ?? 12.48 },
+                    ].map(({ sym, amt }) => {
+                      const usd = sym === 'ETH' ? amt * 3215.84 : sym === 'EURC' ? amt * 1.087 : amt;
+                      return (
+                        <div key={sym} className="flex items-center gap-2 bg-secondary/40 hover:bg-secondary/60 rounded-xl py-2 px-3 border border-border/30 hover:border-primary/15 whitespace-nowrap transition-all duration-200 cursor-pointer">
+                          <TokenCryptoIcon symbol={sym} className="w-5 h-5 ring-0" />
+                          <span className="text-sm font-mono"><span className="text-muted-foreground/60">{sym}</span> <span className="text-foreground/90">{amt.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} · ${usd.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span></span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </motion.div>
@@ -1289,7 +1401,7 @@ function Home() {
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${sourceUsd.toFixed(2)}</span>
                         <span className="flex items-center gap-2">
-                          Balance: {isConnected ? MOCK_BALANCES[sourceToken].toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
+                          Balance: {realBalances ? (sourceToken === 'USDC' ? realBalances.usdc : sourceToken === 'EURC' ? realBalances.eurc : realBalances.eth).toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
                           <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">MAX</button>
                         </span>
                       </div>
@@ -1310,7 +1422,7 @@ function Home() {
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${destUsd.toFixed(2)}</span>
-                        <span>Balance: {isConnected ? MOCK_BALANCES[destToken].toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
+                        <span>Balance: {realBalances ? (destToken === 'USDC' ? realBalances.usdc : destToken === 'EURC' ? realBalances.eurc : realBalances.eth).toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
                       </div>
                     </div>
                   </div>
@@ -1444,6 +1556,8 @@ function Home() {
                 )}
               </AnimatePresence>
 
+                </>
+              )}
             </div>
           </main>
 
@@ -1708,6 +1822,12 @@ function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ComingSoonModal
+        open={comingSoonFeature !== null}
+        onClose={() => setComingSoonFeature(null)}
+        featureName={comingSoonFeature ?? undefined}
+      />
     </div>
   );
 }
