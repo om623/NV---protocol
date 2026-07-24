@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Database, TrendingUp, Plus, RefreshCw, Loader2 } from 'lucide-react';
 import { type Eip1193Provider, type PoolInfo, getPools } from '../lib/arc';
@@ -15,14 +15,23 @@ export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsV
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const loadPools = useCallback(async () => {
     try {
       const data = await getPools(provider, connectedAddress);
+      if (!mounted.current) return;
       setPools(data);
     } catch {
+      if (!mounted.current) return;
       setPools([]);
     } finally {
+      if (!mounted.current) return;
       setLoading(false);
       setRefreshing(false);
     }

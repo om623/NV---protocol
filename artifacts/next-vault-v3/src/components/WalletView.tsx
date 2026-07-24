@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Wallet, RefreshCw, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
 import { type Eip1193Provider, type WalletBalances, getAllBalances, shortAddress, getProvider, getAccounts } from '../lib/arc';
@@ -22,16 +22,28 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
   const [balances, setBalances] = useState<WalletBalances | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const mounted = useRef(true);
+  const copyTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!provider || !connectedAddress) return;
     setLoading(true);
     try {
       const bal = await getAllBalances(provider, connectedAddress);
+      if (!mounted.current) return;
       setBalances(bal);
     } catch {
       // non-fatal
     } finally {
+      if (!mounted.current) return;
       setLoading(false);
     }
   }, [provider, connectedAddress]);
@@ -44,7 +56,10 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
     if (!connectedAddress) return;
     navigator.clipboard.writeText(connectedAddress);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
+    copyTimer.current = window.setTimeout(() => {
+      if (mounted.current) setCopied(false);
+    }, 2000);
   };
 
   if (!provider || !connectedAddress) {

@@ -611,6 +611,8 @@ function MarketPanel() {
   const [coins, setCoins] = useState<MarketCoin[]>(INITIAL_MARKET);
   const [refreshing, setRefreshing] = useState(false);
 
+  const refreshTimer = useRef<number | null>(null);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCoins(prev => prev.map(c => {
@@ -621,7 +623,10 @@ function MarketPanel() {
         return { ...c, price: newPrice, change24h: Math.max(-15, Math.min(15, newChange)), spark: newSpark };
       }));
     }, 4000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
+    };
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -633,7 +638,8 @@ function MarketPanel() {
       const newSpark = [...c.spark.slice(1), newPrice];
       return { ...c, price: newPrice, change24h: Math.max(-15, Math.min(15, newChange)), spark: newSpark };
     }));
-    setTimeout(() => setRefreshing(false), 600);
+    if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
+    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 600);
   }, []);
 
   const sorted = [...coins].sort((a, b) => b.change24h - a.change24h);
@@ -1002,16 +1008,30 @@ function Home() {
 
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const simTimers = useRef<{ intervals: number[]; timeouts: number[] }>({ intervals: [], timeouts: [] });
+  const swapStepTimers = useRef<number[]>([]);
+  const miscTimers = useRef<number[]>([]);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
   useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
+
+  // Centralised unmount cleanup — clears every timer that escapes clearSim.
+  useEffect(() => {
+    return () => {
+      simTimers.current.intervals.forEach(t => window.clearInterval(t));
+      simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
+      swapStepTimers.current.forEach(t => window.clearTimeout(t));
+      miscTimers.current.forEach(t => window.clearTimeout(t));
+    };
+  }, []);
 
   // ── Simulation engine (unchanged) ───────────────────────────────────────────
 
   const clearSim = useCallback(() => {
     simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
     simTimers.current.intervals.forEach(t => window.clearInterval(t));
+    swapStepTimers.current.forEach(t => window.clearTimeout(t));
     simTimers.current = { intervals: [], timeouts: [] };
+    swapStepTimers.current = [];
   }, []);
 
   const startSim = useCallback((id: string, dt: string) => {
@@ -1206,10 +1226,12 @@ function Home() {
     if (!n || n <= 0) return;
     setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
     setSwapModalOpen(true); setSwapStep(0);
-    setTimeout(() => setSwapStep(1), 800);
-    setTimeout(() => setSwapStep(2), 2000);
-    setTimeout(() => setSwapStep(3), 3500);
-    setTimeout(() => setSwapStep(4), 5500);
+    swapStepTimers.current.forEach(t => window.clearTimeout(t));
+    swapStepTimers.current = [];
+    [800, 2000, 3500, 5500].forEach((ms, i) => {
+      const t = window.setTimeout(() => setSwapStep(i + 1), ms);
+      swapStepTimers.current.push(t);
+    });
   };
 
   const closeSwapModal = () => {
@@ -1233,7 +1255,8 @@ function Home() {
     setSimPhase('pipeline'); setRoiPoints([]);
     setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
     setSimTotalTime(0); setReportExported(false);
-    window.setTimeout(() => startSim(id, dt), 60);
+    const t = window.setTimeout(() => startSim(id, dt), 60);
+    simTimers.current.timeouts.push(t);
   };
 
   const handleExportReport = () => {
@@ -1251,7 +1274,8 @@ function Home() {
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); }
     setReportExported(true);
-    setTimeout(() => setReportExported(false), 2500);
+    const t = window.setTimeout(() => setReportExported(false), 2500);
+    miscTimers.current.push(t);
   };
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
