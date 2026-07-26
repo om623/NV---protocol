@@ -1,4 +1,15 @@
-import { ARC_TESTNET_CHAIN_PARAMS } from '../networks';
+import { ARC_TESTNET_CHAIN_PARAMS, type NetworkConfig } from '../networks';
+
+/** Build EIP-3085 chain params from any registered network config. */
+export function networkChainParams(net: NetworkConfig) {
+  return {
+    chainId: '0x' + net.chainId.toString(16),
+    chainName: net.name,
+    nativeCurrency: { name: net.nativeCurrency.symbol, symbol: net.nativeCurrency.symbol, decimals: net.nativeCurrency.decimals },
+    rpcUrls: [net.rpcUrl],
+    blockExplorerUrls: [net.explorerUrl],
+  };
+}
 
 export interface Eip1193Provider {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -40,17 +51,22 @@ export async function getChainId(prov: Eip1193Provider): Promise<number> {
 }
 
 export async function ensureArcNetwork(prov: Eip1193Provider): Promise<void> {
+  await ensureNetwork(prov, ARC_TESTNET_CHAIN_PARAMS);
+}
+
+/** Switch the injected wallet to any registered network (used by all testnets). */
+export async function ensureNetwork(prov: Eip1193Provider, params: { chainId: string }): Promise<void> {
   try {
     await prov.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: ARC_TESTNET_CHAIN_PARAMS.chainId }],
+      params: [{ chainId: params.chainId }],
     });
   } catch (err) {
     const code = (err as { code?: number })?.code;
     if (code === 4902 || code === -32603) {
       await prov.request({
         method: 'wallet_addEthereumChain',
-        params: [ARC_TESTNET_CHAIN_PARAMS],
+        params: [params],
       });
     } else {
       throw err;

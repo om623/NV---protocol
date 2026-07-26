@@ -14,13 +14,15 @@ import {
 } from 'lucide-react';
 import {
   type Eip1193Provider, type WalletBalances,
-  getProvider, getAccounts, getChainId, ensureArcNetwork,
+  getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
   transferNative, transferErc20, getAllBalances, shortAddress,
   ARC_TOKENS,
 } from './lib/arc';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
+import { GlobalMarketsPanel } from './components/GlobalMarketsPanel';
+import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -954,6 +956,9 @@ function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHist
         <p className="text-[11px] text-muted-foreground/70 leading-relaxed font-mono">{TIPS[tipIdx]}</p>
       </div>
 
+      {/* Global Markets */}
+      <GlobalMarketsPanel />
+
     </aside>
   );
 }
@@ -1130,8 +1135,9 @@ function Home() {
   const handleSwitchNetwork = () => { setWalletChainId(activeNetwork.chainId); };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
-  // True when a wallet is connected and Arc Testnet is the active network.
-  const isArcSwap = isConnected && activeNetwork.id === 'arc-testnet';
+  // True when a wallet is connected and the active network is a testnet
+  // (real swaps are supported on every registered testnet, not only Arc).
+  const isRealSwap = isConnected && activeNetwork.type === 'testnet';
 
   const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
     try {
@@ -1152,7 +1158,12 @@ function Home() {
       const accounts = await getAccounts(prov);
       const addr = accounts?.[0];
       if (!addr) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
-      await ensureArcNetwork(prov);
+      // Switch to the active testnet when applicable (supports all testnets).
+      if (activeNetwork.type === 'testnet') {
+        await ensureNetwork(prov, networkChainParams(activeNetwork));
+      } else {
+        await ensureArcNetwork(prov);
+      }
       const chainId = await getChainId(prov);
       setProvider(prov);
       setConnectedAddress(addr);
@@ -1189,7 +1200,11 @@ function Home() {
       const accounts = await getAccounts(prov);
       const from = accounts?.[0];
       if (!from) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
-      await ensureArcNetwork(prov);
+      if (activeNetwork.type === 'testnet') {
+        await ensureNetwork(prov, networkChainParams(activeNetwork));
+      } else {
+        await ensureArcNetwork(prov);
+      }
       setWalletChainId(activeNetwork.chainId);
 
       const fromTokenCfg = ARC_TOKENS[sourceToken];
@@ -1209,7 +1224,7 @@ function Home() {
       }, ...prev]);
       setAmount('');
       await refreshBalances(prov, from);
-      toast({ title: 'Swap real enviado na Arc Testnet!', description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
+      toast({ title: `Swap real enviado na ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
     } catch (err) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) toast({ title: 'Transação recusada', description: 'A carteira recusou a transação.', variant: 'destructive' });
@@ -1218,7 +1233,7 @@ function Home() {
   };
 
   const handleSwap = () => {
-    if (isConnected && isArcSwap) {
+    if (isConnected && isRealSwap) {
       handleRealSwap();
       return;
     }
@@ -1698,8 +1713,8 @@ function Home() {
                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                       }`}>
                       <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
-                        {isArcSwap ? <Zap size={16} /> : <Wallet size={16} />}
-                        {isArcSwap ? 'Swap na Arc' : 'Swap'}
+                        {isRealSwap ? <Zap size={16} /> : <Wallet size={16} />}
+                        {isRealSwap ? `Swap na ${activeNetwork.shortName}` : 'Swap'}
                       </span>
                       {amount && parseFloat(amount) > 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
@@ -1946,6 +1961,9 @@ function Home() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Advanced metrics: Liquidity / AI Confidence / Gas / Time / Route */}
+                    <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
                   </motion.div>
                 )}
 
@@ -2000,6 +2018,8 @@ function Home() {
                         </motion.span>
                       ))}
                     </motion.div>
+
+                    <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
 
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="w-full bg-secondary/25 border border-border/35 rounded-2xl p-4 mb-5">
                       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">Estratégia utilizada</div>
