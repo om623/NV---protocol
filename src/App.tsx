@@ -9,18 +9,20 @@ import {
   Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader2, Check,
   ArrowRight, Wallet, LogOut, CheckCircle2, TrendingUp, Flame,
   Terminal, BarChart2, Clock, Target, Cpu, RefreshCw, Download,
-  AlertTriangle, Database, X, History, ChevronUp, Sparkles,
+  AlertTriangle, Database, X, History, ChevronUp, Sparkles, TrendingDown,
   LayoutDashboard, FileText, HelpCircle, Menu, Pause, ChevronRight,
 } from 'lucide-react';
 import {
   type Eip1193Provider, type WalletBalances,
-  getProvider, getAccounts, getChainId, ensureArcNetwork,
+  getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
   transferNative, transferErc20, getAllBalances, shortAddress,
   ARC_TOKENS,
 } from './lib/arc';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
+import { GlobalMarketsPanel } from './components/GlobalMarketsPanel';
+import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -425,7 +427,7 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
           {envLabel}
         </span>
         <span className="text-muted-foreground/40 select-none hidden sm:inline">•</span>
-        <div className={`w-1.5 h-1.5 rounded-full ${activeNetwork.color} animate-pulse shrink-0`} />
+        <div className={`w-5 h-5 rounded-md ${activeNetwork.color} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>{activeNetwork.icon}</div>
         <span className="hidden sm:inline">{activeNetwork.shortName}</span>
         <ChevronDown size={13} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -437,7 +439,7 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -5, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
+            className="absolute top-full right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
           >
             <div className="flex gap-1 p-2 border-b border-border/50">
               {(['testnet', 'mainnet'] as EnvMode[]).map(mode => (
@@ -455,22 +457,46 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
                 </button>
               ))}
             </div>
-            <div className="p-1 flex flex-col gap-0.5">
-              {networks.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => { onNetworkChange(n); setOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-xs font-mono cursor-pointer ${
-                    n.id === activeNetwork.id
-                      ? 'bg-primary/10 text-primary'
-                      : 'hover:bg-secondary text-foreground'
-                  }`}
-                >
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${n.color}`} />
-                  <span className="flex-1 text-left">{n.name}</span>
-                  {n.id === activeNetwork.id && <Check size={12} />}
-                </button>
-              ))}
+            <div className="p-1.5 flex flex-col gap-1 max-h-[340px] overflow-y-auto">
+              {networks.map(n => {
+                const isActive = n.id === activeNetwork.id;
+                const statusColor = n.status === 'online' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                  : n.status === 'unstable' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                  : 'text-red-400 bg-red-500/10 border-red-500/20';
+                const statusDot = n.status === 'online' ? 'bg-emerald-400' : n.status === 'unstable' ? 'bg-amber-400' : 'bg-red-400';
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => { onNetworkChange(n); setOpen(false); }}
+                    className={`w-full flex items-start gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-left cursor-pointer ${
+                      isActive ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-secondary'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg ${n.color} flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5`}>{n.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className={`text-xs font-mono font-medium truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>{n.name}</span>
+                        {envMode === 'testnet' && (
+                          <span className="text-[7px] font-mono bg-violet-500/10 text-violet-400 px-1 py-px rounded border border-violet-500/20 shrink-0">TESTNET</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] font-mono text-muted-foreground/50 mb-0.5">
+                        <span>Chain {n.chainId}</span>
+                        <span className="opacity-30">|</span>
+                        <span className="truncate">{n.rpcUrl.replace(/^https?:\/\//, '')}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-mono text-muted-foreground/40 truncate">{n.explorerUrl.replace(/^https?:\/\//, '')}</span>
+                        <span className={`text-[8px] font-mono px-1.5 py-px rounded-full border shrink-0 flex items-center gap-1 ${statusColor}`}>
+                          <span className={`w-1 h-1 rounded-full ${statusDot}`} />
+                          {n.status}
+                        </span>
+                      </div>
+                    </div>
+                    {isActive && <Check size={14} className="text-primary shrink-0 mt-1" />}
+                  </button>
+                );
+              })}
             </div>
           </motion.div>
         )}
@@ -510,6 +536,197 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
         <span className="text-xs">{activeNetwork.shortName}</span>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+// ─── MarketPanel ──────────────────────────────────────────────────────────────
+
+interface MarketCoin {
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+  spark: number[];
+}
+
+function genSpark(base: number, vol: number, n = 24): number[] {
+  const pts: number[] = [];
+  let v = base;
+  for (let i = 0; i < n; i++) {
+    v += (Math.random() - 0.5) * vol;
+    pts.push(Math.max(0.01, v));
+  }
+  return pts;
+}
+
+const INITIAL_MARKET: MarketCoin[] = [
+  { symbol: 'BTC',  name: 'Bitcoin',    price: 67432.18, change24h:  2.34, spark: genSpark(67000, 800) },
+  { symbol: 'ETH',  name: 'Ethereum',   price: 3215.84,  change24h:  1.87, spark: genSpark(3200, 40) },
+  { symbol: 'SOL',  name: 'Solana',     price: 178.42,   change24h:  5.12, spark: genSpark(175, 3) },
+  { symbol: 'BNB',  name: 'BNB',        price: 612.30,   change24h: -0.84, spark: genSpark(610, 6) },
+  { symbol: 'POL',  name: 'Polygon',    price: 0.7234,   change24h: -1.52, spark: genSpark(0.72, 0.015) },
+  { symbol: 'LINK', name: 'Chainlink',  price: 18.94,    change24h:  3.41, spark: genSpark(18.5, 0.3) },
+  { symbol: 'ARB',  name: 'Arbitrum',   price: 1.234,    change24h: -2.18, spark: genSpark(1.25, 0.03) },
+  { symbol: 'OP',   name: 'Optimism',   price: 2.567,    change24h:  0.92, spark: genSpark(2.55, 0.05) },
+  { symbol: 'BASE', name: 'Base',       price: 1.891,    change24h:  4.27, spark: genSpark(1.85, 0.04) },
+];
+
+function Sparkline({ data, isPositive, symbol }: { data: number[]; isPositive: boolean; symbol: string }) {
+  const W = 100;
+  const H = 32;
+  const PAD = 2;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const stepX = (W - PAD * 2) / (data.length - 1);
+  const color = isPositive ? 'rgb(52, 211, 153)' : 'rgb(248, 113, 113)';
+  const pts = data.map((v, i) => {
+    const x = PAD + i * stepX;
+    const y = PAD + (H - PAD * 2) * (1 - (v - min) / range);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const linePts = pts.join(' ');
+  const areaPts = `${PAD},${H - PAD} ${linePts} ${W - PAD},${H - PAD}`;
+  const fillId = `sparkFill-${symbol}`;
+  const neonId = `sparkNeon-${symbol}`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="85%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+        <filter id={neonId} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="1.5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <polygon points={areaPts} fill={`url(#${fillId})`} />
+      <polyline points={linePts} fill="none" stroke={color} strokeWidth="1.4"
+        strokeLinecap="round" strokeLinejoin="round" filter={`url(#${neonId})`} />
+    </svg>
+  );
+}
+
+function MarketPanel() {
+  const [coins, setCoins] = useState<MarketCoin[]>(INITIAL_MARKET);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCoins(prev => prev.map(c => {
+        const drift = (Math.random() - 0.48) * 0.008;
+        const newPrice = Math.max(0.0001, c.price * (1 + drift));
+        const newChange = c.change24h + drift * 100;
+        const newSpark = [...c.spark.slice(1), newPrice];
+        return { ...c, price: newPrice, change24h: Math.max(-15, Math.min(15, newChange)), spark: newSpark };
+      }));
+    }, 4000);
+    return () => {
+      clearInterval(interval);
+      if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
+    };
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setCoins(prev => prev.map(c => {
+      const drift = (Math.random() - 0.48) * 0.02;
+      const newPrice = Math.max(0.0001, c.price * (1 + drift));
+      const newChange = c.change24h + drift * 100;
+      const newSpark = [...c.spark.slice(1), newPrice];
+      return { ...c, price: newPrice, change24h: Math.max(-15, Math.min(15, newChange)), spark: newSpark };
+    }));
+    if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
+    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 600);
+  }, []);
+
+  const sorted = [...coins].sort((a, b) => b.change24h - a.change24h);
+  const topGainer = sorted[0]?.symbol;
+  const topLoser = sorted[sorted.length - 1]?.symbol;
+
+  const marketCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 hover:shadow-[0_4px_32px_rgba(0,0,0,0.4),0_0_18px_rgba(0,229,188,0.04)] transition-all duration-300";
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.4 }}
+      className={marketCard}>
+      <div className="p-5">
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/15 to-transparent mb-5 -mt-1" />
+        <div className="flex items-center justify-between mb-4 px-0.5">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className="text-primary" />
+            <h2 className="text-base font-semibold text-foreground tracking-wide">Mercado em Tempo Real</h2>
+          </div>
+          <button onClick={handleRefresh} disabled={refreshing}
+            className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
+            {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {coins.map((coin, i) => {
+            const isPositive = coin.change24h >= 0;
+            const isGainer = coin.symbol === topGainer;
+            const isLoser = coin.symbol === topLoser;
+            return (
+              <motion.div key={coin.symbol}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.03, duration: 0.3 }}
+                className={`relative rounded-xl p-3 border transition-all duration-200 ${
+                  isGainer
+                    ? 'bg-emerald-500/5 border-emerald-500/25 shadow-[0_0_12px_rgba(52,211,153,0.08)]'
+                    : isLoser
+                    ? 'bg-red-500/5 border-red-500/25 shadow-[0_0_12px_rgba(248,113,113,0.08)]'
+                    : 'bg-secondary/25 border-border/30 hover:border-primary/10'
+                }`}>
+                {(isGainer || isLoser) && (
+                  <span className={`absolute -top-2 left-2 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${
+                    isGainer
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-red-500/15 text-red-400 border-red-500/30'
+                  }`}>
+                    {isGainer ? 'TOP GAINER' : 'TOP LOSER'}
+                  </span>
+                )}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center text-[10px] font-bold text-primary font-mono shrink-0">
+                      {coin.symbol.slice(0, 2)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-mono font-medium text-foreground">{coin.symbol}</span>
+                      <span className="text-[9px] text-muted-foreground/50">{coin.name}</span>
+                    </div>
+                  </div>
+                  <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    {isPositive ? '+' : ''}{coin.change24h.toFixed(2)}%
+                  </div>
+                </div>
+                <div className="flex items-end justify-between gap-2">
+                  <span className="text-sm font-mono font-semibold text-foreground">
+                    ${coin.price < 1 ? coin.price.toFixed(4) : coin.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  </span>
+                  <div className="w-20 shrink-0">
+                    <Sparkline data={coin.spark} isPositive={isPositive} symbol={coin.symbol} />
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
+          <span>Auto-atualização a cada 4s</span>
+          <span className="ml-auto">Dados simulados</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -739,6 +956,9 @@ function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHist
         <p className="text-[11px] text-muted-foreground/70 leading-relaxed font-mono">{TIPS[tipIdx]}</p>
       </div>
 
+      {/* Global Markets */}
+      <GlobalMarketsPanel />
+
     </aside>
   );
 }
@@ -793,16 +1013,30 @@ function Home() {
 
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const simTimers = useRef<{ intervals: number[]; timeouts: number[] }>({ intervals: [], timeouts: [] });
+  const swapStepTimers = useRef<number[]>([]);
+  const miscTimers = useRef<number[]>([]);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
   useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
+
+  // Centralised unmount cleanup — clears every timer that escapes clearSim.
+  useEffect(() => {
+    return () => {
+      simTimers.current.intervals.forEach(t => window.clearInterval(t));
+      simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
+      swapStepTimers.current.forEach(t => window.clearTimeout(t));
+      miscTimers.current.forEach(t => window.clearTimeout(t));
+    };
+  }, []);
 
   // ── Simulation engine (unchanged) ───────────────────────────────────────────
 
   const clearSim = useCallback(() => {
     simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
     simTimers.current.intervals.forEach(t => window.clearInterval(t));
+    swapStepTimers.current.forEach(t => window.clearTimeout(t));
     simTimers.current = { intervals: [], timeouts: [] };
+    swapStepTimers.current = [];
   }, []);
 
   const startSim = useCallback((id: string, dt: string) => {
@@ -901,8 +1135,9 @@ function Home() {
   const handleSwitchNetwork = () => { setWalletChainId(activeNetwork.chainId); };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
-  // True when a wallet is connected and Arc Testnet is the active network.
-  const isArcSwap = isConnected && activeNetwork.id === 'arc-testnet';
+  // True when a wallet is connected and the active network is a testnet
+  // (real swaps are supported on every registered testnet, not only Arc).
+  const isRealSwap = isConnected && activeNetwork.type === 'testnet';
 
   const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
     try {
@@ -923,7 +1158,12 @@ function Home() {
       const accounts = await getAccounts(prov);
       const addr = accounts?.[0];
       if (!addr) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
-      await ensureArcNetwork(prov);
+      // Switch to the active testnet when applicable (supports all testnets).
+      if (activeNetwork.type === 'testnet') {
+        await ensureNetwork(prov, networkChainParams(activeNetwork));
+      } else {
+        await ensureArcNetwork(prov);
+      }
       const chainId = await getChainId(prov);
       setProvider(prov);
       setConnectedAddress(addr);
@@ -960,7 +1200,11 @@ function Home() {
       const accounts = await getAccounts(prov);
       const from = accounts?.[0];
       if (!from) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
-      await ensureArcNetwork(prov);
+      if (activeNetwork.type === 'testnet') {
+        await ensureNetwork(prov, networkChainParams(activeNetwork));
+      } else {
+        await ensureArcNetwork(prov);
+      }
       setWalletChainId(activeNetwork.chainId);
 
       const fromTokenCfg = ARC_TOKENS[sourceToken];
@@ -980,7 +1224,7 @@ function Home() {
       }, ...prev]);
       setAmount('');
       await refreshBalances(prov, from);
-      toast({ title: 'Swap real enviado na Arc Testnet!', description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
+      toast({ title: `Swap real enviado na ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
     } catch (err) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) toast({ title: 'Transação recusada', description: 'A carteira recusou a transação.', variant: 'destructive' });
@@ -989,7 +1233,7 @@ function Home() {
   };
 
   const handleSwap = () => {
-    if (isConnected && isArcSwap) {
+    if (isConnected && isRealSwap) {
       handleRealSwap();
       return;
     }
@@ -997,10 +1241,12 @@ function Home() {
     if (!n || n <= 0) return;
     setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
     setSwapModalOpen(true); setSwapStep(0);
-    setTimeout(() => setSwapStep(1), 800);
-    setTimeout(() => setSwapStep(2), 2000);
-    setTimeout(() => setSwapStep(3), 3500);
-    setTimeout(() => setSwapStep(4), 5500);
+    swapStepTimers.current.forEach(t => window.clearTimeout(t));
+    swapStepTimers.current = [];
+    [800, 2000, 3500, 5500].forEach((ms, i) => {
+      const t = window.setTimeout(() => setSwapStep(i + 1), ms);
+      swapStepTimers.current.push(t);
+    });
   };
 
   const closeSwapModal = () => {
@@ -1024,7 +1270,8 @@ function Home() {
     setSimPhase('pipeline'); setRoiPoints([]);
     setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
     setSimTotalTime(0); setReportExported(false);
-    window.setTimeout(() => startSim(id, dt), 60);
+    const t = window.setTimeout(() => startSim(id, dt), 60);
+    simTimers.current.timeouts.push(t);
   };
 
   const handleExportReport = () => {
@@ -1042,7 +1289,8 @@ function Home() {
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); }
     setReportExported(true);
-    setTimeout(() => setReportExported(false), 2500);
+    const t = window.setTimeout(() => setReportExported(false), 2500);
+    miscTimers.current.push(t);
   };
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
@@ -1378,6 +1626,9 @@ function Home() {
                 </div>
               </motion.div>
 
+              {/* ── Market panel ──────────────────────────────────────── */}
+              <MarketPanel />
+
               {/* ── Swap card ───────────────────────────────────────────── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.4 }}
                 className={nvCard}>
@@ -1462,8 +1713,8 @@ function Home() {
                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                       }`}>
                       <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
-                        {isArcSwap ? <Zap size={16} /> : <Wallet size={16} />}
-                        {isArcSwap ? 'Swap na Arc' : 'Swap'}
+                        {isRealSwap ? <Zap size={16} /> : <Wallet size={16} />}
+                        {isRealSwap ? `Swap na ${activeNetwork.shortName}` : 'Swap'}
                       </span>
                       {amount && parseFloat(amount) > 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
@@ -1710,6 +1961,9 @@ function Home() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Advanced metrics: Liquidity / AI Confidence / Gas / Time / Route */}
+                    <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
                   </motion.div>
                 )}
 
@@ -1764,6 +2018,8 @@ function Home() {
                         </motion.span>
                       ))}
                     </motion.div>
+
+                    <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
 
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="w-full bg-secondary/25 border border-border/35 rounded-2xl p-4 mb-5">
                       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">Estratégia utilizada</div>
