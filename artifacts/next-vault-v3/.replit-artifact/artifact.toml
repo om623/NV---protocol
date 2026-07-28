@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Next Vault V3"
+version = "1.0.0"
+id = "artifacts/next-vault-v3"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23394
+
+[services.development]
+run = "pnpm --filter @workspace/next-vault-v3 run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/next-vault-v3", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/next-vault-v3/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23394"
+BASE_PATH = "/"
