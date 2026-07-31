@@ -32,6 +32,7 @@ import {
   SIMULATED_WALLET_CHAIN_ID,
   ARC_TESTNET_CHAIN_PARAMS,
 } from './networks';
+import { SplashScreen } from './components/SplashScreen';
 
 const queryClient = new QueryClient();
 
@@ -2095,15 +2096,46 @@ function Router() {
 }
 
 function App() {
+  // Splash screen: show only once per session using sessionStorage
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      const seen = sessionStorage.getItem('nv-protocol-splash-seen');
+      return seen !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleSplashEnter = () => {
+    try {
+      sessionStorage.setItem('nv-protocol-splash-seen', 'true');
+    } catch {}
+    setShowSplash(false);
+  };
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <>
+      {showSplash && <SplashScreen onEnter={handleSplashEnter} />}
+      <AnimatePresence>
+        {!showSplash && (
+          <motion.div
+            key="app-content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, ease: 'easeInOut' }}
+          >
+            <QueryClientProvider client={queryClient}>
+              <TooltipProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+                  <Router />
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </QueryClientProvider>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

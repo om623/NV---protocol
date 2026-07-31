@@ -33,6 +33,13 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      '/api/yahoo': {
+        target: 'https://query1.finance.yahoo.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/yahoo/, ''),
+      },
+    },
   },
   preview: {
     port,
