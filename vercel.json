@@ -2,12 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist/public",
-  "rewrites": [
-    {
-      "source": "/api/yahoo/:path*",
-      "destination": "https://query1.finance.yahoo.com/:path*"
-    }
-  ]
+  "outputDirectory": "dist/public"
 }
 
