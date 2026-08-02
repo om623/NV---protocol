@@ -10,21 +10,20 @@
 - [x] Registries, i18n, data sources, shell layout, ModuleRouter (lazy)
 - [x] Build verde + identidade visual preservada
 
-## 🔄 Etapa 1 — Expandir Registries + Data Layer
-- [ ] `assetRegistry`: adicionar todos os ativos obrigatórios
-  - [ ] 15 índices mundiais (Ibovespa, SPX, NDX, DJI, Russell, DAX, CAC, FTSE, Nikkei, Hang Seng, Shanghai, Kospi, Sensex, ASX, Euro Stoxx)
-  - [ ] Metais: Ouro, Prata, Platina, Paládio, Cobre
-  - [ ] Energia: Brent, WTI, Gás Natural
-  - [ ] Agro: Soja, Milho, Trigo, Café, Açúcar, Algodão
-  - [ ] Pecuária: Boi Gordo, Gado de Corte, Gado de Reposição, Suínos, Frango
-  - [ ] Cripto: + ADA, AVAX, LINK (CoinGecko)
-  - [ ] Forex: 10 pares (USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD, BRL, CNY)
-- [ ] `yahoo.ts`: fetch **paralelo** + supports `agro`, `livestock`
-- [ ] `frankfurter.ts`: **batch** + cross rates + variação real (2 requests totais)
-- [ ] `coingecko.ts`: mapa + ADA, AVAX, LINK
-- [ ] Build verde + commit + push
+## ✓ Etapa 1 — Expandir Registries + Data Layer (commit 44cb600)
+- [x] 15 índices mundiais (Ibovespa, SPX, NDX, DJI, Russell, DAX, CAC, FTSE, Nikkei, Hang Seng, Shanghai, Kospi, Sensex, ASX, Euro Stoxx)
+- [x] Metais: Ouro, Prata, Platina, Paládio, Cobre
+- [x] Energia: Brent, WTI, Gás Natural
+- [x] Agro: Soja, Milho, Trigo, Café, Açúcar, Algodão
+- [x] Pecuária: Boi Gordo, Gado de Corte, Gado de Reposição, Suínos, Frango
+- [x] Cripto: + ADA, AVAX, LINK (CoinGecko)
+- [x] Forex: 10 pares (USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD, BRL, CNY)
+- [x] Yahoo fetch paralelo + supports agro/livestock
+- [x] Frankfurter batch + cross rates + variação real
+- [x] CoinGecko mapa + ADA/AVAX/LINK
+- [x] Build verde + commit + push
 
-## ⏳ Etapa 2 — GlobalMarketsProvider
+## 🔄 Etapa 2 — GlobalMarketsProvider
 - [ ] `src/app/intelligence/GlobalMarketsProvider.tsx`: agrega assetRegistry + dataSourceRegistry
 - [ ] Atualização **desacoplada por categoria** (Crypto 30s, demais 60s — via `refreshMs` por ativo)
 - [ ] Expor `useGlobalMarkets()` (quotes por ativo, indicadores, últimos updates)
@@ -49,4 +48,3 @@
 - [ ] Fase 3 — Ticker permanente inferior
 - [ ] Fase 4 — Fontes de dados premium substituíveis
 - [ ] Fase 5 — Performance, cache em camadas, WebSocket/serverless
-
