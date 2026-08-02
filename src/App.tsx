@@ -966,7 +966,7 @@ function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHist
 
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
-function Home() {
+export function Home() {
   // ── Existing state ──────────────────────────────────────────────────────────
   const [sourceToken, setSourceToken] = useState('USDC');
   const [destToken,   setDestToken]   = useState('EURC');
