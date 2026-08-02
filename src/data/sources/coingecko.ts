@@ -7,6 +7,9 @@ const CG_IDS: Record<string, string> = {
   SOL: 'solana',
   BNB: 'binancecoin',
   XRP: 'ripple',
+  ADA: 'cardano',
+  AVAX: 'avalanche-2',
+  LINK: 'chainlink',
   USDC: 'usd-coin',
   EURC: 'eurc',
 };

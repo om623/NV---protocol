@@ -6,13 +6,43 @@ import type { Asset } from '@/app/registry/types';
  * Indices/commodities fetch through the dev proxy `/api/yahoo/...`.
  * In production the vercel rewrite must exist for these to be live
  * (otherwise they fall back gracefully to static values).
+ *
+ * Fase 2: fetch is fully parallel (each symbol resolves independently, so a
+ * slow/unknown symbol never blocks the rest of the category). Supports agro
+ * and livestock futures as well as indices/metals/energy.
  */
 const YAHOO_SYMBOLS: Record<string, string> = {
   '^GSPC': 'S&P 500',
   '^IXIC': 'Nasdaq',
   '^DJI': 'Dow Jones',
-  'GC=F': 'Gold',
-  'SI=F': 'Silver',
+  '^RUT': 'Russell 2000',
+  '^GDAXI': 'DAX',
+  '^FCHI': 'CAC 40',
+  '^FTSE': 'FTSE 100',
+  '^STOXX50E': 'Euro Stoxx 50',
+  '^N225': 'Nikkei 225',
+  '^HSI': 'Hang Seng',
+  '000001.SS': 'Shanghai Composite',
+  '^KS11': 'KOSPI',
+  '^BSESN': 'SENSEX',
+  '^AXJO': 'ASX 200',
+  'GC=F': 'Ouro',
+  'SI=F': 'Prata',
+  'PL=F': 'Platina',
+  'PA=F': 'Paládio',
+  'HG=F': 'Cobre',
+  'BZ=F': 'Brent',
+  'CL=F': 'WTI',
+  'NG=F': 'Gás Natural',
+  'ZS=F': 'Soja',
+  'ZC=F': 'Milho',
+  'ZW=F': 'Trigo',
+  'KC=F': 'Café',
+  'SB=F': 'Açúcar',
+  'CT=F': 'Algodão',
+  'GF=F': 'Boi Gordo',
+  'LE=F': 'Gado de Corte',
+  'HE=F': 'Suínos',
 };
 
 function toDecimals(v: number, d: number): number {
@@ -45,26 +75,32 @@ async function fetchYahooQuote(sourceSymbol: string): Promise<{ price: number; c
   }
 }
 
+/**
+ * Parallel fetch. Dedupes by sourceSymbol so multiple registered assets backed
+ * by the same ticker (e.g. livestock futures) only trigger one request.
+ */
 async function fetchQuotes(assets: Asset[]): Promise<Quote[]> {
-  const results: Quote[] = [];
   const now = Date.now();
-  for (const asset of assets) {
-    const quote = await fetchYahooQuote(asset.sourceSymbol);
-    if (quote) {
-      results.push({
-        assetId: asset.id,
-        price: quote.price,
-        change24h: quote.changePct,
-        updatedAt: now,
-      });
-    }
+  const uniqueSymbols = Array.from(new Set(assets.map(a => a.sourceSymbol)));
+  const settled = await Promise.allSettled(
+    uniqueSymbols.map(async sym => ({ sym, quote: await fetchYahooQuote(sym) })),
+  );
+  const bySymbol = new Map<string, { price: number; changePct: number }>();
+  for (const r of settled) {
+    if (r.status === 'fulfilled' && r.value.quote) bySymbol.set(r.value.sym, r.value.quote);
   }
-  return results;
+  const quotes: Quote[] = [];
+  for (const asset of assets) {
+    const q = bySymbol.get(asset.sourceSymbol);
+    if (!q) continue;
+    quotes.push({ assetId: asset.id, price: q.price, change24h: q.changePct, updatedAt: now });
+  }
+  return quotes;
 }
 
 export const yahooSource: MarketDataSource = {
   id: 'yahoo',
-  supports: ['indices', 'commodities', 'metals', 'energy'],
+  supports: ['indices', 'commodities', 'metals', 'energy', 'agro', 'livestock'],
   fetchQuotes,
   lastUpdated: null,
 };
