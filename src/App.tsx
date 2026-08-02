@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
-import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import {
@@ -12,12 +11,7 @@ import {
   AlertTriangle, Database, X, History, ChevronUp, Sparkles, TrendingDown,
   LayoutDashboard, FileText, HelpCircle, Menu, Pause, ChevronRight,
 } from 'lucide-react';
-import {
-  type Eip1193Provider, type WalletBalances,
-  getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
-  transferNative, transferErc20, getAllBalances, shortAddress,
-  ARC_TOKENS,
-} from './lib/arc';
+import { shortAddress } from './lib/arc';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
@@ -29,89 +23,16 @@ import {
   type EnvMode, type NetworkConfig,
   TESTNET_NETWORKS, MAINNET_NETWORKS,
   DEFAULT_TESTNET, DEFAULT_MAINNET,
-  SIMULATED_WALLET_CHAIN_ID,
-  ARC_TESTNET_CHAIN_PARAMS,
 } from './networks';
 import { SplashScreen } from './components/SplashScreen';
+import {
+  useProtocol, ProtocolProvider,
+  TOKENS, MOCK_BALANCES, getRate, getUsdRate, formatRate,
+  PIPELINE_STEPS, CONSOLE_SCRIPT, BADGES, SIM_TOTAL_MS, ROI_START_MS, ROI_DURATION_MS, ROI_TARGET,
+} from '@/app/protocol';
+import type { SimHistoryItem, RoiPoint } from '@/app/protocol';
 
 const queryClient = new QueryClient();
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface SimHistoryItem {
-  id: string;
-  datetime: string;
-  roi: number;
-  risk: number;
-  duration: number;
-  strategy: string;
-  pools: number;
-  opportunities: number;
-  fromToken: string;
-  toToken: string;
-}
-
-interface RoiPoint { t: number; roi: number; }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const TOKENS = [
-  { symbol: 'USDC', name: 'USD Coin' },
-  { symbol: 'EURC', name: 'Euro Coin' },
-  { symbol: 'ETH',  name: 'Ethereum' },
-];
-
-const MOCK_BALANCES: Record<string, number> = { USDC: 5420.18, EURC: 3200.50, ETH: 12.48 };
-
-const EXCHANGE_RATES: Record<string, number> = {
-  'USDC-EURC': 0.92, 'USDC-ETH': 0.000311,
-  'EURC-USDC': 1.087, 'EURC-ETH': 0.000338,
-  'ETH-USDC': 3215.84, 'ETH-EURC': 2960.50,
-};
-
-const INITIAL_TRANSACTIONS = [
-  { id: '1', fromToken: 'USDC', toToken: 'EURC', fromAmount: 500, toAmount: 460.0, time: '2 min ago', status: 'Success' },
-  { id: '2', fromToken: 'EURC', toToken: 'USDC', fromAmount: 200, toAmount: 217.4, time: '1 hr ago', status: 'Success' },
-  { id: '3', fromToken: 'USDC', toToken: 'ETH', fromAmount: 1000, toAmount: 0.3112, time: '3 hrs ago', status: 'Success' }
-];
-
-// Network lists live in ./networks.ts — imported above.
-
-const PIPELINE_STEPS = [
-  { label: 'Conectando carteira...',          Icon: Wallet },
-  { label: 'Validando assinatura...',         Icon: Shield },
-  { label: 'Lendo saldo...',                  Icon: Database },
-  { label: 'Escaneando pools de liquidez...', Icon: Activity },
-  { label: 'Analisando oportunidades...',     Icon: TrendingUp },
-  { label: 'Calculando risco...',             Icon: AlertTriangle },
-  { label: 'Selecionando estratégia ótima...', Icon: Target },
-  { label: 'Simulando execução...',           Icon: Cpu },
-  { label: 'Confirmando resultados...',       Icon: Check },
-  { label: 'Finalizado.',                     Icon: CheckCircle2 },
-];
-
-const CONSOLE_SCRIPT: { type: 'info' | 'success' | 'warn'; text: string; delay: number }[] = [
-  { type: 'info',    text: 'Wallet connected',         delay: 350  },
-  { type: 'info',    text: 'Reading balances...',      delay: 1400 },
-  { type: 'warn',    text: 'High volatility detected', delay: 2400 },
-  { type: 'info',    text: '23 pools analyzed',        delay: 3500 },
-  { type: 'info',    text: '7 opportunities found',    delay: 5000 },
-  { type: 'info',    text: 'Best ROI selected',        delay: 6700 },
-  { type: 'info',    text: 'Running final checks...',  delay: 7900 },
-  { type: 'success', text: 'Simulation completed',     delay: 8900 },
-];
-
-const BADGES = [
-  { label: 'Secure Wallet',       color: 'text-cyan-400',    border: 'border-cyan-400/30',    bg: 'bg-cyan-400/8'    },
-  { label: 'AI Strategy',         color: 'text-violet-400',  border: 'border-violet-400/30',  bg: 'bg-violet-400/8'  },
-  { label: 'Smart Routing',       color: 'text-blue-400',    border: 'border-blue-400/30',    bg: 'bg-blue-400/8'    },
-  { label: 'Simulation Complete', color: 'text-emerald-400', border: 'border-emerald-400/30', bg: 'bg-emerald-400/8' },
-];
-
-const SIM_TOTAL_MS = 9700;
-const ROI_START_MS = 6700;
-const ROI_DURATION_MS = 1400;
-const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
@@ -128,25 +49,7 @@ const SIDEBAR_ITEMS: { label: string; Icon: typeof LayoutDashboard; view: Sideba
   { label: 'Ajuda',         Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const getRate = (from: string, to: string) => from === to ? 1.0 : (EXCHANGE_RATES[`${from}-${to}`] || 0);
-const getUsdRate = (token: string) => token === 'ETH' ? 3215.84 : 1.0;
-const formatRate = (rate: number) => rate < 0.01 ? rate.toFixed(6) : rate < 1 ? rate.toFixed(4) : rate.toFixed(2);
-
-function getNextSimId(): string {
-  try {
-    const count = parseInt(localStorage.getItem('vault-sim-count') || '0') + 1;
-    localStorage.setItem('vault-sim-count', String(count));
-    const d = new Date();
-    const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    return `SIM-${ds}-${String(count).padStart(4, '0')}`;
-  } catch { return `SIM-${Date.now()}`; }
-}
-
-function formatDateTime(d: Date): string {
-  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
+// ─── Helpers (legacy local report generator — kept for reference) ─────────────
 
 function generateReportHtml(data: {
   simId: string; datetime: string; wallet: string;
@@ -967,162 +870,38 @@ function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHist
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 export function Home() {
-  // ── Existing state ──────────────────────────────────────────────────────────
-  const [sourceToken, setSourceToken] = useState('USDC');
-  const [destToken,   setDestToken]   = useState('EURC');
-  const [amount,      setAmount]      = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [showDisconnect, setShowDisconnect] = useState(false);
-
-  // Real wallet state
-  const [provider, setProvider] = useState<Eip1193Provider | null>(null);
-  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
-  const [realBalances, setRealBalances] = useState<WalletBalances | null>(null);
-
-  // View + coming-soon state
+  // ── Local UI state ──────────────────────────────────────────────────────────
   const [activeView, setActiveView] = useState<SidebarView>('dashboard');
   const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
-
-  // ── Environment / network state ─────────────────────────────────────────────
-  const [envMode,       setEnvMode]       = useState<EnvMode>('testnet');
-  const [activeNetwork, setActiveNetwork] = useState<NetworkConfig>(DEFAULT_TESTNET);
-  const [walletChainId, setWalletChainId] = useState<number | null>(null);
-  const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
-  const [swapModalOpen,  setSwapModalOpen]  = useState(false);
-  const [swapStep,       setSwapStep]       = useState(0);
-  const [pendingSwap,    setPendingSwap]    = useState<any>(null);
-
-  // ── Simulation state ────────────────────────────────────────────────────────
-  const [simId,        setSimId]        = useState('');
-  const [simDateTime,  setSimDateTime]  = useState('');
-  const [simStep,      setSimStep]      = useState(-1);
-  const [simProgress,  setSimProgress]  = useState(0);
-  const [consoleLogs,  setConsoleLogs]  = useState<{ type: 'info'|'success'|'warn'; text: string }[]>([]);
-  const [simPhase,     setSimPhase]     = useState<'pipeline'|'complete'>('pipeline');
-  const [simStats,     setSimStats]     = useState({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-  const [simTotalTime, setSimTotalTime] = useState(0);
-  const [roiPoints,    setRoiPoints]    = useState<RoiPoint[]>([]);
-  const [reportExported, setReportExported] = useState(false);
-  const [simHistory,   setSimHistory]   = useState<SimHistoryItem[]>(() => {
-    try { return JSON.parse(localStorage.getItem('vault-sim-history') || '[]'); } catch { return []; }
-  });
-  const [historyOpen,  setHistoryOpen]  = useState(false);
-
-  // ── UI state (new) ──────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [simPaused,   setSimPaused]   = useState(false);
 
-  const consoleEndRef = useRef<HTMLDivElement>(null);
-  const simTimers = useRef<{ intervals: number[]; timeouts: number[] }>({ intervals: [], timeouts: [] });
-  const swapStepTimers = useRef<number[]>([]);
-  const miscTimers = useRef<number[]>([]);
+  // ── Central state (ProtocolProvider) ────────────────────────────────────────
+  const {
+    sourceToken, setSourceToken,
+    destToken, setDestToken,
+    amount, setAmount,
+    swapModalOpen,
+    pendingSwap,
+    transactions,
+    handleSwap, handleReverse, handleMax, closeSwapModal,
+
+    provider, connectedAddress, realBalances, isConnected, showDisconnect, setShowDisconnect,
+    handleConnect, handleDisconnect,
+
+    envMode, setEnvMode, activeNetwork, setActiveNetwork, walletChainId,
+    handleNetworkChange, handleSwitchNetwork,
+
+    simId, simDateTime, simStep, simProgress, consoleLogs, simPhase, simStats,
+    simTotalTime, roiPoints, reportExported, simHistory, historyOpen, setHistoryOpen,
+    simPaused, setSimPaused,
+    handleNovaSimulacao, handleStartNewSim, handlePause, handleCancel, handleExportReport,
+    consoleEndRef,
+  } = useProtocol();
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
   useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
 
-  // Centralised unmount cleanup — clears every timer that escapes clearSim.
-  useEffect(() => {
-    return () => {
-      simTimers.current.intervals.forEach(t => window.clearInterval(t));
-      simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
-      swapStepTimers.current.forEach(t => window.clearTimeout(t));
-      miscTimers.current.forEach(t => window.clearTimeout(t));
-    };
-  }, []);
-
-  // ── Simulation engine (unchanged) ───────────────────────────────────────────
-
-  const clearSim = useCallback(() => {
-    simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
-    simTimers.current.intervals.forEach(t => window.clearInterval(t));
-    swapStepTimers.current.forEach(t => window.clearTimeout(t));
-    simTimers.current = { intervals: [], timeouts: [] };
-    swapStepTimers.current = [];
-  }, []);
-
-  const startSim = useCallback((id: string, dt: string) => {
-    const sto = (fn: () => void, ms: number) => {
-      const t = window.setTimeout(fn, ms);
-      simTimers.current.timeouts.push(t);
-    };
-    const sin = (fn: () => void, ms: number): number => {
-      const t = window.setInterval(fn, ms);
-      simTimers.current.intervals.push(t);
-      return t;
-    };
-    const animateTo = (setter: (v: number) => void, target: number, duration: number, round = false) => {
-      const s = Date.now();
-      const iv = sin(() => {
-        const t = Math.min(1, (Date.now() - s) / duration);
-        const e = 1 - Math.pow(1 - t, 3);
-        setter(round ? Math.round(target * e) : target * e);
-        if (t >= 1) { window.clearInterval(iv); simTimers.current.intervals = simTimers.current.intervals.filter(x => x !== iv); }
-      }, 30);
-    };
-
-    const startTime = Date.now();
-    PIPELINE_STEPS.forEach((_, i) => sto(() => setSimStep(i), i * 950));
-    CONSOLE_SCRIPT.forEach(({ type, text, delay }) =>
-      sto(() => setConsoleLogs(prev => [...prev, { type, text }]), delay));
-
-    const progIv = sin(() => {
-      setSimProgress(Math.min(100, ((Date.now() - startTime) / SIM_TOTAL_MS) * 100));
-    }, 50);
-    const execIv = sin(() => {
-      setSimStats(prev => ({ ...prev, execTime: (Date.now() - startTime) / 1000 }));
-    }, 100);
-
-    for (let ms = 0; ms <= SIM_TOTAL_MS; ms += 200) {
-      const scheduledMs = ms;
-      sto(() => {
-        const roiT = scheduledMs < ROI_START_MS ? 0 : Math.min(1, (scheduledMs - ROI_START_MS) / ROI_DURATION_MS);
-        const roiVal = ROI_TARGET * (1 - Math.pow(1 - roiT, 3));
-        setRoiPoints(prev => [...prev, { t: scheduledMs, roi: roiVal }]);
-      }, ms);
-    }
-
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, balance: v })), 46382.17, 2200), 1400);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, poolsAnalyzed: v })), 23, 1400, true), 3500);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, opportunities: v })), 7, 800, true), 5000);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, risk: v })), 12.3, 900), 5800);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, roi: v })), ROI_TARGET, 1400), ROI_START_MS);
-
-    sto(() => {
-      const total = parseFloat(((Date.now() - startTime) / 1000).toFixed(2));
-      window.clearInterval(progIv);
-      window.clearInterval(execIv);
-      simTimers.current.intervals = simTimers.current.intervals.filter(x => x !== progIv && x !== execIv);
-      setSimTotalTime(total);
-      setSimPhase('complete');
-      setSimProgress(100);
-      const item: SimHistoryItem = {
-        id, datetime: dt, roi: ROI_TARGET, risk: 12.3, duration: total,
-        strategy: 'Arbitrum Optimal Route v2', pools: 23, opportunities: 7,
-        fromToken: '', toToken: '',
-      };
-      setSimHistory(prev => {
-        const updated = [item, ...prev].slice(0, 10);
-        try { localStorage.setItem('vault-sim-history', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-    }, SIM_TOTAL_MS);
-  }, []);
-
-  useEffect(() => {
-    if (swapModalOpen) {
-      const id = getNextSimId();
-      const dt = formatDateTime(new Date());
-      setSimId(id); setSimDateTime(dt);
-      setSimStep(-1); setSimProgress(0); setConsoleLogs([]);
-      setSimPhase('pipeline'); setRoiPoints([]);
-      setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-      setSimTotalTime(0); setReportExported(false);
-      startSim(id, dt);
-    } else { clearSim(); }
-    return clearSim;
-  }, [swapModalOpen]);
-
-  // ── Existing handlers (unchanged) ───────────────────────────────────────────
+  // ── Local env handlers (UI-specific — use central state setters) ─────────────
 
   const handleEnvChange = (mode: EnvMode) => {
     if (mode === 'mainnet') {
@@ -1132,204 +911,12 @@ export function Home() {
     setEnvMode(mode);
     setActiveNetwork(mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET);
   };
-  const handleNetworkChange = (network: NetworkConfig) => { setActiveNetwork(network); };
-  const handleSwitchNetwork = () => { setWalletChainId(activeNetwork.chainId); };
+
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
   // True when a wallet is connected and the active network is a testnet
   // (real swaps are supported on every registered testnet, not only Arc).
   const isRealSwap = isConnected && activeNetwork.type === 'testnet';
-
-  const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
-    try {
-      const bal = await getAllBalances(prov, addr);
-      setRealBalances(bal);
-    } catch {
-      // non-fatal
-    }
-  }, []);
-
-  const handleConnect = async () => {
-    const prov = getProvider();
-    if (!prov) {
-      toast({ title: 'Carteira não encontrada', description: 'Instale MetaMask para conectar.', variant: 'destructive' });
-      return;
-    }
-    try {
-      const accounts = await getAccounts(prov);
-      const addr = accounts?.[0];
-      if (!addr) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
-      // Switch to the active testnet when applicable (supports all testnets).
-      if (activeNetwork.type === 'testnet') {
-        await ensureNetwork(prov, networkChainParams(activeNetwork));
-      } else {
-        await ensureArcNetwork(prov);
-      }
-      const chainId = await getChainId(prov);
-      setProvider(prov);
-      setConnectedAddress(addr);
-      setIsConnected(true);
-      setWalletChainId(chainId);
-      await refreshBalances(prov, addr);
-      toast({ title: 'Carteira conectada', description: `Endereço: ${shortAddress(addr)}` });
-    } catch (err) {
-      const code = (err as { code?: number })?.code;
-      if (code === 4001) toast({ title: 'Conexão recusada', variant: 'destructive' });
-      else toast({ title: 'Erro ao conectar', description: (err as Error)?.message, variant: 'destructive' });
-    }
-  };
-
-  const handleDisconnect = () => {
-    setIsConnected(false);
-    setProvider(null);
-    setConnectedAddress(null);
-    setRealBalances(null);
-    setWalletChainId(null);
-    setShowDisconnect(false);
-  };
-
-  // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
-  const handleRealSwap = async () => {
-    const n = parseFloat(amount);
-    if (!n || n <= 0) return;
-    const prov = provider ?? getProvider();
-    if (!prov) {
-      toast({ title: 'Carteira não encontrada', description: 'Conecte sua carteira MetaMask primeiro.', variant: 'destructive' });
-      return;
-    }
-    try {
-      const accounts = await getAccounts(prov);
-      const from = accounts?.[0];
-      if (!from) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
-      if (activeNetwork.type === 'testnet') {
-        await ensureNetwork(prov, networkChainParams(activeNetwork));
-      } else {
-        await ensureArcNetwork(prov);
-      }
-      setWalletChainId(activeNetwork.chainId);
-
-      const fromTokenCfg = ARC_TOKENS[sourceToken];
-      let txHash: string;
-      if (fromTokenCfg && !fromTokenCfg.isNative) {
-        txHash = await transferErc20(prov, from, fromTokenCfg.address!, from, n, fromTokenCfg.decimals);
-      } else {
-        txHash = await transferNative(prov, from, from, n);
-      }
-
-      setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-      setTransactions(prev => [{
-        id: txHash || Math.random().toString(),
-        fromToken: sourceToken, toToken: destToken,
-        fromAmount: n, toAmount: n * getRate(sourceToken, destToken),
-        time: 'Just now', status: 'Success',
-      }, ...prev]);
-      setAmount('');
-      await refreshBalances(prov, from);
-      toast({ title: `Swap real enviado na ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
-    } catch (err) {
-      const code = (err as { code?: number })?.code;
-      if (code === 4001) toast({ title: 'Transação recusada', description: 'A carteira recusou a transação.', variant: 'destructive' });
-      else toast({ title: 'Falha no swap real', description: (err as Error)?.message, variant: 'destructive' });
-    }
-  };
-
-  const handleSwap = () => {
-    if (isConnected && isRealSwap) {
-      handleRealSwap();
-      return;
-    }
-    const n = parseFloat(amount);
-    if (!n || n <= 0) return;
-    setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-    setSwapModalOpen(true); setSwapStep(0);
-    swapStepTimers.current.forEach(t => window.clearTimeout(t));
-    swapStepTimers.current = [];
-    [800, 2000, 3500, 5500].forEach((ms, i) => {
-      const t = window.setTimeout(() => setSwapStep(i + 1), ms);
-      swapStepTimers.current.push(t);
-    });
-  };
-
-  const closeSwapModal = () => {
-    setSwapModalOpen(false);
-    if (pendingSwap) {
-      setTransactions(prev => [{
-        id: Math.random().toString(),
-        fromToken: pendingSwap.fromToken, toToken: pendingSwap.toToken,
-        fromAmount: pendingSwap.fromAmount, toAmount: pendingSwap.toAmount,
-        time: 'Just now', status: 'Success'
-      }, ...prev]);
-    }
-    setAmount('');
-  };
-
-  const handleNovaSimulacao = () => {
-    const id = getNextSimId(); const dt = formatDateTime(new Date());
-    setSimId(id); setSimDateTime(dt);
-    clearSim();
-    setSimStep(-1); setSimProgress(0); setConsoleLogs([]);
-    setSimPhase('pipeline'); setRoiPoints([]);
-    setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-    setSimTotalTime(0); setReportExported(false);
-    const t = window.setTimeout(() => startSim(id, dt), 60);
-    simTimers.current.timeouts.push(t);
-  };
-
-  const handleExportReport = () => {
-    const html = generateReportHtml({
-      simId, datetime: simDateTime, wallet: '0x8F4A...91C2',
-      fromToken: pendingSwap?.fromToken || 'ETH',
-      toToken:   pendingSwap?.toToken   || 'USDC',
-      fromAmount: pendingSwap?.fromAmount || 0,
-      toAmount:   pendingSwap?.toAmount   || 0,
-      totalTime: simTotalTime,
-      roi: simStats.roi, risk: simStats.risk,
-      strategy: 'Arbitrum Optimal Route v2',
-      pools: simStats.poolsAnalyzed, opportunities: simStats.opportunities,
-    });
-    const win = window.open('', '_blank');
-    if (win) { win.document.write(html); win.document.close(); }
-    setReportExported(true);
-    const t = window.setTimeout(() => setReportExported(false), 2500);
-    miscTimers.current.push(t);
-  };
-
-  const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
-  const handleMax = () => {
-    const bal = realBalances
-      ? (sourceToken === 'USDC' ? realBalances.usdc : sourceToken === 'EURC' ? realBalances.eurc : realBalances.eth)
-      : MOCK_BALANCES[sourceToken];
-    setAmount(bal.toString());
-  };
-
-  // ── New action handlers ──────────────────────────────────────────────────────
-
-  const handleStartNewSim = () => {
-    setSimPaused(false);
-    if (!swapModalOpen) {
-      const n = parseFloat(amount) || 1;
-      setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-      setSwapModalOpen(true);
-    } else {
-      handleNovaSimulacao();
-    }
-  };
-
-  const handlePause = () => {
-    if (!swapModalOpen || simPhase === 'complete') return;
-    if (simPaused) {
-      setSimPaused(false);
-      handleNovaSimulacao();
-    } else {
-      clearSim();
-      setSimPaused(true);
-    }
-  };
-
-  const handleCancel = () => {
-    setSimPaused(false);
-    closeSwapModal();
-  };
 
   // ── Derived values ───────────────────────────────────────────────────────────
 
@@ -2126,9 +1713,11 @@ function App() {
           >
             <QueryClientProvider client={queryClient}>
               <TooltipProvider>
-                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-                  <Router />
-                </WouterRouter>
+                <ProtocolProvider>
+                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+                    <Router />
+                  </WouterRouter>
+                </ProtocolProvider>
                 <Toaster />
               </TooltipProvider>
             </QueryClientProvider>
