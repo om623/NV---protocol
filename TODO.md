@@ -37,12 +37,14 @@
 - [x] `indicatorRegistry` — nascer preparado com placeholders: VIX, DXY, Fed Funds, CPI, Treasury 2Y/10Y/30Y, PPI, PMI, Unemployment
 - [x] Build verde + commit b6e7df6 + push (branch sincronizada com origin)
 
-## ⏳ Etapa 4 — Ativação no layout
-- [ ] `IntelligenceColumn` — compõe provider + widgets (fonte única)
-- [ ] `RightIntelligence` renderiza a coluna quando `enabled`
-- [ ] `App.tsx` — **1 linha**: trocar `<GlobalMarketsPanel />` por `<IntelligenceColumn />` no `RightPanel` (painéis de simulação intactos)
-- [ ] i18n para labels novos
-- [ ] Build verde + commit + push
+## ✓ Etapa 4 — Ativação no layout
+- [x] `IntelligenceColumn` — compõe provider + widgets (fonte única)
+- [x] `RightIntelligence` renderiza a coluna quando `enabled`
+- [x] `App.tsx` — trocar `<GlobalMarketsPanel />` por `<GlobalMarketsProvider>` + `<IntelligenceColumn />` no `RightPanel` (painéis de simulação intactos)
+- [x] `WorkspaceProvider` montado acima do `Router` (necessário para `useWorkspace().openCategory`)
+- [x] Import `IntelligenceColumn` via path direto (sem ciclo no barrel `@/app/intelligence`)
+- [x] i18n para labels novos
+- [x] Build verde + commit + push
 
 ## ⏳ Futuro (fora da Fase 2)
 - [ ] Fase 3 — Ticker permanente inferior

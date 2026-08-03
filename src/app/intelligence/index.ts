@@ -10,3 +10,4 @@ export { IndicatorsWidget } from './widgets/IndicatorsWidget';
 export { MultiCategoryTicker } from './widgets/MultiCategoryTicker';
 export { CategoryPanel } from './widgets/CategoryPanel';
 
+

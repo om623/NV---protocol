@@ -21,29 +21,36 @@ import { useWorkspace } from '@/app/workspace/useWorkspace';
  *  - Fully prepared for Fase 3 (bottom ticker bar can reuse MultiCategoryTicker).
  */
 export function RightIntelligence({ enabled = false }: RightIntelligenceProps) {
-  const { t } = useTranslation();
-
   if (!enabled) return null;
 
   return (
     <GlobalMarketsProvider>
-      <IntelligenceColumn />
+      <motion.aside
+        initial={{ opacity: 0, x: 16 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4 }}
+        className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto"
+      >
+        <IntelligenceColumn />
+      </motion.aside>
     </GlobalMarketsProvider>
   );
 }
 
-function IntelligenceColumn() {
+/**
+ * ─── IntelligenceColumn ───────────────────────────────────────────────────────
+ * Content of the Global Intelligence column (provider-agnostic).
+ * Renders the live ticker, indicators and the market radar (categories).
+ * Used both by RightIntelligence (standalone column) and embedded in the
+ * legacy RightPanel (App.tsx) as the market section — single source of truth.
+ */
+export function IntelligenceColumn() {
   const { t } = useTranslation();
   const { openCategory } = useWorkspace();
   const categories = categoryRegistry.getAll();
 
   return (
-    <motion.aside
-      initial={{ opacity: 0, x: 16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4 }}
-      className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto"
-    >
+    <div className="flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center gap-2 px-0.5">
         <Globe size={14} className="text-primary" />
@@ -84,7 +91,7 @@ function IntelligenceColumn() {
           ))}
         </div>
       </div>
-    </motion.aside>
+    </div>
   );
 }
 

@@ -15,7 +15,6 @@ import { shortAddress } from './lib/arc';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
-import { GlobalMarketsPanel } from './components/GlobalMarketsPanel';
 import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
@@ -25,6 +24,9 @@ import {
   DEFAULT_TESTNET, DEFAULT_MAINNET,
 } from './networks';
 import { SplashScreen } from './components/SplashScreen';
+import { GlobalMarketsProvider } from '@/app/intelligence';
+import { IntelligenceColumn } from '@/app/layout/RightIntelligence';
+import { WorkspaceProvider } from '@/app/workspace/useWorkspace';
 import {
   useProtocol, ProtocolProvider,
   TOKENS, MOCK_BALANCES, getRate, getUsdRate, formatRate,
@@ -860,9 +862,10 @@ function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHist
         <p className="text-[11px] text-muted-foreground/70 leading-relaxed font-mono">{TIPS[tipIdx]}</p>
       </div>
 
-      {/* Global Markets */}
-      <GlobalMarketsPanel />
-
+{/* Global Intelligence (Fase 2) */}
+      <GlobalMarketsProvider>
+        <IntelligenceColumn />
+      </GlobalMarketsProvider>
     </aside>
   );
 }
@@ -1713,10 +1716,12 @@ function App() {
           >
             <QueryClientProvider client={queryClient}>
               <TooltipProvider>
-                <ProtocolProvider>
-                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-                    <Router />
-                  </WouterRouter>
+<ProtocolProvider>
+                  <WorkspaceProvider>
+                    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+                      <Router />
+                    </WouterRouter>
+                  </WorkspaceProvider>
                 </ProtocolProvider>
                 <Toaster />
               </TooltipProvider>
