@@ -27,6 +27,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { GlobalMarketsProvider } from '@/app/intelligence';
 import { IntelligenceColumn } from '@/app/layout/RightIntelligence';
 import { WorkspaceProvider } from '@/app/workspace/useWorkspace';
+import { I18nProvider } from '@/i18n';
 import {
   useProtocol, ProtocolProvider,
   TOKENS, MOCK_BALANCES, getRate, getUsdRate, formatRate,
@@ -1714,16 +1715,18 @@ function App() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, ease: 'easeInOut' }}
           >
-            <QueryClientProvider client={queryClient}>
+<QueryClientProvider client={queryClient}>
               <TooltipProvider>
-<ProtocolProvider>
-                  <WorkspaceProvider>
-                    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-                      <Router />
-                    </WouterRouter>
-                  </WorkspaceProvider>
-                </ProtocolProvider>
-                <Toaster />
+                <I18nProvider>
+                  <ProtocolProvider>
+                    <WorkspaceProvider>
+                      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+                        <Router />
+                      </WouterRouter>
+                    </WorkspaceProvider>
+                  </ProtocolProvider>
+                  <Toaster />
+                </I18nProvider>
               </TooltipProvider>
             </QueryClientProvider>
           </motion.div>
