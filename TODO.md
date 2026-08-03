@@ -24,6 +24,18 @@
 - [x] Build verde + commit + push
 
 ## ✓ Etapa 2 — GlobalMarketsProvider (commit 3a5ce3d)
+- [x] `src/app/intelligence/GlobalMarketsProvider.tsx`: agrega assetRegistry + dataSourceRegistry
+- [x] Atualização **desacoplada por categoria** (Crypto 30s, demais 60s — via `refreshMs` por ativo)
+- [x] Expor `useGlobalMarkets()` (quotes por ativo, indicadores, últimos updates)
+- [x] Build verde + commit + push
+
+## ✓ Etapa 3 — Widgets independentes (commit b6e7df6)
+- [x] `CategoryWidget` — genérico, data-driven, com **modos de visualização preparados** (cards, lista, mini-gráfico, heatmap, tabela)
+- [x] `IndicatorsWidget` — Fear & Greed, BTC Dominance, Market Cap, Volume, última atualização
+- [x] `MultiCategoryTicker` — ticker contínuo preparado p/ Forex, Commodities, Cripto, Índices e Notícias (começa em Forex)
+- [x] `CategoryPanel` — painel completo p/ ModuleRouter + registrar `category.panel`
+- [x] `indicatorRegistry` — nascer preparado com placeholders: VIX, DXY, Fed Funds, CPI, Treasury 2Y/10Y/30Y, PPI, PMI, Unemployment
+- [x] Build verde + commit b6e7df6 + push (branch sincronizada com origin)
 
 ## ⏳ Etapa 4 — Ativação no layout
 - [ ] `IntelligenceColumn` — compõe provider + widgets (fonte única)
