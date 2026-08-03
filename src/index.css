@@ -122,6 +122,12 @@
   animation: shield-glow 3s ease-in-out infinite;
 }
 
+/* ── Ticker scroll (Global Intelligence — Fase 2) ─────────────────────────── */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }

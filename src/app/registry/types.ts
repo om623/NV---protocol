@@ -41,6 +41,14 @@ export type MarketRegion =
   | 'AFRICA'
   | 'OCEANIA';
 
+/**
+ * View modes supported by a category panel.
+ * The CategoryWidget is data-driven and future-proof: adding a view mode is a
+ * component concern, never a registry change. Modes are declared per category
+ * to drive the selector UI; modes not yet implemented render the default list.
+ */
+export type CategoryViewMode = 'cards' | 'list' | 'sparkline' | 'heatmap' | 'table';
+
 export interface MarketCategory {
   /** Unique id, e.g. 'crypto', 'forex', 'agro' */
   id: string;
@@ -54,6 +62,8 @@ export interface MarketCategory {
   filter: (asset: Asset) => boolean;
   /** Optional lazy panel rendered in the workspace when the category is opened */
   panel?: LazyExoticComponent<ComponentType<{ categoryId: string }>>;
+  /** View modes this category can render (drives the CategoryWidget selector) */
+  viewModes?: CategoryViewMode[];
   /** Sort order */
   order: number;
 }

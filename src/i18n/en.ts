@@ -68,6 +68,18 @@ export const en = {
     title: 'Markets',
     empty: 'No assets available for this category.',
   },
+  indicators: {
+    vix: 'VIX',
+    dxy: 'DXY',
+    fedFunds: 'Fed Funds',
+    cpi: 'CPI',
+    treasury2y: 'Treasury 2Y',
+    treasury10y: 'Treasury 10Y',
+    treasury30y: 'Treasury 30Y',
+    ppi: 'PPI',
+    pmi: 'PMI',
+    unemployment: 'Unemployment',
+  },
   module: {
     notFound: 'Module not found.',
     placeholder: 'Module under development.',
