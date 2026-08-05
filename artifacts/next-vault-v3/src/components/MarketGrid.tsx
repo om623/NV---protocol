@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, RefreshCw, Loader2, Search } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search } from 'lucide-react';
 import {
   type MarketAsset, type MarketCategory, type TrendStatus,
   getAllAssets, refreshGlobalMarkets, formatVolume,

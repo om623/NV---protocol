@@ -1,11 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  BarChart2, Target, Activity, History, Zap, Clock,
-  CheckCircle2, Loader2, AlertTriangle, TrendingUp, TrendingDown,
-  Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route,
-  Lightbulb, Eye, Shield,
-} from 'lucide-react';
+import { ChartBar as BarChart2, Target, Activity, Factory as History, Zap, Clock, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Lightbulb, Eye, Shield } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import type { SimHistoryItem } from '../App';
 import {

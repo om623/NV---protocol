@@ -4,7 +4,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell,
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
-import { TrendingUp, PieChart as PieIcon, BarChart2 } from 'lucide-react';
+import { TrendingUp, ChartPie as PieIcon, ChartBar as BarChart2 } from 'lucide-react';
 
 // ─── Portfolio Evolution (Area) ───────────────────────────────────────────────
 

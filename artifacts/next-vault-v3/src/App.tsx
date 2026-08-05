@@ -5,13 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import {
-  Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader2, Check,
-  ArrowRight, Wallet, LogOut, CheckCircle2, TrendingUp, Flame,
-  Terminal, BarChart2, Clock, Target, Cpu, RefreshCw, Download,
-  AlertTriangle, Database, X, History, ChevronUp, Sparkles, TrendingDown,
-  LayoutDashboard, FileText, HelpCircle, Menu, Pause, ChevronRight,
-} from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight } from 'lucide-react';
 import {
   type Eip1193Provider, type WalletBalances,
   getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
