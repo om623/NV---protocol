@@ -21,8 +21,11 @@ import {
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
-import { GlobalMarketsPanel } from './components/GlobalMarketsPanel';
 import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
+import { ExecutiveDashboard } from './components/ExecutiveDashboard';
+import { MarketGrid } from './components/MarketGrid';
+import { PortfolioCharts } from './components/PortfolioCharts';
+import { IntelligenceColumn } from './components/IntelligenceColumn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -37,7 +40,7 @@ const queryClient = new QueryClient();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface SimHistoryItem {
+export interface SimHistoryItem {
   id: string;
   datetime: string;
   roi: number;
@@ -539,196 +542,7 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
   );
 }
 
-// ─── MarketPanel ──────────────────────────────────────────────────────────────
-
-interface MarketCoin {
-  symbol: string;
-  name: string;
-  price: number;
-  change24h: number;
-  spark: number[];
-}
-
-function genSpark(base: number, vol: number, n = 24): number[] {
-  const pts: number[] = [];
-  let v = base;
-  for (let i = 0; i < n; i++) {
-    v += (Math.random() - 0.5) * vol;
-    pts.push(Math.max(0.01, v));
-  }
-  return pts;
-}
-
-const INITIAL_MARKET: MarketCoin[] = [
-  { symbol: 'BTC',  name: 'Bitcoin',    price: 67432.18, change24h:  2.34, spark: genSpark(67000, 800) },
-  { symbol: 'ETH',  name: 'Ethereum',   price: 3215.84,  change24h:  1.87, spark: genSpark(3200, 40) },
-  { symbol: 'SOL',  name: 'Solana',     price: 178.42,   change24h:  5.12, spark: genSpark(175, 3) },
-  { symbol: 'BNB',  name: 'BNB',        price: 612.30,   change24h: -0.84, spark: genSpark(610, 6) },
-  { symbol: 'POL',  name: 'Polygon',    price: 0.7234,   change24h: -1.52, spark: genSpark(0.72, 0.015) },
-  { symbol: 'LINK', name: 'Chainlink',  price: 18.94,    change24h:  3.41, spark: genSpark(18.5, 0.3) },
-  { symbol: 'ARB',  name: 'Arbitrum',   price: 1.234,    change24h: -2.18, spark: genSpark(1.25, 0.03) },
-  { symbol: 'OP',   name: 'Optimism',   price: 2.567,    change24h:  0.92, spark: genSpark(2.55, 0.05) },
-  { symbol: 'BASE', name: 'Base',       price: 1.891,    change24h:  4.27, spark: genSpark(1.85, 0.04) },
-];
-
-function Sparkline({ data, isPositive, symbol }: { data: number[]; isPositive: boolean; symbol: string }) {
-  const W = 100;
-  const H = 32;
-  const PAD = 2;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const stepX = (W - PAD * 2) / (data.length - 1);
-  const color = isPositive ? 'rgb(52, 211, 153)' : 'rgb(248, 113, 113)';
-  const pts = data.map((v, i) => {
-    const x = PAD + i * stepX;
-    const y = PAD + (H - PAD * 2) * (1 - (v - min) / range);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const linePts = pts.join(' ');
-  const areaPts = `${PAD},${H - PAD} ${linePts} ${W - PAD},${H - PAD}`;
-  const fillId = `sparkFill-${symbol}`;
-  const neonId = `sparkNeon-${symbol}`;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
-          <stop offset="85%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-        <filter id={neonId} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="1.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-      <polygon points={areaPts} fill={`url(#${fillId})`} />
-      <polyline points={linePts} fill="none" stroke={color} strokeWidth="1.4"
-        strokeLinecap="round" strokeLinejoin="round" filter={`url(#${neonId})`} />
-    </svg>
-  );
-}
-
-function MarketPanel() {
-  const [coins, setCoins] = useState<MarketCoin[]>(INITIAL_MARKET);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const refreshTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCoins(prev => prev.map(c => {
-        const drift = (Math.random() - 0.48) * 0.008;
-        const newPrice = Math.max(0.0001, c.price * (1 + drift));
-        const newChange = c.change24h + drift * 100;
-        const newSpark = [...c.spark.slice(1), newPrice];
-        return { ...c, price: newPrice, change24h: Math.max(-15, Math.min(15, newChange)), spark: newSpark };
-      }));
-    }, 4000);
-    return () => {
-      clearInterval(interval);
-      if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
-    };
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    setCoins(prev => prev.map(c => {
-      const drift = (Math.random() - 0.48) * 0.02;
-      const newPrice = Math.max(0.0001, c.price * (1 + drift));
-      const newChange = c.change24h + drift * 100;
-      const newSpark = [...c.spark.slice(1), newPrice];
-      return { ...c, price: newPrice, change24h: Math.max(-15, Math.min(15, newChange)), spark: newSpark };
-    }));
-    if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
-    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 600);
-  }, []);
-
-  const sorted = [...coins].sort((a, b) => b.change24h - a.change24h);
-  const topGainer = sorted[0]?.symbol;
-  const topLoser = sorted[sorted.length - 1]?.symbol;
-
-  const marketCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 hover:shadow-[0_4px_32px_rgba(0,0,0,0.4),0_0_18px_rgba(0,229,188,0.04)] transition-all duration-300";
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.4 }}
-      className={marketCard}>
-      <div className="p-5">
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/15 to-transparent mb-5 -mt-1" />
-        <div className="flex items-center justify-between mb-4 px-0.5">
-          <div className="flex items-center gap-2">
-            <TrendingUp size={16} className="text-primary" />
-            <h2 className="text-base font-semibold text-foreground tracking-wide">Mercado em Tempo Real</h2>
-          </div>
-          <button onClick={handleRefresh} disabled={refreshing}
-            className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
-            {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {coins.map((coin, i) => {
-            const isPositive = coin.change24h >= 0;
-            const isGainer = coin.symbol === topGainer;
-            const isLoser = coin.symbol === topLoser;
-            return (
-              <motion.div key={coin.symbol}
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.03, duration: 0.3 }}
-                className={`relative rounded-xl p-3 border transition-all duration-200 ${
-                  isGainer
-                    ? 'bg-emerald-500/5 border-emerald-500/25 shadow-[0_0_12px_rgba(52,211,153,0.08)]'
-                    : isLoser
-                    ? 'bg-red-500/5 border-red-500/25 shadow-[0_0_12px_rgba(248,113,113,0.08)]'
-                    : 'bg-secondary/25 border-border/30 hover:border-primary/10'
-                }`}>
-                {(isGainer || isLoser) && (
-                  <span className={`absolute -top-2 left-2 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${
-                    isGainer
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                      : 'bg-red-500/15 text-red-400 border-red-500/30'
-                  }`}>
-                    {isGainer ? 'TOP GAINER' : 'TOP LOSER'}
-                  </span>
-                )}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center text-[10px] font-bold text-primary font-mono shrink-0">
-                      {coin.symbol.slice(0, 2)}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-mono font-medium text-foreground">{coin.symbol}</span>
-                      <span className="text-[9px] text-muted-foreground/50">{coin.name}</span>
-                    </div>
-                  </div>
-                  <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {isPositive ? '+' : ''}{coin.change24h.toFixed(2)}%
-                  </div>
-                </div>
-                <div className="flex items-end justify-between gap-2">
-                  <span className="text-sm font-mono font-semibold text-foreground">
-                    ${coin.price < 1 ? coin.price.toFixed(4) : coin.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                  </span>
-                  <div className="w-20 shrink-0">
-                    <Sparkline data={coin.spark} isPositive={isPositive} symbol={coin.symbol} />
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
-          <span>Auto-atualização a cada 4s</span>
-          <span className="ml-auto">Dados simulados</span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+// ─── MarketPanel (removed — replaced by MarketGrid component) ─────────────────
 
 // ─── SidebarContent ───────────────────────────────────────────────────────────
 
@@ -792,176 +606,7 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
   );
 }
 
-// ─── RightPanel ───────────────────────────────────────────────────────────────
-
-const TIPS = [
-  'Use Testnet para validar estratégias sem risco real.',
-  'Pools com maior liquidez reduzem o slippage.',
-  'Monitore o gas em horários de menor tráfego.',
-  'Diversifique as rotas para maximizar o ROI.',
-  'Arbitrum Sepolia tem fees mínimos para testes.',
-];
-
-function RightPanel({ envMode, activeNetwork, simStats, simPhase, simId, simHistory, simProgress }: {
-  envMode: EnvMode;
-  activeNetwork: NetworkConfig;
-  simStats: { balance: number; roi: number; risk: number; execTime: number; poolsAnalyzed: number; opportunities: number };
-  simPhase: 'pipeline' | 'complete';
-  simId: string;
-  simHistory: SimHistoryItem[];
-  simProgress: number;
-}) {
-  const [tipIdx] = useState(() => Math.floor(Math.random() * TIPS.length));
-  const isRunning = simPhase === 'pipeline' && simStats.execTime > 0;
-
-  const panelCard = "bg-card/80 border border-border/50 rounded-2xl p-4 hover:border-primary/15 transition-all duration-300 hover:shadow-[0_0_16px_rgba(0,229,188,0.04)]";
-  const panelLabel = "text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3 flex items-center gap-1.5";
-  const fieldRow = "flex justify-between items-center text-xs py-1";
-
-  return (
-    <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
-
-      {/* Resumo da Simulação */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <BarChart2 size={11} className="text-primary" />
-          Resumo da Simulação
-        </div>
-        {simId ? (
-          <div className="space-y-1">
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">ID</span>
-              <span className="text-primary font-mono text-[11px]">{simId}</span>
-            </div>
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">Status</span>
-              <span className={`font-mono text-[11px] flex items-center gap-1 ${simPhase === 'complete' ? 'text-emerald-400' : isRunning ? 'text-cyan-400' : 'text-muted-foreground'}`}>
-                {simPhase === 'complete' ? <CheckCircle2 size={10} /> : isRunning ? <Loader2 size={10} className="animate-spin" /> : null}
-                {simPhase === 'complete' ? 'Concluído' : isRunning ? 'Em andamento' : 'Aguardando'}
-              </span>
-            </div>
-            {simProgress > 0 && simPhase === 'pipeline' && (
-              <div className="mt-2 mb-1">
-                <div className="flex justify-between text-[10px] font-mono text-muted-foreground/50 mb-1">
-                  <span>Progresso</span><span>{Math.round(simProgress)}%</span>
-                </div>
-                <div className="h-1 bg-secondary rounded-full overflow-hidden">
-                  <motion.div className="h-full bg-gradient-to-r from-primary to-emerald-400 rounded-full"
-                    style={{ width: `${simProgress}%` }} transition={{ ease: 'linear' }} />
-                </div>
-              </div>
-            )}
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">ROI</span>
-              <span className="text-emerald-400 font-mono text-[11px]">+{simStats.roi.toFixed(2)}%</span>
-            </div>
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">Risco</span>
-              <span className="text-yellow-400 font-mono text-[11px]">{simStats.risk.toFixed(1)}%</span>
-            </div>
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">Pools</span>
-              <span className="text-violet-400 font-mono text-[11px]">{simStats.poolsAnalyzed}</span>
-            </div>
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground/40 font-mono">Nenhuma simulação iniciada.</p>
-        )}
-      </div>
-
-      {/* Oportunidade Atual */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <Target size={11} className="text-orange-400" />
-          Oportunidade Atual
-        </div>
-        <div className="space-y-2">
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Oportunidades</span>
-            <span className="text-orange-400 font-mono text-[11px] font-bold">{simStats.opportunities}</span>
-          </div>
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Estratégia</span>
-            <span className="text-foreground font-mono text-[10px]">Arbitrum v2</span>
-          </div>
-          <div className="mt-1">
-            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-orange-500 to-amber-400 rounded-full"
-                animate={{ width: `${Math.min(100, (simStats.opportunities / 7) * 100)}%` }}
-                transition={{ ease: 'easeOut', duration: 0.6 }}
-              />
-            </div>
-            <div className="text-[9px] text-muted-foreground/40 font-mono mt-1 text-right">{simStats.opportunities}/7 slots</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Atividade da Rede */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <Activity size={11} className="text-cyan-400" />
-          Atividade da Rede
-        </div>
-        <div className="space-y-1">
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Rede</span>
-            <span className="text-foreground font-mono text-[10px]">{activeNetwork.name}</span>
-          </div>
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Chain ID</span>
-            <span className="text-cyan-400 font-mono text-[11px]">{activeNetwork.chainId}</span>
-          </div>
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Modo</span>
-            <span className={`font-mono text-[11px] ${envMode === 'testnet' ? 'text-green-400' : 'text-amber-400'}`}>
-              {envMode === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-border/30">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground/50 font-mono">Rede ativa</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Histórico rápido */}
-      {simHistory.length > 0 && (
-        <div className={panelCard}>
-          <div className={panelLabel}>
-            <History size={11} className="text-primary" />
-            Histórico Recente
-            <span className="ml-auto bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px]">{simHistory.length}</span>
-          </div>
-          <div className="space-y-1.5">
-            {simHistory.slice(0, 4).map(item => (
-              <div key={item.id} className="flex items-center justify-between bg-secondary/30 rounded-lg px-2.5 py-1.5">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-mono text-primary">{item.id}</span>
-                  <span className="text-[8px] text-muted-foreground/40 font-mono">{item.duration.toFixed(1)}s</span>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-400">+{item.roi.toFixed(2)}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Dica */}
-      <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 hover:border-primary/25 transition-all duration-300">
-        <div className={panelLabel + ' !text-primary/60'}>
-          <Zap size={11} className="text-primary" />
-          Dica NV Protocol
-        </div>
-        <p className="text-[11px] text-muted-foreground/70 leading-relaxed font-mono">{TIPS[tipIdx]}</p>
-      </div>
-
-      {/* Global Markets */}
-      <GlobalMarketsPanel />
-
-    </aside>
-  );
-}
+// ─── RightPanel (removed — replaced by IntelligenceColumn component) ──────────
 
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
@@ -1590,44 +1235,19 @@ function Home() {
               {activeView === 'dashboard' && (
                 <>
 
-              {/* ── Portfolio card ──────────────────────────────────────── */}
-              <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}
-                className={nvCard}>
-                <div className="p-5">
-                  {/* Neon separator top */}
-                  <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-5 -mt-1" />
-                  <div className="flex flex-col gap-0.5 mb-4">
-                    <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">Portfolio Overview</span>
-                    <div className="text-3xl font-mono font-semibold text-foreground mt-1">
-                      {realBalances
-                        ? `${((realBalances.usdc + realBalances.eurc * 1.087 + realBalances.eth * 3215.84)).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`
-                        : '$46,382.17'}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-green-400 text-sm mt-1">
-                      <TrendingUp size={13} /><span>+2.8% today</span>
-                    </div>
-                  </div>
-                  <div className="h-px w-full bg-border/40 my-4" />
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {[
-                      { sym: 'USDC', amt: realBalances?.usdc ?? 5420.18 },
-                      { sym: 'EURC', amt: realBalances?.eurc ?? 3200.50 },
-                      { sym: 'ETH',  amt: realBalances?.eth  ?? 12.48 },
-                    ].map(({ sym, amt }) => {
-                      const usd = sym === 'ETH' ? amt * 3215.84 : sym === 'EURC' ? amt * 1.087 : amt;
-                      return (
-                        <div key={sym} className="flex items-center gap-2 bg-secondary/40 hover:bg-secondary/60 rounded-xl py-2 px-3 border border-border/30 hover:border-primary/15 whitespace-nowrap transition-all duration-200 cursor-pointer">
-                          <TokenCryptoIcon symbol={sym} className="w-5 h-5 ring-0" />
-                          <span className="text-sm font-mono"><span className="text-muted-foreground/60">{sym}</span> <span className="text-foreground/90">{amt.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} · ${usd.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span></span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </motion.div>
+              {/* ── Executive Dashboard ──────────────────────────────────── */}
+              <ExecutiveDashboard
+                envMode={envMode}
+                activeNetwork={activeNetwork}
+                realBalances={realBalances}
+                simStats={simStats}
+              />
 
-              {/* ── Market panel ──────────────────────────────────────── */}
-              <MarketPanel />
+              {/* ── Market grid ──────────────────────────────────────── */}
+              <MarketGrid />
+
+              {/* ── Portfolio charts ──────────────────────────────────── */}
+              <PortfolioCharts />
 
               {/* ── Swap card ───────────────────────────────────────────── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.4 }}
@@ -1812,8 +1432,8 @@ function Home() {
             </div>
           </main>
 
-          {/* ── Right panel ─────────────────────────────────────────────── */}
-          <RightPanel
+          {/* ── Intelligence column ──────────────────────────────────── */}
+          <IntelligenceColumn
             envMode={envMode}
             activeNetwork={activeNetwork}
             simStats={simStats}
