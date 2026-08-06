@@ -12,6 +12,7 @@ import {
   transferNative, transferErc20, getAllBalances, shortAddress,
   ARC_TOKENS,
 } from './lib/arc';
+import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
@@ -1709,9 +1710,27 @@ function Router() {
 }
 
 function App() {
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      return sessionStorage.getItem('nv_splash_seen') !== '1';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleSplashFinish = () => {
+    try {
+      sessionStorage.setItem('nv_splash_seen', '1');
+    } catch {
+      // ignore
+    }
+    setShowSplash(false);
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
           <Router />
         </WouterRouter>

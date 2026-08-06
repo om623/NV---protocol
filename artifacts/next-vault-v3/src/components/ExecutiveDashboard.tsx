@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Wallet, Activity, Droplets,
-  Radio, Zap, ArrowUpRight, ArrowDownRight,
+  Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye,
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
+import { getMarketSentiment, formatVolume } from '../lib/marketData';
 
 interface ExecutiveDashboardProps {
   envMode: EnvMode;
@@ -28,12 +29,30 @@ const ACTIVITY_SEED = [
   { label: 'Pool liquidity added', time: '14m', positive: false, amount: '-$1,200' },
   { label: 'Yield harvested',   time: '1h',  positive: true,  amount: '+$82.4' },
   { label: 'Swap EURC → USDC',  time: '3h',  positive: true,  amount: '+$217' },
+  { label: 'Gas optimization',  time: '5h',  positive: true,  amount: '+$12.8' },
 ];
+
+function sentimentColor(idx: number): string {
+  if (idx >= 75) return 'text-emerald-400';
+  if (idx >= 55) return 'text-green-400';
+  if (idx >= 45) return 'text-yellow-400';
+  if (idx >= 25) return 'text-orange-400';
+  return 'text-red-400';
+}
+
+function sentimentBg(idx: number): string {
+  if (idx >= 75) return 'from-emerald-500 to-green-400';
+  if (idx >= 55) return 'from-green-500 to-emerald-400';
+  if (idx >= 45) return 'from-yellow-500 to-amber-400';
+  if (idx >= 25) return 'from-orange-500 to-amber-400';
+  return 'from-red-500 to-orange-400';
+}
 
 export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simStats }: ExecutiveDashboardProps) {
   const [sparkData, setSparkData] = useState<number[]>(() =>
-    Array.from({ length: 24 }, (_, i) => 44200 + Math.sin(i / 3) * 1200 + Math.random() * 400),
+    Array.from({ length: 28 }, (_, i) => 44200 + Math.sin(i / 3) * 1200 + Math.random() * 400),
   );
+  const [sentiment, setSentiment] = useState(() => getMarketSentiment());
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -42,6 +61,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
         const next = Math.max(38000, last + (Math.random() - 0.48) * 600);
         return [...prev.slice(1), next];
       });
+      setSentiment(getMarketSentiment());
     }, 3000);
     return () => clearInterval(iv);
   }, []);
@@ -52,13 +72,13 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
 
   const dailyPnl = useMemo(() => totalPatrimony * 0.028, [totalPatrimony]);
   const roiValue = simStats.roi > 0 ? simStats.roi : 8.47;
-  const tvl = 128_450_000; // simulated
+  const tvl = 128_450_000;
 
   const stats: ExecStat[] = [
     { label: 'Patrimônio', value: `$${totalPatrimony.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, delta: '+2.8%', deltaPositive: true, Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
     { label: 'Lucro Diário', value: `+$${dailyPnl.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, delta: '+0.42%', deltaPositive: true, Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
     { label: 'ROI', value: `+${roiValue.toFixed(2)}%`, delta: `${simStats.risk.toFixed(1)}% risk`, deltaPositive: false, Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
-    { label: 'Liquidez', value: '$12.4M', delta: '3 pools', deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
+    { label: 'Liquidez', value: formatVolume(sentiment.totalVolume), delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ativos`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: 'TVL', value: `$${(tvl / 1e6).toFixed(1)}M`, delta: '+1.2%', deltaPositive: true, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: 'Rede', value: activeNetwork.shortName, delta: envMode === 'testnet' ? 'TESTNET' : 'MAINNET', deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
   ];
@@ -98,12 +118,12 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
           <svg viewBox={`0 0 ${sparkW} ${sparkH}`} className="w-[200px] shrink-0" style={{ height: sparkH }} preserveAspectRatio="none">
             <defs>
               <linearGradient id="execSpark" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(0,229,188)" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="rgb(0,229,188)" stopOpacity="0" />
+                <stop offset="0%" stopColor="rgb(0,229,188)" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="rgb(0,229,188)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <polygon points={`0,${sparkH} ${pts.join(' ')} ${sparkW},${sparkH}`} fill="url(#execSpark)" />
-            <polyline points={pts.join(' ')} fill="none" stroke="rgb(0,229,188)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={pts.join(' ')} fill="none" stroke="rgb(0,229,188)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
@@ -130,6 +150,49 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
               )}
             </motion.div>
           ))}
+        </div>
+
+        {/* Market sentiment bar */}
+        <div className="bg-secondary/25 border border-border/30 rounded-xl p-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Gauge size={12} className={sentimentColor(sentiment.fearGreedIndex)} />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">Sentimento do Mercado</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-mono font-bold ${sentimentColor(sentiment.fearGreedIndex)}`}>{sentiment.fearGreedIndex}</span>
+              <span className={`text-[10px] font-mono ${sentimentColor(sentiment.fearGreedIndex)}`}>{sentiment.label}</span>
+            </div>
+          </div>
+          <div className="h-2 w-full bg-secondary/60 rounded-full overflow-hidden relative">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r ${sentimentBg(sentiment.fearGreedIndex)} transition-all duration-700`}
+              style={{ width: `${sentiment.fearGreedIndex}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-2 text-[9px] font-mono text-muted-foreground/40">
+            <span>Extreme Fear</span>
+            <span>Neutral</span>
+            <span>Extreme Greed</span>
+          </div>
+          <div className="flex items-center gap-4 mt-3 pt-2 border-t border-border/20">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp size={10} className="text-emerald-400" />
+              <span className="text-[10px] font-mono text-emerald-400">{sentiment.bullishCount} Bull</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Activity size={10} className="text-muted-foreground" />
+              <span className="text-[10px] font-mono text-muted-foreground/60">{sentiment.neutralCount} Neutral</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <TrendingDown size={10} className="text-red-400" />
+              <span className="text-[10px] font-mono text-red-400">{sentiment.bearishCount} Bear</span>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <Eye size={10} className="text-primary" />
+              <span className="text-[10px] font-mono text-muted-foreground/50">Vol {formatVolume(sentiment.totalVolume)}</span>
+            </div>
+          </div>
         </div>
 
         {/* Recent activity strip */}
