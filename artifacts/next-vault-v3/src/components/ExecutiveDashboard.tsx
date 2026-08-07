@@ -5,7 +5,7 @@ import {
   Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye,
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
-import { getMarketSentiment, formatVolume } from '../lib/marketData';
+import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
 
 interface ExecutiveDashboardProps {
   envMode: EnvMode;
@@ -66,20 +66,23 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
     return () => clearInterval(iv);
   }, []);
 
+  const ethPrice = getAsset('ETH')?.price ?? 3215.84;
+  const eurcPrice = getAsset('EURC')?.price ?? 1.087;
+
   const totalPatrimony = realBalances
-    ? realBalances.usdc + realBalances.eurc * 1.087 + realBalances.eth * 3215.84
+    ? realBalances.usdc + realBalances.eurc * eurcPrice + realBalances.eth * ethPrice
     : 46382.17;
 
   const dailyPnl = useMemo(() => totalPatrimony * 0.028, [totalPatrimony]);
   const roiValue = simStats.roi > 0 ? simStats.roi : 8.47;
-  const tvl = 128_450_000;
+  const tvl = sentiment.totalTvl;
 
   const stats: ExecStat[] = [
     { label: 'Patrimônio', value: `$${totalPatrimony.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, delta: '+2.8%', deltaPositive: true, Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
     { label: 'Lucro Diário', value: `+$${dailyPnl.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, delta: '+0.42%', deltaPositive: true, Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
     { label: 'ROI', value: `+${roiValue.toFixed(2)}%`, delta: `${simStats.risk.toFixed(1)}% risk`, deltaPositive: false, Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
     { label: 'Liquidez', value: formatVolume(sentiment.totalVolume), delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ativos`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
-    { label: 'TVL', value: `$${(tvl / 1e6).toFixed(1)}M`, delta: '+1.2%', deltaPositive: true, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
+    { label: 'TVL', value: tvl > 0 ? `$${(tvl / 1e9).toFixed(2)}B` : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: 'Rede', value: activeNetwork.shortName, delta: envMode === 'testnet' ? 'TESTNET' : 'MAINNET', deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
   ];
 
@@ -187,6 +190,10 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
             <div className="flex items-center gap-1.5">
               <TrendingDown size={10} className="text-red-400" />
               <span className="text-[10px] font-mono text-red-400">{sentiment.bearishCount} Bear</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Activity size={10} className="text-amber-400" />
+              <span className="text-[10px] font-mono text-amber-400">BTC {sentiment.btcDominance.toFixed(1)}%</span>
             </div>
             <div className="ml-auto flex items-center gap-1.5">
               <Eye size={10} className="text-primary" />

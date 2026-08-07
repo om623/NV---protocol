@@ -30,6 +30,7 @@ import {
   SIMULATED_WALLET_CHAIN_ID,
   ARC_TESTNET_CHAIN_PARAMS,
 } from './networks';
+import { getAsset, refreshFromApis } from './lib/marketData';
 
 const queryClient = new QueryClient();
 
@@ -60,11 +61,13 @@ const TOKENS = [
 
 const MOCK_BALANCES: Record<string, number> = { USDC: 5420.18, EURC: 3200.50, ETH: 12.48 };
 
-const EXCHANGE_RATES: Record<string, number> = {
-  'USDC-EURC': 0.92, 'USDC-ETH': 0.000311,
-  'EURC-USDC': 1.087, 'EURC-ETH': 0.000338,
-  'ETH-USDC': 3215.84, 'ETH-EURC': 2960.50,
-};
+// Live exchange rates are derived from real CoinGecko prices via getAsset().
+// Falls back to reasonable defaults if the API hasn't loaded yet.
+const FALLBACK_PRICES: Record<string, number> = { USDC: 1, EURC: 1.087, ETH: 3215.84 };
+function livePrice(symbol: string): number {
+  const a = getAsset(symbol);
+  return a ? a.price : (FALLBACK_PRICES[symbol] ?? 1);
+}
 
 const INITIAL_TRANSACTIONS = [
   { id: '1', fromToken: 'USDC', toToken: 'EURC', fromAmount: 500, toAmount: 460.0, time: '2 min ago', status: 'Success' },
@@ -127,8 +130,14 @@ const SIDEBAR_ITEMS: { label: string; Icon: typeof LayoutDashboard; view: Sideba
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const getRate = (from: string, to: string) => from === to ? 1.0 : (EXCHANGE_RATES[`${from}-${to}`] || 0);
-const getUsdRate = (token: string) => token === 'ETH' ? 3215.84 : 1.0;
+const getRate = (from: string, to: string) => {
+  if (from === to) return 1.0;
+  const fromPrice = livePrice(from);
+  const toPrice = livePrice(to);
+  if (toPrice === 0) return 0;
+  return fromPrice / toPrice;
+};
+const getUsdRate = (token: string) => livePrice(token);
 const formatRate = (rate: number) => rate < 0.01 ? rate.toFixed(6) : rate < 1 ? rate.toFixed(4) : rate.toFixed(2);
 
 function getNextSimId(): string {
@@ -657,6 +666,14 @@ function Home() {
   const miscTimers = useRef<number[]>([]);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
+
+  // Fetch live market data from public APIs on mount, then every 60s (cache handles dedup).
+  useEffect(() => {
+    refreshFromApis().catch(() => {});
+    const iv = setInterval(() => refreshFromApis().catch(() => {}), 60000);
+    return () => clearInterval(iv);
+  }, []);
+
   useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
 
   // Centralised unmount cleanup — clears every timer that escapes clearSim.
