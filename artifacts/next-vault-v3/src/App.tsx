@@ -666,14 +666,6 @@ function Home() {
   const miscTimers = useRef<number[]>([]);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
-
-  // Fetch live market data from public APIs on mount, then every 60s (cache handles dedup).
-  useEffect(() => {
-    refreshFromApis().catch(() => {});
-    const iv = setInterval(() => refreshFromApis().catch(() => {}), 60000);
-    return () => clearInterval(iv);
-  }, []);
-
   useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
 
   // Centralised unmount cleanup — clears every timer that escapes clearSim.
