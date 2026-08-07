@@ -1,6 +1,11 @@
-// ─── Global Market Data (simulated, realistic) ────────────────────────────────
+// ─── Global Market Data — real API integration with simulated fallback ──────
 
-export type MarketCategory = 'fiat' | 'commodities' | 'indices' | 'crypto';
+import {
+  type CoinGeckoCoin, type GlobalMarketData, type FearGreedData,
+  fetchCryptoPrices, fetchGlobalMarket, fetchFearGreed, fetchTotalTvl,
+} from './api';
+
+export type MarketCategory = 'fiat' | 'commodities' | 'indices' | 'crypto' | 'stablecoins';
 
 export type TrendStatus = 'bullish' | 'bearish' | 'neutral';
 
@@ -17,6 +22,8 @@ export interface MarketAsset {
   trend: TrendStatus;
   change7d: number;
   rsi: number;
+  /** Whether the current price comes from a real API (true) or simulated fallback (false) */
+  isLive: boolean;
 }
 
 export interface MarketGroup {
@@ -34,6 +41,10 @@ export interface MarketSentiment {
   totalVolume: number;
   totalMarketCap: number;
   dominantTrend: TrendStatus;
+  btcDominance: number;
+  ethDominance: number;
+  totalTvl: number;
+  isLive: boolean;
 }
 
 export interface PoolData {
@@ -56,6 +67,8 @@ export interface OpportunityData {
   risk: 'Low' | 'Medium' | 'High';
   timeWindow: string;
 }
+
+// ─── Simulated fallback helpers ──────────────────────────────────────────────
 
 function rngChange(base: number, spread: number): number {
   return +(base + (Math.random() - 0.5) * spread).toFixed(2);
@@ -83,6 +96,7 @@ function baseVolume(category: MarketCategory): number {
     case 'commodities': return 85_000_000;
     case 'indices':     return 220_000_000;
     case 'fiat':        return 450_000_000;
+    case 'stablecoins': return 800_000_000;
   }
 }
 
@@ -92,6 +106,7 @@ function baseMarketCap(category: MarketCategory, price: number): number {
     case 'commodities': return price * 50_000_000;
     case 'indices':     return price * 2_000_000;
     case 'fiat':        return price * 100_000_000;
+    case 'stablecoins': return price * 5_000_000_000;
   }
 }
 
@@ -106,6 +121,8 @@ interface BaseAsset {
   price: number;
   decimals: number;
   change7d: number;
+  /** CoinGecko coin id for real price fetch (crypto/stablecoins only) */
+  coinGeckoId?: string;
 }
 
 const BASE_ASSETS: BaseAsset[] = [
@@ -130,12 +147,17 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'VIX', name: 'Volatility Index', category: 'indices',     price: 14.27,      decimals: 2, change7d: -5.2 },
 
   // CRYPTO
-  { symbol: 'BTC', name: 'Bitcoin',          category: 'crypto',      price: 67432.18,   decimals: 2, change7d: 4.2 },
-  { symbol: 'ETH', name: 'Ethereum',         category: 'crypto',      price: 3215.84,    decimals: 2, change7d: 3.8 },
-  { symbol: 'SOL', name: 'Solana',           category: 'crypto',      price: 168.43,     decimals: 2, change7d: 7.1 },
-  { symbol: 'ARB', name: 'Arbitrum',         category: 'crypto',      price: 0.92,       decimals: 4, change7d: 5.3 },
-  { symbol: 'OP',  name: 'Optimism',         category: 'crypto',      price: 1.78,       decimals: 4, change7d: 4.1 },
-  { symbol: 'LINK',name: 'Chainlink',        category: 'crypto',      price: 14.27,      decimals: 2, change7d: 2.4 },
+  { symbol: 'BTC',  name: 'Bitcoin',         category: 'crypto',      price: 67432.18,   decimals: 2, change7d: 4.2,  coinGeckoId: 'bitcoin' },
+  { symbol: 'ETH',  name: 'Ethereum',        category: 'crypto',      price: 3215.84,    decimals: 2, change7d: 3.8,  coinGeckoId: 'ethereum' },
+  { symbol: 'SOL',  name: 'Solana',          category: 'crypto',      price: 168.43,     decimals: 2, change7d: 7.1,  coinGeckoId: 'solana' },
+  { symbol: 'ARB',  name: 'Arbitrum',        category: 'crypto',      price: 0.92,       decimals: 4, change7d: 5.3,  coinGeckoId: 'arbitrum' },
+  { symbol: 'OP',   name: 'Optimism',        category: 'crypto',      price: 1.78,       decimals: 4, change7d: 4.1,  coinGeckoId: 'optimism' },
+  { symbol: 'LINK', name: 'Chainlink',       category: 'crypto',      price: 14.27,      decimals: 2, change7d: 2.4,  coinGeckoId: 'chainlink' },
+
+  // STABLECOINS
+  { symbol: 'USDC', name: 'USD Coin',        category: 'stablecoins', price: 1.0,        decimals: 4, change7d: 0,    coinGeckoId: 'usd-coin' },
+  { symbol: 'USDT', name: 'Tether',          category: 'stablecoins', price: 1.0,        decimals: 4, change7d: 0,    coinGeckoId: 'tether' },
+  { symbol: 'EURC', name: 'Euro Coin',       category: 'stablecoins', price: 1.087,      decimals: 4, change7d: 0.8,  coinGeckoId: 'eurocoin' },
 ];
 
 const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
@@ -143,6 +165,7 @@ const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
   commodities: 2.5,
   indices: 1.4,
   crypto: 5.5,
+  stablecoins: 0.2,
 };
 
 function seedAssets(): MarketAsset[] {
@@ -150,18 +173,96 @@ function seedAssets(): MarketAsset[] {
     const change = rngChange(0, TYPICAL_VOLATILITY[a.category]);
     const vol = baseVolume(a.category) * (0.7 + Math.random() * 0.6);
     return {
-      ...a,
+      symbol: a.symbol,
+      name: a.name,
+      category: a.category,
+      price: a.price,
       change24h: change,
+      decimals: a.decimals,
       volume24h: vol,
       marketCap: baseMarketCap(a.category, a.price),
       spark: genSpark(a.price, a.price * TYPICAL_VOLATILITY[a.category] / 100),
       trend: deriveTrend(change),
+      change7d: a.change7d,
       rsi: genRsi(),
+      isLive: false,
     };
   });
 }
 
+// ─── Live asset store ────────────────────────────────────────────────────────
+
 const CURRENT_ASSETS: MarketAsset[] = seedAssets();
+
+// Real data cache (updated by refreshFromApis)
+let liveGlobal: GlobalMarketData | null = null;
+let liveFearGreed: FearGreedData | null = null;
+let liveTvl = 0;
+let lastApiRefresh = 0;
+const API_REFRESH_INTERVAL = 60_000; // 1 minute minimum between API calls
+
+/**
+ * Fetch real data from public APIs and merge into CURRENT_ASSETS.
+ * Called automatically on an interval; also safe to call manually.
+ * Does nothing if called within API_REFRESH_INTERVAL of the last call.
+ */
+export async function refreshFromApis(): Promise<void> {
+  if (Date.now() - lastApiRefresh < API_REFRESH_INTERVAL) return;
+  lastApiRefresh = Date.now();
+
+  try {
+    const [priceMap, global, fng, tvl] = await Promise.all([
+      fetchCryptoPrices(),
+      fetchGlobalMarket(),
+      fetchFearGreed(),
+      fetchTotalTvl(),
+    ]);
+
+    // Merge real crypto prices into assets
+    for (const asset of CURRENT_ASSETS) {
+      const coin = priceMap.get(asset.symbol);
+      if (coin) {
+        asset.price = coin.current_price ?? asset.price;
+        asset.change24h = coin.price_change_percentage_24h ?? asset.change24h;
+        asset.change7d = coin.price_change_percentage_7d ?? asset.change7d;
+        asset.volume24h = coin.total_volume ?? asset.volume24h;
+        asset.marketCap = coin.market_cap ?? asset.marketCap;
+        if (coin.sparkline_in_7d?.price?.length) {
+          // Take last 24 points for 24h sparkline
+          const spark = coin.sparkline_in_7d.price;
+          asset.spark = spark.slice(-24);
+        }
+        asset.trend = deriveTrend(asset.change24h);
+        // Approximate RSI from recent sparkline direction
+        if (asset.spark.length >= 14) {
+          const recent = asset.spark.slice(-14);
+          const gains = recent.slice(1).filter((v, i) => v > recent[i]);
+          const losses = recent.slice(1).filter((v, i) => v < recent[i]);
+          const avgGain = gains.reduce((s, v) => s + (v - recent[gains.indexOf(v)]), 0) / Math.max(1, gains.length);
+          const avgLoss = losses.reduce((s, v) => s + (recent[losses.indexOf(v) + 1] - v), 0) / Math.max(1, losses.length);
+          const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+          asset.rsi = Math.round(Math.max(15, Math.min(85, 100 - 100 / (1 + rs))));
+        }
+        asset.isLive = true;
+      }
+    }
+
+    liveGlobal = global;
+    liveFearGreed = fng;
+    liveTvl = tvl;
+  } catch {
+    // Keep existing data (simulated fallback remains)
+  }
+}
+
+// Start background refresh on module load
+refreshFromApis();
+// Periodic refresh every 60s
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => { refreshFromApis(); }, 60_000);
+}
+
+// ─── Exported API (same interface as before, now backed by real data) ────────
 
 export function getMarketGroups(): MarketGroup[] {
   const labels: Record<MarketCategory, string> = {
@@ -169,8 +270,9 @@ export function getMarketGroups(): MarketGroup[] {
     commodities: 'Commodities',
     indices: 'Índices',
     crypto: 'Crypto',
+    stablecoins: 'Stablecoins',
   };
-  const order: MarketCategory[] = ['fiat', 'commodities', 'indices', 'crypto'];
+  const order: MarketCategory[] = ['fiat', 'commodities', 'indices', 'crypto', 'stablecoins'];
   return order.map(id => ({
     id,
     label: labels[id],
@@ -187,7 +289,9 @@ export function getAsset(symbol: string): MarketAsset | undefined {
 }
 
 export function refreshGlobalMarkets(): MarketAsset[] {
+  // Light simulated drift for non-live assets (keeds UI animated between API refreshes)
   for (const a of CURRENT_ASSETS) {
+    if (a.isLive) continue;
     const drift = (Math.random() - 0.48) * 0.012;
     a.price = Math.max(0.0001, +(a.price * (1 + drift)).toFixed(a.decimals));
     a.change24h = Math.max(-15, Math.min(15, +(a.change24h + drift * 100).toFixed(2)));
@@ -201,6 +305,7 @@ export function refreshGlobalMarkets(): MarketAsset[] {
 }
 
 export async function fetchGlobalMarkets(): Promise<MarketAsset[]> {
+  await refreshFromApis();
   return CURRENT_ASSETS;
 }
 
@@ -217,24 +322,49 @@ export function formatMarketCap(v: number): string {
 
 export function getMarketSentiment(): MarketSentiment {
   const crypto = CURRENT_ASSETS.filter(a => a.category === 'crypto');
-  const bullish = crypto.filter(a => a.trend === 'bullish').length;
-  const bearish = crypto.filter(a => a.trend === 'bearish').length;
-  const neutral = crypto.filter(a => a.trend === 'neutral').length;
+  const stable = CURRENT_ASSETS.filter(a => a.category === 'stablecoins');
+  const allTradable = [...crypto, ...stable];
+  const bullish = allTradable.filter(a => a.trend === 'bullish').length;
+  const bearish = allTradable.filter(a => a.trend === 'bearish').length;
+  const neutral = allTradable.filter(a => a.trend === 'neutral').length;
   const totalVolume = CURRENT_ASSETS.reduce((s, a) => s + a.volume24h, 0);
   const totalMarketCap = CURRENT_ASSETS.reduce((s, a) => s + a.marketCap, 0);
 
-  const fearGreedIndex = Math.round(40 + (bullish / Math.max(1, crypto.length)) * 45);
-  const label = fearGreedIndex >= 75 ? 'Extreme Greed' :
-                fearGreedIndex >= 55 ? 'Greed' :
-                fearGreedIndex >= 45 ? 'Neutral' :
-                fearGreedIndex >= 25 ? 'Fear' : 'Extreme Fear';
+  // Use real Fear & Greed if available, otherwise derive from trends
+  let fearGreedIndex: number;
+  let label: string;
+  const isLive = liveFearGreed !== null;
+
+  if (liveFearGreed) {
+    fearGreedIndex = liveFearGreed.value;
+    label = liveFearGreed.classification;
+  } else {
+    fearGreedIndex = Math.round(40 + (bullish / Math.max(1, allTradable.length)) * 45);
+    label = fearGreedIndex >= 75 ? 'Extreme Greed' :
+            fearGreedIndex >= 55 ? 'Greed' :
+            fearGreedIndex >= 45 ? 'Neutral' :
+            fearGreedIndex >= 25 ? 'Fear' : 'Extreme Fear';
+  }
 
   const dominantTrend: TrendStatus = bullish > bearish ? 'bullish' : bearish > bullish ? 'bearish' : 'neutral';
 
-  return { fearGreedIndex, label, bullishCount: bullish, bearishCount: bearish, neutralCount: neutral, totalVolume, totalMarketCap, dominantTrend };
+  return {
+    fearGreedIndex,
+    label,
+    bullishCount: bullish,
+    bearishCount: bearish,
+    neutralCount: neutral,
+    totalVolume,
+    totalMarketCap,
+    dominantTrend,
+    btcDominance: liveGlobal?.btcDominance ?? 0,
+    ethDominance: liveGlobal?.ethDominance ?? 0,
+    totalTvl: liveTvl || 0,
+    isLive,
+  };
 }
 
-// ─── Simulated liquidity pools ───────────────────────────────────────────────
+// ─── Simulated liquidity pools (placeholder for future on-chain integration) ─
 
 const SIM_POOLS: PoolData[] = [
   { pair: 'USDC / EURC',  protocol: 'ArcSwap',   tvl: 4_280_000,  apr: 8.4,  volume24h: 1_240_000, risk: 'Low',    reserves: [2_140_000, 1_968_220], chain: 'Arc Testnet' },
