@@ -6,24 +6,46 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import { TrendingUp, ChartPie as PieIcon, ChartBar as BarChart2, Activity } from 'lucide-react';
+import { fetchPriceChart } from '../lib/api';
 
-// ─── Portfolio Evolution (Area) — 30-day richer dataset ───────────────────────
+// ─── Portfolio Evolution (Area) — real 30-day ETH price from CoinGecko ────────
 
-function genEvolutionData() {
-  const days = Array.from({ length: 30 }, (_, i) => `D${i + 1}`);
+interface EvolPoint { day: string; value: number; benchmark: number; }
+
+function genFallbackEvolution(): EvolPoint[] {
   let base = 43200;
-  return days.map(d => {
+  return Array.from({ length: 30 }, (_, i) => {
     base += (Math.random() - 0.42) * 1400;
-    return { day: d, value: Math.round(base), benchmark: Math.round(base * 0.94 + Math.random() * 800) };
+    return { day: `D${i + 1}`, value: Math.round(base), benchmark: Math.round(base * 0.94) };
   });
 }
 
 function EvolutionChart() {
-  const [data, setData] = useState(genEvolutionData);
+  const [data, setData] = useState<EvolPoint[]>(genFallbackEvolution);
 
   useEffect(() => {
-    const iv = setInterval(() => setData(genEvolutionData()), 8000);
-    return () => clearInterval(iv);
+    let alive = true;
+    fetchPriceChart('ethereum', 30).then(prices => {
+      if (!alive || prices.length < 2) return;
+      const benchmark = prices.map(p => p.v * 0.94);
+      setData(prices.map((p, i) => ({
+        day: `D${i + 1}`,
+        value: Math.round(p.v),
+        benchmark: Math.round(benchmark[i]),
+      })));
+    }).catch(() => {});
+    const iv = setInterval(() => {
+      fetchPriceChart('ethereum', 30).then(prices => {
+        if (!alive || prices.length < 2) return;
+        const benchmark = prices.map(p => p.v * 0.94);
+        setData(prices.map((p, i) => ({
+          day: `D${i + 1}`,
+          value: Math.round(p.v),
+          benchmark: Math.round(benchmark[i]),
+        })));
+      }).catch(() => {});
+    }, 60000);
+    return () => { alive = false; clearInterval(iv); };
   }, []);
 
   const totalChange = data.length > 1 ? data[data.length - 1].value - data[0].value : 0;
