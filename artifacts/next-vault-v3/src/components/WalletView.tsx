@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Wallet, RefreshCw, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
+import { Wallet, RefreshCw, Loader as Loader2, Copy, Check, ExternalLink } from 'lucide-react';
 import { type Eip1193Provider, getAllBalances, shortAddress, getProvider, getAccounts, getTokensForNetwork } from '../lib/arc';
 import type { NetworkConfig } from '../networks';
 import { getAsset } from '../lib/marketData';

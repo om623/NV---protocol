@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Database, TrendingUp, Plus, RefreshCw, Loader2 } from 'lucide-react';
+import { Database, TrendingUp, Plus, RefreshCw, Loader as Loader2 } from 'lucide-react';
 import { type Eip1193Provider, type PoolInfo, getPools } from '../lib/arc';
 
 interface PoolsViewProps {
