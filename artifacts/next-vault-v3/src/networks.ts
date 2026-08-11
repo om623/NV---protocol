@@ -6,6 +6,15 @@
 
 export type EnvMode = 'testnet' | 'mainnet';
 
+export interface TokenConfig {
+  symbol: string;
+  name: string;
+  decimals: number;
+  /** ERC-20 contract address on this network, or null for the native gas token */
+  address: string | null;
+  isNative: boolean;
+}
+
 export interface NetworkConfig {
   id: string;
   /** Full human-readable name */
@@ -25,6 +34,8 @@ export interface NetworkConfig {
   nativeCurrency: { symbol: string; decimals: number };
   /** Network status shown in the Central de Redes */
   status: 'online' | 'unstable' | 'offline';
+  /** Tokens supported on this network for the Swap UI */
+  tokens: TokenConfig[];
 }
 
 export const NETWORKS_CONFIG: NetworkConfig[] = [
@@ -41,6 +52,11 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://testnet.arcscan.app',
     nativeCurrency: { symbol: 'USDC', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'USDC', name: 'USD Coin', decimals: 18, address: null, isNative: true },
+      { symbol: 'EURC', name: 'Euro Coin', decimals: 6, address: '0x82aF49447D8a07e3bd9BD0b78325c7F9b5C98E3a', isNative: false },
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'sepolia',
@@ -54,6 +70,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://sepolia.etherscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'base-sepolia',
@@ -67,6 +86,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://sepolia-explorer.base.org',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'arbitrum-sepolia',
@@ -80,6 +102,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://sepolia.arbiscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'unstable',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'optimism-sepolia',
@@ -93,6 +118,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://sepolia-optimism.etherscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'polygon-amoy',
@@ -102,10 +130,13 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     type: 'testnet',
     color: 'bg-purple-500',
     icon: 'P',
-    rpcUrl: 'https://rpc-amoy.polygon.technology',
+    rpcUrl: 'https://polygon-amoy.drpc.org',
     explorerUrl: 'https://www.oklink.com/amoy',
     nativeCurrency: { symbol: 'POL', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'POL', name: 'Polygon', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'bnb-testnet',
@@ -119,6 +150,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://testnet.bscscan.com',
     nativeCurrency: { symbol: 'tBNB', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'tBNB', name: 'BNB', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'avalanche-fuji',
@@ -132,6 +166,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://testnet.snowtrace.io',
     nativeCurrency: { symbol: 'AVAX', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'AVAX', name: 'Avalanche', decimals: 18, address: null, isNative: true },
+    ],
   },
 
   // ── Mainnets ───────────────────────────────────────────────────────────────
@@ -147,6 +184,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://etherscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'base',
@@ -160,6 +200,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://basescan.org',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'arbitrum',
@@ -173,6 +216,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://arbiscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
   {
     id: 'optimism',
@@ -186,6 +232,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://optimistic.etherscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+    ],
   },
 ];
 
@@ -215,3 +264,8 @@ export const ARC_TESTNET_CHAIN_PARAMS = {
   rpcUrls: ['https://rpc.testnet.arc.network'],
   blockExplorerUrls: ['https://testnet.arcscan.app'],
 };
+
+/** Return the tokens supported on a given network. */
+export function getNetworkTokens(network: NetworkConfig): TokenConfig[] {
+  return network.tokens;
+}

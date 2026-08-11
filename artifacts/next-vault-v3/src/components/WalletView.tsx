@@ -1,27 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Wallet, RefreshCw, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
-import { type Eip1193Provider, type WalletBalances, getAllBalances, shortAddress, getProvider, getAccounts } from '../lib/arc';
+import { type Eip1193Provider, getAllBalances, shortAddress, getProvider, getAccounts, getTokensForNetwork } from '../lib/arc';
+import type { NetworkConfig } from '../networks';
+import { getAsset } from '../lib/marketData';
 
 interface WalletViewProps {
   provider: Eip1193Provider | null;
   connectedAddress: string | null;
   onConnect: () => void;
   explorerUrl: string;
+  activeNetwork: NetworkConfig;
 }
 
 const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 transition-all duration-300";
 
-const TOKEN_META = [
-  { symbol: 'USDC', label: 'USD Coin',  decimals: 2, rate: 1.0 },
-  { symbol: 'EURC', label: 'Euro Coin',  decimals: 2, rate: 1.087 },
-  { symbol: 'ETH',  label: 'Ethereum',   decimals: 4, rate: 3215.84 },
-];
-
-export function WalletView({ provider, connectedAddress, onConnect, explorerUrl }: WalletViewProps) {
-  const [balances, setBalances] = useState<WalletBalances | null>(null);
+export function WalletView({ provider, connectedAddress, onConnect, explorerUrl, activeNetwork }: WalletViewProps) {
+  const [balances, setBalances] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState(false);
   const mounted = useRef(true);
   const copyTimer = useRef<number | null>(null);
 
@@ -36,17 +34,20 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
   const refresh = useCallback(async () => {
     if (!provider || !connectedAddress) return;
     setLoading(true);
+    setError(false);
     try {
-      const bal = await getAllBalances(provider, connectedAddress);
+      const tokenMap = getTokensForNetwork(activeNetwork);
+      const bal = await getAllBalances(provider, connectedAddress, tokenMap);
       if (!mounted.current) return;
       setBalances(bal);
     } catch {
-      // non-fatal
+      if (!mounted.current) return;
+      setError(true);
     } finally {
       if (!mounted.current) return;
       setLoading(false);
     }
-  }, [provider, connectedAddress]);
+  }, [provider, connectedAddress, activeNetwork]);
 
   useEffect(() => {
     if (provider && connectedAddress) refresh();
@@ -74,7 +75,7 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
           </div>
           <h2 className="text-lg font-semibold text-foreground mb-2">Carteira nao conectada</h2>
           <p className="text-sm text-muted-foreground/60 mb-5 max-w-xs">
-            Conecte sua carteira MetaMask para ver seus saldos reais na Arc Testnet.
+            Conecte sua carteira MetaMask para ver seus saldos reais na <span translate="no">{activeNetwork.name}</span>.
           </p>
           <button onClick={onConnect}
             className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(0,229,188,0.25)] transition-all duration-200 cursor-pointer">
@@ -85,11 +86,25 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
     );
   }
 
-  const balValues = balances
-    ? { USDC: balances.usdc, EURC: balances.eurc, ETH: balances.eth }
-    : { USDC: 0, EURC: 0, ETH: 0 };
+  const networkTokenMeta = useMemo(
+    () => getTokensForNetwork(activeNetwork) 
+      ? Object.entries(getTokensForNetwork(activeNetwork)).map(([sym, cfg]) => {
+          const asset = getAsset(sym);
+          return { symbol: sym, label: sym, decimals: cfg.decimals, rate: asset?.price ?? 1 };
+        })
+      : [],
+    [activeNetwork],
+  );
 
-  const totalUsd = TOKEN_META.reduce((sum, t) => sum + balValues[t.symbol as keyof typeof balValues] * t.rate, 0);
+  const balValues = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const { symbol } of networkTokenMeta) {
+      result[symbol] = balances?.[symbol] ?? 0;
+    }
+    return result;
+  }, [balances, networkTokenMeta]);
+
+  const totalUsd = networkTokenMeta.reduce((sum, t) => sum + (balValues[t.symbol] || 0) * t.rate, 0);
 
   return (
     <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}
@@ -125,17 +140,24 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
         {/* Total */}
         <div className="flex flex-col gap-0.5 mb-4">
           <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">Valor Total</span>
-          <div className="text-3xl font-mono font-semibold text-foreground mt-1">
-            ${totalUsd.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
-          </div>
+          {error ? (
+            <span className="text-2xl font-mono font-semibold text-muted-foreground/40">—</span>
+          ) : (
+            <span className="text-3xl font-mono font-semibold text-foreground mt-1" translate="no">
+              ${totalUsd.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+            </span>
+          )}
+          {error && (
+            <span className="text-[10px] font-mono text-red-400/70 mt-1">Falha ao carregar saldos. Tente novamente.</span>
+          )}
         </div>
 
         <div className="h-px w-full bg-border/40 my-4" />
 
         {/* Token balances */}
         <div className="flex flex-col gap-2">
-          {TOKEN_META.map(({ symbol, label, decimals, rate }) => {
-            const amt = balValues[symbol as keyof typeof balValues] || 0;
+          {networkTokenMeta.map(({ symbol, label, decimals, rate }) => {
+            const amt = balValues[symbol] || 0;
             const usd = amt * rate;
             return (
               <div key={symbol} className="flex items-center justify-between bg-secondary/25 rounded-xl p-3 border border-border/30">
@@ -144,7 +166,7 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl 
                     {symbol[0]}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-mono font-medium text-foreground">{symbol}</span>
+                    <span className="text-sm font-mono font-medium text-foreground" translate="no">{symbol}</span>
                     <span className="text-[10px] text-muted-foreground/50">{label}</span>
                   </div>
                 </div>

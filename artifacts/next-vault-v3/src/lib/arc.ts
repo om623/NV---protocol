@@ -1,4 +1,4 @@
-import { ARC_TESTNET_CHAIN_PARAMS, type NetworkConfig } from '../networks';
+import { ARC_TESTNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
 
 /** Build EIP-3085 chain params from any registered network config. */
 export function networkChainParams(net: NetworkConfig) {
@@ -30,11 +30,22 @@ export interface ArcTokenConfig {
   isNative: boolean;
 }
 
+/** Legacy hardcoded token map for Arc Testnet (kept for backwards compatibility). */
 export const ARC_TOKENS: Record<string, ArcTokenConfig> = {
   USDC: { symbol: 'USDC', address: null, decimals: 6, isNative: true },
   EURC: { symbol: 'EURC', address: '0x82aF49447D8a07e3bd9BD0b78325c7F9b5C98E3a', decimals: 6, isNative: false },
   ETH:  { symbol: 'ETH',  address: null, decimals: 18, isNative: true },
 };
+
+/** Build a token lookup map for any registered network. */
+export function getTokensForNetwork(network: NetworkConfig): Record<string, ArcTokenConfig> {
+  const tokens = getNetworkTokens(network);
+  const map: Record<string, ArcTokenConfig> = {};
+  for (const t of tokens) {
+    map[t.symbol] = { symbol: t.symbol, address: t.address, decimals: t.decimals, isNative: t.isNative };
+  }
+  return map;
+}
 
 export function getProvider(): Eip1193Provider | null {
   const eth = (window as unknown as { ethereum?: Eip1193Provider }).ethereum;
@@ -138,15 +149,24 @@ export async function getErc20Balance(
   return raw / Math.pow(10, decimals);
 }
 
-export async function getAllBalances(prov: Eip1193Provider, address: string): Promise<WalletBalances> {
-  const [usdc, eurc, eth] = await Promise.all([
-    getNativeBalance(prov, address),
-    ARC_TOKENS.EURC.address
-      ? getErc20Balance(prov, address, ARC_TOKENS.EURC.address, ARC_TOKENS.EURC.decimals)
-      : Promise.resolve(0),
-    Promise.resolve(0),
-  ]);
-  return { usdc, eurc, eth };
+export async function getAllBalances(
+  prov: Eip1193Provider,
+  address: string,
+  tokenMap: Record<string, ArcTokenConfig> = ARC_TOKENS,
+): Promise<Record<string, number>> {
+  const entries = await Promise.all(
+    Object.values(tokenMap).map(async (t) => {
+      if (t.isNative || !t.address) {
+        const bal = await getNativeBalance(prov, address);
+        return [t.symbol, bal] as const;
+      }
+      const bal = await getErc20Balance(prov, address, t.address, t.decimals);
+      return [t.symbol, bal] as const;
+    }),
+  );
+  const result: Record<string, number> = {};
+  for (const [sym, bal] of entries) result[sym] = bal;
+  return result;
 }
 
 export function shortAddress(addr: string): string {

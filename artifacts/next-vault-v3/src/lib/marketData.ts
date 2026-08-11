@@ -310,10 +310,11 @@ export async function fetchGlobalMarkets(): Promise<MarketAsset[]> {
 }
 
 export function formatVolume(v: number): string {
-  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
-  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
-  if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
-  return `$${v.toFixed(0)}`;
+  if (!Number.isFinite(v)) return '—';
+  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+  return `${v.toFixed(0)}`;
 }
 
 export function formatMarketCap(v: number): string {

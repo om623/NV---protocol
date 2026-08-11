@@ -84,7 +84,7 @@ export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsV
                   initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
                   className="bg-secondary/25 hover:bg-secondary/40 rounded-xl p-4 border border-border/30 hover:border-primary/10 transition-all duration-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-mono font-medium text-foreground">{pool.pair}</span>
+                    <span className="text-sm font-mono font-medium text-foreground" translate="no">{pool.pair}</span>
                     <span className="text-xs font-mono text-emerald-400 bg-emerald-500/8 px-2 py-0.5 rounded-full border border-emerald-500/15">
                       {pool.apr.toFixed(1)}% APR
                     </span>

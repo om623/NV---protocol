@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
@@ -7,10 +7,10 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight } from 'lucide-react';
 import {
-  type Eip1193Provider, type WalletBalances,
+  type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
   transferNative, transferErc20, getAllBalances, shortAddress,
-  ARC_TOKENS,
+  getTokensForNetwork, ARC_TOKENS,
 } from './lib/arc';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
@@ -29,8 +29,10 @@ import {
   DEFAULT_TESTNET, DEFAULT_MAINNET,
   SIMULATED_WALLET_CHAIN_ID,
   ARC_TESTNET_CHAIN_PARAMS,
+  getNetworkTokens,
 } from './networks';
 import { getAsset, refreshFromApis } from './lib/marketData';
+import { isValidNum } from './lib/utils';
 
 const queryClient = new QueryClient();
 
@@ -53,7 +55,7 @@ interface RoiPoint { t: number; roi: number; }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TOKENS = [
+const DEFAULT_TOKENS = [
   { symbol: 'USDC', name: 'USD Coin' },
   { symbol: 'EURC', name: 'Euro Coin' },
   { symbol: 'ETH',  name: 'Ethereum' },
@@ -360,7 +362,7 @@ function TokenCryptoIcon({ symbol, className = "" }: { symbol: string; className
 
 // ─── TokenSelect ──────────────────────────────────────────────────────────────
 
-function TokenSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TokenSelect({ value, onChange, tokens = DEFAULT_TOKENS }: { value: string; onChange: (v: string) => void; tokens?: { symbol: string; name: string }[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -373,7 +375,7 @@ function TokenSelect({ value, onChange }: { value: string; onChange: (v: string)
       <button onClick={() => setOpen(!open)}
         className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground px-3 py-2 rounded-xl transition-colors font-medium border border-border/50 shadow-sm cursor-pointer">
         <TokenCryptoIcon symbol={value} className="w-5 h-5 ring-0 shadow-none" />
-        {value}
+        <span translate="no">{value}</span>
         <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
@@ -381,12 +383,12 @@ function TokenSelect({ value, onChange }: { value: string; onChange: (v: string)
           <motion.div initial={{ opacity: 0, y: -5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -5, scale: 0.95 }} transition={{ duration: 0.15 }}
             className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-xl p-2 shadow-2xl z-50">
-            {TOKENS.map(t => (
+            {tokens.map(t => (
               <button key={t.symbol} onClick={() => { onChange(t.symbol); setOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${t.symbol === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}>
                 <TokenCryptoIcon symbol={t.symbol} className="w-5 h-5 ring-0 shadow-none" />
                 <div className="text-left flex flex-col">
-                  <span className="font-medium text-sm">{t.symbol}</span>
+                  <span className="font-medium text-sm" translate="no">{t.symbol}</span>
                   <span className="text-xs opacity-50">{t.name}</span>
                 </div>
               </button>
@@ -482,13 +484,13 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
                     <div className={`w-8 h-8 rounded-lg ${n.color} flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5`}>{n.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className={`text-xs font-mono font-medium truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>{n.name}</span>
+                        <span className={`text-xs font-mono font-medium truncate ${isActive ? 'text-primary' : 'text-foreground'}`} translate="no">{n.name}</span>
                         {envMode === 'testnet' && (
-                          <span className="text-[7px] font-mono bg-violet-500/10 text-violet-400 px-1 py-px rounded border border-violet-500/20 shrink-0">TESTNET</span>
+                          <span className="text-[7px] font-mono bg-violet-500/10 text-violet-400 px-1 py-px rounded border border-violet-500/20 shrink-0" translate="no">TESTNET</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-[9px] font-mono text-muted-foreground/50 mb-0.5">
-                        <span>Chain {n.chainId}</span>
+                        <span translate="no">Chain {n.chainId}</span>
                         <span className="opacity-30">|</span>
                         <span className="truncate">{n.rpcUrl.replace(/^https?:\/\//, '')}</span>
                       </div>
@@ -537,10 +539,10 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
         )}
       >
         <span className="text-base leading-none">{isTestnet ? '🧪' : '🌐'}</span>
-        <span className="tracking-widest text-xs">{isTestnet ? 'TESTNET' : 'MAINNET'}</span>
+        <span className="tracking-widest text-xs" translate="no">{isTestnet ? 'TESTNET' : 'MAINNET'}</span>
         <span className="opacity-40 select-none">•</span>
         <div className={`w-2 h-2 rounded-full ${activeNetwork.color} animate-pulse shrink-0`} />
-        <span className="text-xs">{activeNetwork.shortName}</span>
+        <span className="text-xs" translate="no">{activeNetwork.shortName}</span>
       </motion.div>
     </AnimatePresence>
   );
@@ -625,7 +627,7 @@ function Home() {
   // Real wallet state
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
-  const [realBalances, setRealBalances] = useState<WalletBalances | null>(null);
+  const [realBalances, setRealBalances] = useState<Record<string, number> | null>(null);
 
   // View + coming-soon state
   const [activeView, setActiveView] = useState<SidebarView>('dashboard');
@@ -780,7 +782,18 @@ function Home() {
     setEnvMode(mode);
     setActiveNetwork(mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET);
   };
-  const handleNetworkChange = (network: NetworkConfig) => { setActiveNetwork(network); };
+  const handleNetworkChange = (network: NetworkConfig) => {
+    setActiveNetwork(network);
+    const netTokens = getNetworkTokens(network).map(t => ({ symbol: t.symbol, name: t.name }));
+    if (netTokens.length > 0) {
+      const first = netTokens[0];
+      const second = netTokens[1] ?? netTokens[0];
+      setSourceToken(first.symbol);
+      setDestToken(second.symbol);
+      setAmount('');
+      setRealBalances(null);
+    }
+  };
   const handleSwitchNetwork = () => { setWalletChainId(activeNetwork.chainId); };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
@@ -790,7 +803,8 @@ function Home() {
 
   const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
     try {
-      const bal = await getAllBalances(prov, addr);
+      const tokenMap = getTokensForNetwork(activeNetwork);
+      const bal = await getAllBalances(prov, addr, tokenMap);
       setRealBalances(bal);
     } catch {
       // non-fatal
@@ -945,7 +959,7 @@ function Home() {
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
   const handleMax = () => {
     const bal = realBalances
-      ? (sourceToken === 'USDC' ? realBalances.usdc : sourceToken === 'EURC' ? realBalances.eurc : realBalances.eth)
+      ? (realBalances[sourceToken] ?? 0)
       : MOCK_BALANCES[sourceToken];
     setAmount(bal.toString());
   };
@@ -980,6 +994,11 @@ function Home() {
   };
 
   // ── Derived values ───────────────────────────────────────────────────────────
+
+  const networkTokenOptions = useMemo(
+    () => getNetworkTokens(activeNetwork).map(t => ({ symbol: t.symbol, name: t.name })),
+    [activeNetwork],
+  );
 
   const sourceAmountNum = parseFloat(amount) || 0;
   const rate = getRate(sourceToken, destToken);
@@ -1232,6 +1251,7 @@ function Home() {
                   connectedAddress={connectedAddress}
                   onConnect={handleConnect}
                   explorerUrl={activeNetwork.explorerUrl}
+                  activeNetwork={activeNetwork}
                 />
               )}
 
@@ -1271,12 +1291,12 @@ function Home() {
                       <div className="flex justify-between items-center gap-4">
                         <input type="number" placeholder="0.0" value={amount} onChange={e => setAmount(e.target.value)}
                           className="bg-transparent text-4xl font-mono outline-none w-full text-foreground placeholder:text-muted-foreground/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                        <TokenSelect value={sourceToken} onChange={setSourceToken} />
+                        <TokenSelect value={sourceToken} onChange={setSourceToken} tokens={networkTokenOptions} />
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
-                        <span>${sourceUsd.toFixed(2)}</span>
+                        <span>${isValidNum(sourceUsd) ? sourceUsd.toFixed(2) : '—'}</span>
                         <span className="flex items-center gap-2">
-                          Balance: {realBalances ? (sourceToken === 'USDC' ? realBalances.usdc : sourceToken === 'EURC' ? realBalances.eurc : realBalances.eth).toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
+                          Balance: {realBalances ? (realBalances[sourceToken] ?? 0).toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
                           <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">MAX</button>
                         </span>
                       </div>
@@ -1293,18 +1313,18 @@ function Home() {
                         <input type="number" placeholder="0.0" disabled
                           value={amount && sourceAmountNum > 0 ? destAmountNum.toFixed(4) : ''}
                           className="bg-transparent text-4xl font-mono outline-none w-full text-muted-foreground/40 cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                        <TokenSelect value={destToken} onChange={setDestToken} />
+                        <TokenSelect value={destToken} onChange={setDestToken} tokens={networkTokenOptions} />
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
-                        <span>${destUsd.toFixed(2)}</span>
-                        <span>Balance: {realBalances ? (destToken === 'USDC' ? realBalances.usdc : destToken === 'EURC' ? realBalances.eurc : realBalances.eth).toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
+                        <span>${isValidNum(destUsd) ? destUsd.toFixed(2) : '—'}</span>
+                        <span>Balance: {realBalances ? (realBalances[destToken] ?? 0).toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-5 mb-2 flex justify-between text-xs font-mono text-muted-foreground/50 px-1">
                     <span className="flex items-center gap-1"><Zap size={11} className="text-primary" /> Routing</span>
-                    <span>1 {sourceToken} = {formatRate(rate)} {destToken}</span>
+                    <span translate="no">1 {sourceToken} = {formatRate(rate)} {destToken}</span>
                   </div>
                   <AnimatePresence>
                     {amount && parseFloat(amount) > 0 && (

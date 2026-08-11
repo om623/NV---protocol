@@ -38,7 +38,7 @@ function MarketRow({ asset }: { asset: MarketAsset }) {
           {asset.symbol.slice(0, 2)}
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-[11px] font-mono font-medium text-foreground truncate">{asset.symbol}</span>
+          <span className="text-[11px] font-mono font-medium text-foreground truncate" translate="no">{asset.symbol}</span>
           <span className="text-[9px] text-muted-foreground/50 truncate">{asset.name}</span>
         </div>
       </div>
@@ -249,11 +249,11 @@ export function IntelligenceColumn({
         <div className="space-y-1">
           <div className={fieldRow}>
             <span className="text-muted-foreground/60 font-mono">Rede</span>
-            <span className="text-foreground font-mono text-[10px]">{activeNetwork.name}</span>
+            <span className="text-foreground font-mono text-[10px]" translate="no">{activeNetwork.name}</span>
           </div>
           <div className={fieldRow}>
             <span className="text-muted-foreground/60 font-mono">Chain ID</span>
-            <span className="text-cyan-400 font-mono text-[11px]">{activeNetwork.chainId}</span>
+            <span className="text-cyan-400 font-mono text-[11px]" translate="no">{activeNetwork.chainId}</span>
           </div>
           <div className={fieldRow}>
             <span className="text-muted-foreground/60 font-mono">Modo</span>

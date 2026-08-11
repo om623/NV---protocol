@@ -37,6 +37,7 @@ function trendBg(t: TrendStatus) {
 }
 
 function formatPrice(a: MarketAsset): string {
+  if (!Number.isFinite(a.price)) return '—';
   if (a.price < 0.01) return a.price.toFixed(6);
   if (a.price < 1) return a.price.toFixed(4);
   return a.price.toLocaleString('en-US', { maximumFractionDigits: a.decimals, minimumFractionDigits: 0 });
@@ -165,25 +166,25 @@ export function MarketGrid() {
                       {coin.symbol.slice(0, 2)}
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs font-mono font-medium text-foreground">{coin.symbol}</span>
+                      <span className="text-xs font-mono font-medium text-foreground" translate="no">{coin.symbol}</span>
                       <span className="text-[9px] text-muted-foreground/50 truncate max-w-[80px]">{coin.name}</span>
                     </div>
                   </div>
-                  <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full border ${trendBg(coin.trend)}`}>
+                  <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full border ${trendBg(coin.trend)}`} translate="no">
                     {coin.trend === 'bullish' ? 'BULL' : coin.trend === 'bearish' ? 'BEAR' : 'NEUT'}
                   </span>
                 </div>
 
                 <div className="flex items-end justify-between gap-2 mb-2">
-                  <span className="text-sm font-mono font-semibold text-foreground">${formatPrice(coin)}</span>
+                  <span className="text-sm font-mono font-semibold text-foreground" translate="no">${formatPrice(coin)}</span>
                   <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                     {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {isPositive ? '+' : ''}{coin.change24h.toFixed(2)}%
+                    {Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] font-mono text-muted-foreground/50">Vol {formatVolume(coin.volume24h)}</span>
+                  <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
                   <div className="w-16 shrink-0">
                     <MiniSpark data={coin.spark} trend={coin.trend} />
                   </div>
