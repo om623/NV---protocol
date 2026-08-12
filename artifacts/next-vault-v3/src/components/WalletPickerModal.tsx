@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Wallet as WalletIcon, ChevronRight, Loader2 } from 'lucide-react';
+import { X, Wallet as WalletIcon, ChevronRight, Loader as Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { onWalletsDiscovered, type WalletInfo } from '../lib/walletDiscovery';
 
