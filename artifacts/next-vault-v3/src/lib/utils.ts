@@ -12,19 +12,19 @@ export function isValidNum(v: unknown): v is number {
 }
 
 /** Format a number as USD currency, or return fallback if invalid. */
-export function safeUsd(v: number | undefined | null, fallback = '—'): string {
+export function safeUsd(v: number | undefined | null, fallback = '—', locale = 'pt-BR'): string {
   if (!isValidNum(v)) return fallback;
-  return `${v.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`;
+  return `${v.toLocaleString(locale, { maximumFractionDigits: 2 })}`;
 }
 
 /** Format a number with a prefix/suffix, or return fallback if invalid. */
 export function safeNum(
   v: number | undefined | null,
-  opts: { prefix?: string; suffix?: string; decimals?: number; fallback?: string } = {},
+  opts: { prefix?: string; suffix?: string; decimals?: number; fallback?: string; locale?: string } = {},
 ): string {
-  const { prefix = '', suffix = '', decimals = 2, fallback = '—' } = opts;
+  const { prefix = '', suffix = '', decimals = 2, fallback = '—', locale = 'pt-BR' } = opts;
   if (!isValidNum(v)) return fallback;
-  return `${prefix}${v.toLocaleString('pt-BR', { maximumFractionDigits: decimals, minimumFractionDigits: 0 })}${suffix}`;
+  return `${prefix}${v.toLocaleString(locale, { maximumFractionDigits: decimals, minimumFractionDigits: 0 })}${suffix}`;
 }
 
 /** Format a percentage, or return fallback if invalid. */

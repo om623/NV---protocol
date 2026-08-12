@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChartBar as BarChart2, Target, Activity, Factory as History, Zap, Clock, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Lightbulb, Eye, Shield } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import type { SimHistoryItem } from '../App';
+import { useI18n } from '../i18n';
 import {
   type MarketAsset, type MarketGroup, type TrendStatus,
   getMarketGroups, refreshGlobalMarkets, formatVolume,
@@ -94,6 +95,7 @@ const NETWORK_STATS = [
 export function IntelligenceColumn({
   envMode, activeNetwork, simStats, simPhase, simId, simHistory, simProgress,
 }: IntelligenceColumnProps) {
+  const { t } = useI18n();
   const [tipIdx] = useState(() => Math.floor(Math.random() * 5));
   const [marketGroups, setMarketGroups] = useState<MarketGroup[]>(() => getMarketGroups());
   const [marketRefreshing, setMarketRefreshing] = useState(false);
@@ -120,11 +122,11 @@ export function IntelligenceColumn({
 
   const isRunning = simPhase === 'pipeline' && simStats.execTime > 0;
   const TIPS = [
-    'Use Testnet para validar estratégias sem risco real.',
-    'Pools com maior liquidez reduzem o slippage.',
-    'Monitore o gas em horários de menor tráfego.',
-    'Diversifique as rotas para maximizar o ROI.',
-    'Arbitrum Sepolia tem fees mínimos para testes.',
+    t('intel.tips.1'),
+    t('intel.tips.2'),
+    t('intel.tips.3'),
+    t('intel.tips.4'),
+    t('intel.tips.5'),
   ];
 
   return (
@@ -134,7 +136,7 @@ export function IntelligenceColumn({
       <div className={panelCard}>
         <div className={panelLabel}>
           <Lightbulb size={11} className="text-primary" />
-          Intelligence Insights
+          {t('intel.insights')}
           <span className="ml-auto bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px]">{INSIGHTS.length}</span>
         </div>
         <div className="flex flex-col gap-2">
@@ -168,7 +170,7 @@ export function IntelligenceColumn({
       <div className={panelCard}>
         <div className={panelLabel}>
           <BarChart2 size={11} className="text-primary" />
-          Resumo da Simulação
+          {t('intel.simSummary')}
         </div>
         {simId ? (
           <div className="space-y-1">
@@ -177,16 +179,16 @@ export function IntelligenceColumn({
               <span className="text-primary font-mono text-[11px]">{simId}</span>
             </div>
             <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">Status</span>
+              <span className="text-muted-foreground/60 font-mono">{t('intel.status')}</span>
               <span className={`font-mono text-[11px] flex items-center gap-1 ${simPhase === 'complete' ? 'text-emerald-400' : isRunning ? 'text-cyan-400' : 'text-muted-foreground'}`}>
                 {simPhase === 'complete' ? <CheckCircle2 size={10} /> : isRunning ? <Loader2 size={10} className="animate-spin" /> : null}
-                {simPhase === 'complete' ? 'Concluído' : isRunning ? 'Em andamento' : 'Aguardando'}
+                {simPhase === 'complete' ? t('intel.complete') : isRunning ? t('intel.running') : t('intel.waiting')}
               </span>
             </div>
             {simProgress > 0 && simPhase === 'pipeline' && (
               <div className="mt-2 mb-1">
                 <div className="flex justify-between text-[10px] font-mono text-muted-foreground/50 mb-1">
-                  <span>Progresso</span><span>{Math.round(simProgress)}%</span>
+                  <span>{t('intel.progress')}</span><span>{Math.round(simProgress)}%</span>
                 </div>
                 <div className="h-1 bg-secondary rounded-full overflow-hidden">
                   <motion.div className="h-full bg-gradient-to-r from-primary to-emerald-400 rounded-full"
@@ -195,20 +197,20 @@ export function IntelligenceColumn({
               </div>
             )}
             <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">ROI</span>
+              <span className="text-muted-foreground/60 font-mono">{t('dash.roi')}</span>
               <span className="text-emerald-400 font-mono text-[11px]">+{simStats.roi.toFixed(2)}%</span>
             </div>
             <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">Risco</span>
+              <span className="text-muted-foreground/60 font-mono">{t('dash.risk')}</span>
               <span className="text-yellow-400 font-mono text-[11px]">{simStats.risk.toFixed(1)}%</span>
             </div>
             <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">Pools</span>
+              <span className="text-muted-foreground/60 font-mono">{t('intel.pools')}</span>
               <span className="text-violet-400 font-mono text-[11px]">{simStats.poolsAnalyzed}</span>
             </div>
           </div>
         ) : (
-          <p className="text-[11px] text-muted-foreground/40 font-mono">Nenhuma simulação iniciada.</p>
+          <p className="text-[11px] text-muted-foreground/40 font-mono">{t('intel.noSimulation')}</p>
         )}
       </div>
 
@@ -216,15 +218,15 @@ export function IntelligenceColumn({
       <div className={panelCard}>
         <div className={panelLabel}>
           <Target size={11} className="text-orange-400" />
-          Oportunidade Atual
+          {t('intel.currentOpportunity')}
         </div>
         <div className="space-y-2">
           <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Oportunidades</span>
+            <span className="text-muted-foreground/60 font-mono">{t('intel.opportunities')}</span>
             <span className="text-orange-400 font-mono text-[11px] font-bold">{simStats.opportunities}</span>
           </div>
           <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Estratégia</span>
+            <span className="text-muted-foreground/60 font-mono">{t('intel.strategy')}</span>
             <span className="text-foreground font-mono text-[10px]">Arbitrum v2</span>
           </div>
           <div className="mt-1">
@@ -235,7 +237,7 @@ export function IntelligenceColumn({
                 transition={{ ease: 'easeOut', duration: 0.6 }}
               />
             </div>
-            <div className="text-[9px] text-muted-foreground/40 font-mono mt-1 text-right">{simStats.opportunities}/7 slots</div>
+            <div className="text-[9px] text-muted-foreground/40 font-mono mt-1 text-right">{simStats.opportunities}/7 {t('intel.slots')}</div>
           </div>
         </div>
       </div>
@@ -244,19 +246,19 @@ export function IntelligenceColumn({
       <div className={panelCard}>
         <div className={panelLabel}>
           <Radio size={11} className="text-cyan-400" />
-          Atividade da Rede
+          {t('intel.networkActivity')}
         </div>
         <div className="space-y-1">
           <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Rede</span>
+            <span className="text-muted-foreground/60 font-mono">{t('dash.network')}</span>
             <span className="text-foreground font-mono text-[10px]" translate="no">{activeNetwork.name}</span>
           </div>
           <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Chain ID</span>
+            <span className="text-muted-foreground/60 font-mono">{t('intel.chainId')}</span>
             <span className="text-cyan-400 font-mono text-[11px]" translate="no">{activeNetwork.chainId}</span>
           </div>
           <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">Modo</span>
+            <span className="text-muted-foreground/60 font-mono">{t('intel.mode')}</span>
             <span className={`font-mono text-[11px] ${envMode === 'testnet' ? 'text-green-400' : 'text-amber-400'}`}>
               {envMode === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}
             </span>
@@ -275,7 +277,7 @@ export function IntelligenceColumn({
           </div>
           <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-border/30">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground/50 font-mono">Rede ativa</span>
+            <span className="text-[10px] text-muted-foreground/50 font-mono">{t('intel.networkActive')}</span>
           </div>
         </div>
       </div>
@@ -285,7 +287,7 @@ export function IntelligenceColumn({
         <div className={panelCard}>
           <div className={panelLabel}>
             <History size={11} className="text-primary" />
-            Histórico Recente
+            {t('intel.recentHistory')}
             <span className="ml-auto bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px]">{simHistory.length}</span>
           </div>
           <div className="space-y-1.5">
@@ -306,7 +308,7 @@ export function IntelligenceColumn({
       <div className={panelCard}>
         <div className={panelLabel}>
           <Shield size={11} className="text-emerald-400" />
-          Status de Segurança
+          {t('intel.securityStatus')}
         </div>
         <div className="space-y-1.5">
           {[
@@ -329,7 +331,7 @@ export function IntelligenceColumn({
       <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 hover:border-primary/25 transition-all duration-300">
         <div className={panelLabel + ' !text-primary/60'}>
           <Zap size={11} className="text-primary" />
-          Dica NV Protocol
+          {t('intel.nvTip')}
         </div>
         <p className="text-[11px] text-muted-foreground/70 leading-relaxed font-mono">{TIPS[tipIdx]}</p>
       </div>
@@ -340,7 +342,7 @@ export function IntelligenceColumn({
         <div className="flex items-center justify-between mb-2 px-0.5">
           <div className="flex items-center gap-2">
             <Globe size={13} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground tracking-wide">Global Markets</span>
+            <span className="text-sm font-semibold text-foreground tracking-wide">{t('intel.globalMarkets')}</span>
           </div>
           <button onClick={handleMarketRefresh} disabled={marketRefreshing}
             className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
@@ -359,8 +361,8 @@ export function IntelligenceColumn({
 
         <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
-          <span>Auto a cada 5s</span>
-          <span className="ml-auto">Dados simulados</span>
+          <span>{t('intel.autoEvery5s')}</span>
+          <span className="ml-auto">{t('intel.simulatedData')}</span>
         </div>
       </div>
     </aside>

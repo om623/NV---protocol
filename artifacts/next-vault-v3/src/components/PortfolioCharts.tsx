@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { TrendingUp, ChartPie as PieIcon, ChartBar as BarChart2, Activity } from 'lucide-react';
 import { fetchPriceChart } from '../lib/api';
+import { useI18n } from '../i18n';
 
 // ─── Portfolio Evolution (Area) — real 30-day ETH price from CoinGecko ────────
 
@@ -21,6 +22,7 @@ function genFallbackEvolution(): EvolPoint[] {
 }
 
 function EvolutionChart() {
+  const { t } = useI18n();
   const [data, setData] = useState<EvolPoint[]>(genFallbackEvolution);
 
   useEffect(() => {
@@ -54,7 +56,7 @@ function EvolutionChart() {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[9px] font-mono text-muted-foreground/40">30 dias · Patrimônio vs Benchmark</span>
+        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.30daysBenchmark')}</span>
         <span className={`text-[10px] font-mono font-bold ${totalChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
           {totalChange >= 0 ? '+' : ''}{pctChange}%
         </span>
@@ -77,7 +79,7 @@ function EvolutionChart() {
           <Tooltip
             contentStyle={{ background: 'hsl(220 20% 6%)', border: '1px solid hsl(220 20% 14%)', borderRadius: 12, fontSize: 11, fontFamily: 'monospace' }}
             labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-            formatter={(v: number, n: string) => [`$${v.toLocaleString()}`, n === 'value' ? 'Patrimônio' : 'Benchmark']}
+            formatter={(v: number, n: string) => [`${v.toLocaleString()}`, n === 'value' ? t('portfolio.evolution') : 'Benchmark']}
           />
           <Area type="monotone" dataKey="benchmark" stroke="rgb(100,116,139)" strokeWidth={1} strokeDasharray="4 4" fill="url(#benchGrad)" />
           <Area type="monotone" dataKey="value" stroke="rgb(0,229,188)" strokeWidth={2} fill="url(#evolGrad)" />
@@ -96,6 +98,7 @@ const ALLOCATION = [
 ];
 
 function AllocationChart() {
+  const { t } = useI18n();
   const total = ALLOCATION.reduce((s, a) => s + a.value, 0);
   return (
     <div className="w-full">
@@ -124,7 +127,7 @@ function AllocationChart() {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-[8px] font-mono uppercase text-muted-foreground/40 tracking-widest">Total</span>
+          <span className="text-[8px] font-mono uppercase text-muted-foreground/40 tracking-widest">{t('portfolio.total')}</span>
           <span className="text-sm font-mono font-bold text-foreground">${(total / 1000).toFixed(1)}k</span>
         </div>
       </div>
@@ -149,6 +152,7 @@ function genPerfData() {
 }
 
 function PerformanceChart() {
+  const { t } = useI18n();
   const [data, setData] = useState(genPerfData);
 
   useEffect(() => {
@@ -159,7 +163,7 @@ function PerformanceChart() {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[9px] font-mono text-muted-foreground/40">ROI por estratégia (24h)</span>
+        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.roiByStrategy')}</span>
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 text-[9px] font-mono text-primary"><div className="w-1.5 h-1.5 rounded-sm bg-primary" />NV</span>
           <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground/40"><div className="w-1.5 h-1.5 rounded-sm bg-slate-500" />Market</span>
@@ -198,6 +202,7 @@ function genIndicatorData() {
 }
 
 function IndicatorChart() {
+  const { t } = useI18n();
   const [data, setData] = useState(genIndicatorData);
 
   useEffect(() => {
@@ -208,7 +213,7 @@ function IndicatorChart() {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[9px] font-mono text-muted-foreground/40">RSI & Momentum (20 ticks)</span>
+        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.rsiMomentum')}</span>
         <span className="flex items-center gap-1 text-[9px] font-mono text-primary">
           <Activity size={9} /> Live
         </span>
@@ -241,15 +246,16 @@ function IndicatorChart() {
 
 // ─── Exported component ───────────────────────────────────────────────────────
 
-const SECTIONS = [
-  { id: 'evolution',   label: 'Evolução',     Icon: TrendingUp },
-  { id: 'allocation',  label: 'Alocação',     Icon: PieIcon },
-  { id: 'performance', label: 'Performance',  Icon: BarChart2 },
-  { id: 'indicators',  label: 'Indicadores',  Icon: Activity },
+const SECTIONS_KEYS = [
+  { id: 'evolution',   key: 'portfolio.evolution',     Icon: TrendingUp },
+  { id: 'allocation',  key: 'portfolio.allocation',    Icon: PieIcon },
+  { id: 'performance', key: 'portfolio.performance',   Icon: BarChart2 },
+  { id: 'indicators',  key: 'portfolio.indicators',    Icon: Activity },
 ] as const;
 
 export function PortfolioCharts() {
-  const [active, setActive] = useState<typeof SECTIONS[number]['id']>('evolution');
+  const { t } = useI18n();
+  const [active, setActive] = useState<typeof SECTIONS_KEYS[number]['id']>('evolution');
 
   return (
     <motion.div
@@ -263,13 +269,13 @@ export function PortfolioCharts() {
 
         {/* Tab switcher */}
         <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30 mb-4 overflow-x-auto scrollbar-hide">
-          {SECTIONS.map(({ id, label, Icon }) => (
+          {SECTIONS_KEYS.map(({ id, key, Icon }) => (
             <button key={id} onClick={() => setActive(id)}
               className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer whitespace-nowrap ${
                 active === id ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
               }`}>
               <Icon size={11} />
-              <span>{label}</span>
+              <span>{t(key)}</span>
             </button>
           ))}
         </div>

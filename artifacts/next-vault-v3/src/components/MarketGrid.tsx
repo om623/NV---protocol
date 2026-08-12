@@ -5,6 +5,7 @@ import {
   type MarketAsset, type MarketCategory, type TrendStatus,
   getAllAssets, refreshGlobalMarkets, formatVolume,
 } from '../lib/marketData';
+import { useI18n } from '../i18n';
 
 type FilterCategory = MarketCategory | 'all';
 type SortKey = 'change24h' | 'volume24h' | 'price';
@@ -52,6 +53,7 @@ const FILTERS: { key: FilterCategory; label: string }[] = [
 ];
 
 export function MarketGrid() {
+  const { t } = useI18n();
   const [assets, setAssets] = useState<MarketAsset[]>(() => getAllAssets());
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [sort, setSort] = useState<SortKey>('change24h');
@@ -105,7 +107,7 @@ export function MarketGrid() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <TrendingUp size={16} className="text-primary" />
-            <h2 className="text-base font-semibold text-foreground tracking-wide">Mercado Global</h2>
+            <h2 className="text-base font-semibold text-foreground tracking-wide">{t('market.globalMarket')}</h2>
           </div>
           <button onClick={handleRefresh} disabled={refreshing}
             className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
@@ -140,7 +142,7 @@ export function MarketGrid() {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Buscar ativo…"
+              placeholder={t('market.searchPlaceholder')}
               className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-1.5 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30 transition-colors"
             />
           </div>
@@ -196,14 +198,14 @@ export function MarketGrid() {
 
         {filtered.length === 0 && (
           <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
-            Nenhum ativo encontrado para "{query}".
+            {t('market.noResults')} "{query}".
           </div>
         )}
 
         <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
-          <span>Auto-atualização a cada 4s</span>
-          <span className="ml-auto">{filtered.length} ativos</span>
+          <span>{t('market.autoRefresh4s')}</span>
+          <span className="ml-auto">{filtered.length} {t('market.assetsCount')}</span>
         </div>
       </div>
     </motion.div>

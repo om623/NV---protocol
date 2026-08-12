@@ -7,6 +7,7 @@ import {
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
 import { safeUsd, safeNum, safePct, isValidNum } from '../lib/utils';
+import { useI18n, useFormat } from '../i18n';
 
 interface ExecutiveDashboardProps {
   envMode: EnvMode;
@@ -50,6 +51,8 @@ function sentimentBg(idx: number): string {
 }
 
 export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simStats }: ExecutiveDashboardProps) {
+  const { t } = useI18n();
+  const fmt = useFormat();
   const [sparkData, setSparkData] = useState<number[]>(() =>
     Array.from({ length: 28 }, (_, i) => 44200 + Math.sin(i / 3) * 1200 + Math.random() * 400),
   );
@@ -83,12 +86,12 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
   const tvl = sentiment.totalTvl;
 
   const stats: ExecStat[] = [
-    { label: 'Patrimônio', value: safeUsd(totalPatrimony ?? undefined), delta: '+2.8%', deltaPositive: true, Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
-    { label: 'Lucro Diário', value: dailyPnl !== null ? `+${safeUsd(dailyPnl, '+—')}` : '—', delta: '+0.42%', deltaPositive: true, Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
-    { label: 'ROI', value: `+${roiValue.toFixed(2)}%`, delta: `${simStats.risk.toFixed(1)}% risk`, deltaPositive: false, Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
-    { label: 'Liquidez', value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ativos`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
-    { label: 'TVL', value: tvl > 0 ? `${(tvl / 1e9).toFixed(2)}B` : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
-    { label: 'Rede', value: activeNetwork.shortName, delta: envMode === 'testnet' ? 'TESTNET' : 'MAINNET', deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
+    { label: t('dash.patrimony'), value: safeUsd(totalPatrimony ?? undefined), delta: '+2.8%', deltaPositive: true, Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
+    { label: t('dash.dailyProfit'), value: dailyPnl !== null ? `+${safeUsd(dailyPnl, '+—')}` : '—', delta: '+0.42%', deltaPositive: true, Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
+    { label: t('dash.roi'), value: `+${roiValue.toFixed(2)}%`, delta: `${simStats.risk.toFixed(1)}% ${t('dash.risk')}`, deltaPositive: false, Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
+    { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
+    { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
+    { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
   ];
 
   const sparkW = 280, sparkH = 48;
@@ -112,13 +115,13 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
         {/* Top row: patrimony + sparkline */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">Executive Summary</span>
+            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">{t('dash.executiveSummary')}</span>
             <div className="text-3xl font-mono font-semibold text-foreground mt-1" translate="no">
               {totalPatrimony !== null ? `${totalPatrimony.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}` : '—'}
             </div>
             <div className="flex items-center gap-1.5 text-sm mt-1">
               <span className="flex items-center gap-1 text-emerald-400">
-                <TrendingUp size={13} /> +2.8% today
+                <TrendingUp size={13} /> +2.8% {t('dash.today')}
               </span>
               <span className="text-muted-foreground/40 font-mono text-[10px]">{dailyPnl !== null ? `≈ +${dailyPnl.toFixed(0)}` : ''}</span>
             </div>
@@ -165,7 +168,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Gauge size={12} className={sentimentColor(sentiment.fearGreedIndex)} />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">Sentimento do Mercado</span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">{t('dash.marketSentiment')}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-xs font-mono font-bold ${sentimentColor(sentiment.fearGreedIndex)}`} translate="no">{sentiment.fearGreedIndex}</span>
@@ -179,22 +182,22 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
             />
           </div>
           <div className="flex items-center justify-between mt-2 text-[9px] font-mono text-muted-foreground/40">
-            <span>Extreme Fear</span>
-            <span>Neutral</span>
-            <span>Extreme Greed</span>
+            <span>{t('dash.extremeFear')}</span>
+            <span>{t('dash.neutral')}</span>
+            <span>{t('dash.extremeGreed')}</span>
           </div>
           <div className="flex items-center gap-4 mt-3 pt-2 border-t border-border/20">
             <div className="flex items-center gap-1.5">
               <TrendingUp size={10} className="text-emerald-400" />
-              <span className="text-[10px] font-mono text-emerald-400">{sentiment.bullishCount} Bull</span>
+              <span className="text-[10px] font-mono text-emerald-400">{sentiment.bullishCount} {t('dash.bull')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Activity size={10} className="text-muted-foreground" />
-              <span className="text-[10px] font-mono text-muted-foreground/60">{sentiment.neutralCount} Neutral</span>
+              <span className="text-[10px] font-mono text-muted-foreground/60">{sentiment.neutralCount} {t('dash.neutral')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <TrendingDown size={10} className="text-red-400" />
-              <span className="text-[10px] font-mono text-red-400">{sentiment.bearishCount} Bear</span>
+              <span className="text-[10px] font-mono text-red-400">{sentiment.bearishCount} {t('dash.bear')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Activity size={10} className="text-amber-400" />
@@ -211,7 +214,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
         <div className="border-t border-border/30 pt-4">
           <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2.5 flex items-center gap-1.5">
             <Activity size={11} className="text-primary" />
-            Atividade Recente
+            {t('dash.recentActivity')}
           </div>
           <div className="flex flex-col gap-1.5">
             {ACTIVITY_SEED.map((act, i) => (

@@ -1,21 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
-const LOADING_STEPS = [
-  'Inicializando protocolo…',
-  'Conectando à Arc Testnet…',
-  'Carregando pools de liquidez…',
-  'Sincronizando dados de mercado…',
-  'Calibrando motor de simulação…',
-  'Pronto.',
-];
-
 export function SplashScreen({ onFinish }: SplashScreenProps) {
+  const { t } = useI18n();
+  const LOADING_STEPS = [
+    t('splash.initializing'),
+    t('splash.connectingArc'),
+    t('splash.loadingPools'),
+    t('splash.syncingMarket'),
+    t('splash.calibrating'),
+    t('splash.ready'),
+  ];
   const [progress, setProgress] = useState(0);
   const [stepIdx, setStepIdx] = useState(0);
   const [exiting, setExiting] = useState(false);

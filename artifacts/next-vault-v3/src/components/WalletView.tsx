@@ -4,6 +4,7 @@ import { Wallet, RefreshCw, Loader as Loader2, Copy, Check, ExternalLink } from 
 import { type Eip1193Provider, getAllBalances, shortAddress, getProvider, getAccounts, getTokensForNetwork } from '../lib/arc';
 import type { NetworkConfig } from '../networks';
 import { getAsset } from '../lib/marketData';
+import { useI18n, useFormat } from '../i18n';
 
 interface WalletViewProps {
   provider: Eip1193Provider | null;
@@ -16,6 +17,8 @@ interface WalletViewProps {
 const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 transition-all duration-300";
 
 export function WalletView({ provider, connectedAddress, onConnect, explorerUrl, activeNetwork }: WalletViewProps) {
+  const { t } = useI18n();
+  const fmt = useFormat();
   const [balances, setBalances] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -73,13 +76,13 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl,
             <div className="absolute inset-0 rounded-2xl bg-primary/5 blur-lg" />
             <Wallet size={28} className="text-primary relative z-10" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground mb-2">Carteira nao conectada</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">{t('wallet.notConnected')}</h2>
           <p className="text-sm text-muted-foreground/60 mb-5 max-w-xs">
-            Conecte sua carteira MetaMask para ver seus saldos reais na <span translate="no">{activeNetwork.name}</span>.
+            {t('wallet.connectDescription')} <span translate="no">{activeNetwork.name}</span>.
           </p>
           <button onClick={onConnect}
             className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(0,229,188,0.25)] transition-all duration-200 cursor-pointer">
-            Conectar Carteira
+            {t('action.connectWallet')}
           </button>
         </div>
       </motion.div>
@@ -115,7 +118,7 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl,
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Wallet size={16} className="text-primary" />
-            <h2 className="text-base font-semibold text-foreground tracking-wide">Minha Carteira</h2>
+            <h2 className="text-base font-semibold text-foreground tracking-wide">{t('wallet.myWallet')}</h2>
           </div>
           <button onClick={refresh} disabled={loading}
             className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
@@ -139,16 +142,16 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl,
 
         {/* Total */}
         <div className="flex flex-col gap-0.5 mb-4">
-          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">Valor Total</span>
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">{t('wallet.totalValue')}</span>
           {error ? (
             <span className="text-2xl font-mono font-semibold text-muted-foreground/40">—</span>
           ) : (
             <span className="text-3xl font-mono font-semibold text-foreground mt-1" translate="no">
-              ${totalUsd.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+              {fmt.currency(totalUsd)}
             </span>
           )}
           {error && (
-            <span className="text-[10px] font-mono text-red-400/70 mt-1">Falha ao carregar saldos. Tente novamente.</span>
+            <span className="text-[10px] font-mono text-red-400/70 mt-1">{t('wallet.loadError')}</span>
           )}
         </div>
 
@@ -171,8 +174,8 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl,
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-sm font-mono text-foreground">{amt.toLocaleString('pt-BR', { maximumFractionDigits: decimals })}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground/50">${usd.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-mono text-foreground">{fmt.number(amt, decimals)}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground/50">{fmt.currency(usd)}</span>
                 </div>
               </div>
             );

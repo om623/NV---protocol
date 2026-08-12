@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Construction, X } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface ComingSoonModalProps {
   open: boolean;
@@ -8,6 +9,7 @@ interface ComingSoonModalProps {
 }
 
 export function ComingSoonModal({ open, onClose, featureName }: ComingSoonModalProps) {
+  const { t } = useI18n();
   return (
     <AnimatePresence>
       {open && (
@@ -46,21 +48,21 @@ export function ComingSoonModal({ open, onClose, featureName }: ComingSoonModalP
                 <Construction size={28} className="text-amber-400 relative z-10" />
               </motion.div>
 
-              <h2 className="text-xl font-bold text-foreground mb-2">Em breve</h2>
+              <h2 className="text-xl font-bold text-foreground mb-2">{t('comingSoon.title')}</h2>
               {featureName && (
                 <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-4">
                   {featureName}
                 </span>
               )}
               <p className="text-sm text-muted-foreground/70 leading-relaxed max-w-xs">
-                Esta funcionalidade esta em desenvolvimento e estara disponivel em uma futura atualizacao do NV Protocol.
+                {t('comingSoon.description')}
               </p>
 
               <button
                 onClick={onClose}
                 className="mt-6 px-6 py-2.5 bg-secondary/80 hover:bg-secondary border border-border/50 hover:border-primary/20 text-foreground font-semibold rounded-xl transition-all duration-200 cursor-pointer"
               >
-                Entendi
+                {t('action.understood')}
               </button>
             </div>
           </motion.div>

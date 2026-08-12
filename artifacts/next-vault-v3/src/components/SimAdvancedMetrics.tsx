@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Droplets, Brain, Flame, Clock, Route } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface SimAdvancedMetricsProps {
   simProgress: number;
@@ -23,19 +24,20 @@ interface MetricDef {
  * motion feels live without changing the existing sim engine.
  */
 export function SimAdvancedMetrics({ simProgress, simPhase, activeNetworkName }: SimAdvancedMetricsProps) {
+  const { t } = useI18n();
   const p = simProgress / 100;
   const liquidityScore = Math.round(72 + 24 * p);
   const aiConfidence = Math.round(64 + 33 * p);
   const estGasUsd = (0.42 + 1.6 * (1 - p)).toFixed(2);
   const estTimeSec = Math.max(0, Math.round((1 - p) * 9.7 * 10) / 10);
-  const routeSelected = simPhase === 'complete' || p > 0.7 ? `${activeNetworkName} v2` : 'Calculando…';
+  const routeSelected = simPhase === 'complete' || p > 0.7 ? `${activeNetworkName} v2` : t('sim.adv.calculating');
 
   const metrics: MetricDef[] = [
-    { label: 'Liquidity Score', value: `${liquidityScore}/100`, Icon: Droplets, color: 'text-cyan-400', bar: liquidityScore / 100 },
-    { label: 'AI Confidence', value: `${aiConfidence}%`, Icon: Brain, color: 'text-violet-400', bar: aiConfidence / 100 },
-    { label: 'Estimated Gas', value: `$${estGasUsd}`, Icon: Flame, color: 'text-orange-400' },
-    { label: 'Estimated Time', value: simPhase === 'complete' ? '0s' : `${estTimeSec}s`, Icon: Clock, color: 'text-primary' },
-    { label: 'Route Selected', value: routeSelected, Icon: Route, color: 'text-emerald-400' },
+    { label: t('sim.adv.liquidityScore'), value: `${liquidityScore}/100`, Icon: Droplets, color: 'text-cyan-400', bar: liquidityScore / 100 },
+    { label: t('sim.adv.aiConfidence'), value: `${aiConfidence}%`, Icon: Brain, color: 'text-violet-400', bar: aiConfidence / 100 },
+    { label: t('sim.adv.estimatedGas'), value: `${estGasUsd}`, Icon: Flame, color: 'text-orange-400' },
+    { label: t('sim.adv.estimatedTime'), value: simPhase === 'complete' ? '0s' : `${estTimeSec}s`, Icon: Clock, color: 'text-primary' },
+    { label: t('sim.adv.routeSelected'), value: routeSelected, Icon: Route, color: 'text-emerald-400' },
   ];
 
   return (
@@ -46,7 +48,7 @@ export function SimAdvancedMetrics({ simProgress, simPhase, activeNetworkName }:
       className="px-6 pb-6 pt-4 border-t border-border/40"
     >
       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">
-        Métricas Avançadas
+        {t('sim.advancedMetrics')}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {metrics.map(({ label, value, Icon, color, bar }) => (

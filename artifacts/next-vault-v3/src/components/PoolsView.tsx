@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Database, TrendingUp, Plus, RefreshCw, Loader as Loader2 } from 'lucide-react';
 import { type Eip1193Provider, type PoolInfo, getPools } from '../lib/arc';
+import { useI18n, useFormat } from '../i18n';
 
 interface PoolsViewProps {
   provider: Eip1193Provider | null;
@@ -12,6 +13,8 @@ interface PoolsViewProps {
 const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 transition-all duration-300";
 
 export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsViewProps) {
+  const { t } = useI18n();
+  const fmt = useFormat();
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,7 +60,7 @@ export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsV
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Database size={16} className="text-primary" />
-            <h2 className="text-base font-semibold text-foreground tracking-wide">Pools de Liquidez</h2>
+            <h2 className="text-base font-semibold text-foreground tracking-wide">{t('pools.title')}</h2>
           </div>
           <button onClick={handleRefresh} disabled={refreshing}
             className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
@@ -72,9 +75,9 @@ export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsV
         ) : (
           <>
             <div className="bg-secondary/30 rounded-xl p-4 mb-4 border border-border/30">
-              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-1">TVL Total</div>
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-1">{t('pools.totalTvl')}</div>
               <div className="text-2xl font-mono font-semibold text-foreground">
-                ${totalTvl.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                {fmt.currency(totalTvl, 'USD', 0)}
               </div>
             </div>
 
@@ -91,13 +94,13 @@ export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsV
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                     <div className="text-muted-foreground/60">
-                      Reserva A: <span className="text-foreground/80">{pool.reserveA.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                      {t('pools.reserveA')}: <span className="text-foreground/80">{fmt.number(pool.reserveA, 0)}</span>
                     </div>
                     <div className="text-muted-foreground/60">
-                      Reserva B: <span className="text-foreground/80">{pool.reserveB.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
+                      {t('pools.reserveB')}: <span className="text-foreground/80">{fmt.number(pool.reserveB, 2)}</span>
                     </div>
                     <div className="text-muted-foreground/60 col-span-2">
-                      TVL: <span className="text-primary">${pool.tvl.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                      {t('dash.tvl')}: <span className="text-primary">{fmt.currency(pool.tvl, 'USD', 0)}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -106,7 +109,7 @@ export function PoolsView({ provider, connectedAddress, onAddLiquidity }: PoolsV
 
             <button onClick={onAddLiquidity}
               className="w-full mt-4 flex items-center justify-center gap-2 bg-primary/8 hover:bg-primary/12 border border-primary/20 text-primary font-semibold py-3 rounded-2xl transition-all duration-200 cursor-pointer">
-              <Plus size={16} /> Adicionar Liquidez
+              <Plus size={16} /> {t('action.addLiquidity')}
             </button>
           </>
         )}

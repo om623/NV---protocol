@@ -31,8 +31,12 @@ import {
   ARC_TESTNET_CHAIN_PARAMS,
   getNetworkTokens,
 } from './networks';
-import { getAsset, refreshFromApis } from './lib/marketData';
+import { getAsset, refreshFromApis, getMarketSentiment, getAllAssets } from './lib/marketData';
 import { isValidNum } from './lib/utils';
+import { useI18n, useFormat } from './i18n';
+import { DigitalPresenter } from './components/DigitalPresenter';
+import { LanguageSelector } from './components/LanguageSelector';
+import type { DashboardContext } from './lib/news';
 
 const queryClient = new QueryClient();
 
@@ -80,16 +84,16 @@ const INITIAL_TRANSACTIONS = [
 // Network lists live in ./networks.ts — imported above.
 
 const PIPELINE_STEPS = [
-  { label: 'Conectando carteira...',          Icon: Wallet },
-  { label: 'Validando assinatura...',         Icon: Shield },
-  { label: 'Lendo saldo...',                  Icon: Database },
-  { label: 'Escaneando pools de liquidez...', Icon: Activity },
-  { label: 'Analisando oportunidades...',     Icon: TrendingUp },
-  { label: 'Calculando risco...',             Icon: AlertTriangle },
-  { label: 'Selecionando estratégia ótima...', Icon: Target },
-  { label: 'Simulando execução...',           Icon: Cpu },
-  { label: 'Confirmando resultados...',       Icon: Check },
-  { label: 'Finalizado.',                     Icon: CheckCircle2 },
+  { labelKey: 'sim.step.connecting',          Icon: Wallet },
+  { labelKey: 'sim.step.validating',          Icon: Shield },
+  { labelKey: 'sim.step.readingBalance',      Icon: Database },
+  { labelKey: 'sim.step.scanningPools',       Icon: Activity },
+  { labelKey: 'sim.step.analyzingOpps',       Icon: TrendingUp },
+  { labelKey: 'sim.step.calculatingRisk',     Icon: AlertTriangle },
+  { labelKey: 'sim.step.selectingStrategy',   Icon: Target },
+  { labelKey: 'sim.step.simulating',          Icon: Cpu },
+  { labelKey: 'sim.step.confirming',          Icon: Check },
+  { labelKey: 'sim.step.finished',            Icon: CheckCircle2 },
 ];
 
 const CONSOLE_SCRIPT: { type: 'info' | 'success' | 'warn'; text: string; delay: number }[] = [
@@ -119,15 +123,15 @@ const ROI_TARGET = 8.47;
 
 type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'configuracoes' | 'ajuda';
 
-const SIDEBAR_ITEMS: { label: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
-  { label: 'Dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
-  { label: 'Simulação',     Icon: Activity,        view: 'simulacao'      },
-  { label: 'Histórico',     Icon: History,         view: 'historico',     comingSoon: true },
-  { label: 'Relatórios',    Icon: FileText,        view: 'relatorios',    comingSoon: true },
-  { label: 'Pools',         Icon: Database,        view: 'pools'          },
-  { label: 'Carteira',      Icon: Wallet,          view: 'carteira'       },
-  { label: 'Configurações', Icon: Settings,        view: 'configuracoes', comingSoon: true },
-  { label: 'Ajuda',         Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
+const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
+  { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
+  { key: 'nav.simulation',    Icon: Activity,        view: 'simulacao'      },
+  { key: 'nav.history',       Icon: History,         view: 'historico',     comingSoon: true },
+  { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
+  { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
+  { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
+  { key: 'nav.settings',      Icon: Settings,        view: 'configuracoes', comingSoon: true },
+  { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -240,6 +244,7 @@ body{font-family:'Courier New',monospace;background:#070c18;color:#c8d8e8;paddin
 // ─── RoiChart ─────────────────────────────────────────────────────────────────
 
 function RoiChart({ points, isComplete = false }: { points: RoiPoint[]; isComplete?: boolean }) {
+  const { t } = useI18n();
   const W = 400; const H = 90;
   const PAD = { t: 10, b: 12, l: 6, r: 40 };
   const cW = W - PAD.l - PAD.r;
@@ -252,7 +257,7 @@ function RoiChart({ points, isComplete = false }: { points: RoiPoint[]; isComple
   if (points.length < 2) {
     return (
       <div className="w-full flex items-center justify-center" style={{ height: H }}>
-        <span className="text-[10px] font-mono text-muted-foreground/30 animate-pulse">aguardando dados do ROI...</span>
+        <span className="text-[10px] font-mono text-muted-foreground/30 animate-pulse">{t('sim.waitingRoi')}</span>
       </div>
     );
   }
@@ -521,6 +526,7 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
   activeNetwork: NetworkConfig;
   className?: string;
 }) {
+  const { t } = useI18n();
   const isTestnet = envMode === 'testnet';
   return (
     <AnimatePresence mode="wait">
@@ -539,7 +545,7 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
         )}
       >
         <span className="text-base leading-none">{isTestnet ? '🧪' : '🌐'}</span>
-        <span className="tracking-widest text-xs" translate="no">{isTestnet ? 'TESTNET' : 'MAINNET'}</span>
+        <span className="tracking-widest text-xs" translate="no">{isTestnet ? t('net.testnet') : t('net.mainnet')}</span>
         <span className="opacity-40 select-none">•</span>
         <div className={`w-2 h-2 rounded-full ${activeNetwork.color} animate-pulse shrink-0`} />
         <span className="text-xs" translate="no">{activeNetwork.shortName}</span>
@@ -553,6 +559,7 @@ function NetworkBadge({ envMode, activeNetwork, className = '' }: {
 // ─── SidebarContent ───────────────────────────────────────────────────────────
 
 function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => void; activeView: SidebarView; onNavigate: (view: SidebarView) => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col h-full">
       {/* Brand header */}
@@ -577,11 +584,11 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
 
       {/* Navigation */}
       <nav className="flex-1 p-3 flex flex-col gap-0.5 overflow-y-auto">
-        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/40 px-3 py-2 mt-1">Menu</div>
-        {SIDEBAR_ITEMS.map(({ label, Icon, view, comingSoon }) => {
+        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/40 px-3 py-2 mt-1">{t('nav.menu')}</div>
+        {SIDEBAR_ITEMS.map(({ key, Icon, view, comingSoon }) => {
           const active = activeView === view;
           return (
-            <button key={label}
+            <button key={key}
               onClick={() => { onNavigate(view); onClose?.(); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
                 active
@@ -592,9 +599,9 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
               )}
               <Icon size={15} className={`shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
-              <span className="flex-1 text-left">{label}</span>
+              <span className="flex-1 text-left">{t(key)}</span>
               {comingSoon && (
-                <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">Em breve</span>
+                <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">{t('nav.comingSoon')}</span>
               )}
               {active && <ChevronRight size={12} className="text-primary/40" />}
             </button>
@@ -605,7 +612,7 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
       {/* Footer */}
       <div className="p-4 border-t border-border/40">
         <div className="text-[9px] font-mono text-muted-foreground/30 text-center leading-relaxed">
-          Audited by NextSec<br />Block 1849204
+          {t('net.auditBy')}<br />{t('net.block')}
         </div>
       </div>
     </div>
@@ -617,6 +624,10 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 function Home() {
+  // ── i18n ────────────────────────────────────────────────────────────────────
+  const { t, locale, localeBcp47 } = useI18n();
+  const fmt = useFormat();
+
   // ── Existing state ──────────────────────────────────────────────────────────
   const [sourceToken, setSourceToken] = useState('USDC');
   const [destToken,   setDestToken]   = useState('EURC');
@@ -814,13 +825,13 @@ function Home() {
   const handleConnect = async () => {
     const prov = getProvider();
     if (!prov) {
-      toast({ title: 'Carteira não encontrada', description: 'Instale MetaMask para conectar.', variant: 'destructive' });
+      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
       return;
     }
     try {
       const accounts = await getAccounts(prov);
       const addr = accounts?.[0];
-      if (!addr) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
+      if (!addr) { toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' }); return; }
       // Switch to the active testnet when applicable (supports all testnets).
       if (activeNetwork.type === 'testnet') {
         await ensureNetwork(prov, networkChainParams(activeNetwork));
@@ -833,11 +844,11 @@ function Home() {
       setIsConnected(true);
       setWalletChainId(chainId);
       await refreshBalances(prov, addr);
-      toast({ title: 'Carteira conectada', description: `Endereço: ${shortAddress(addr)}` });
+      toast({ title: t('wallet.connected'), description: `${t('wallet.address')}: ${shortAddress(addr)}` });
     } catch (err) {
       const code = (err as { code?: number })?.code;
-      if (code === 4001) toast({ title: 'Conexão recusada', variant: 'destructive' });
-      else toast({ title: 'Erro ao conectar', description: (err as Error)?.message, variant: 'destructive' });
+      if (code === 4001) toast({ title: t('wallet.connectionRefused'), variant: 'destructive' });
+      else toast({ title: t('wallet.connectError'), description: (err as Error)?.message, variant: 'destructive' });
     }
   };
 
@@ -856,13 +867,13 @@ function Home() {
     if (!n || n <= 0) return;
     const prov = provider ?? getProvider();
     if (!prov) {
-      toast({ title: 'Carteira não encontrada', description: 'Conecte sua carteira MetaMask primeiro.', variant: 'destructive' });
+      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
       return;
     }
     try {
       const accounts = await getAccounts(prov);
       const from = accounts?.[0];
-      if (!from) { toast({ title: 'Conta não autorizada', variant: 'destructive' }); return; }
+      if (!from) { toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' }); return; }
       if (activeNetwork.type === 'testnet') {
         await ensureNetwork(prov, networkChainParams(activeNetwork));
       } else {
@@ -887,11 +898,11 @@ function Home() {
       }, ...prev]);
       setAmount('');
       await refreshBalances(prov, from);
-      toast({ title: `Swap real enviado na ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
+      toast({ title: `${t('wallet.realSwapSent')} ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
     } catch (err) {
       const code = (err as { code?: number })?.code;
-      if (code === 4001) toast({ title: 'Transação recusada', description: 'A carteira recusou a transação.', variant: 'destructive' });
-      else toast({ title: 'Falha no swap real', description: (err as Error)?.message, variant: 'destructive' });
+      if (code === 4001) toast({ title: t('wallet.txRefused'), description: t('wallet.walletRefused'), variant: 'destructive' });
+      else toast({ title: t('wallet.swapFailed'), description: (err as Error)?.message, variant: 'destructive' });
     }
   };
 
@@ -952,8 +963,8 @@ function Home() {
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); }
     setReportExported(true);
-    const t = window.setTimeout(() => setReportExported(false), 2500);
-    miscTimers.current.push(t);
+    const tm = window.setTimeout(() => setReportExported(false), 2500);
+    miscTimers.current.push(tm);
   };
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
@@ -1006,17 +1017,42 @@ function Home() {
   const sourceUsd = sourceAmountNum * getUsdRate(sourceToken);
   const destUsd   = destAmountNum   * getUsdRate(destToken);
 
-  const logColor = (t: string) => t === 'success' ? 'text-emerald-400' : t === 'warn' ? 'text-yellow-400' : 'text-cyan-300';
-  const logTag   = (t: string) => t === 'success' ? '[SUCCESS]' : t === 'warn' ? '[WARN]' : '[INFO]';
+  const logColor = (type: string) => type === 'success' ? 'text-emerald-400' : type === 'warn' ? 'text-yellow-400' : 'text-cyan-300';
+  const logTag   = (type: string) => type === 'success' ? '[SUCCESS]' : type === 'warn' ? '[WARN]' : '[INFO]';
 
   const statCards = [
-    { label: 'Saldo',   value: `$${simStats.balance.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, Icon: BarChart2,    color: 'text-cyan-400',    glow: 'hover:shadow-[0_0_14px_rgba(34,211,238,0.2)]'  },
-    { label: 'ROI Est.',value: `+${simStats.roi.toFixed(2)}%`,  Icon: TrendingUp,   color: 'text-emerald-400', glow: 'hover:shadow-[0_0_14px_rgba(52,211,153,0.2)]'  },
-    { label: 'Risco',   value: `${simStats.risk.toFixed(1)}%`,  Icon: AlertTriangle,color: 'text-yellow-400',  glow: 'hover:shadow-[0_0_14px_rgba(250,204,21,0.15)]' },
-    { label: 'Tempo',   value: `${simStats.execTime.toFixed(1)}s`, Icon: Clock,     color: 'text-primary',     glow: 'hover:shadow-[0_0_14px_rgba(0,229,188,0.2)]'   },
-    { label: 'Pools',   value: `${simStats.poolsAnalyzed}`,     Icon: Database,     color: 'text-violet-400',  glow: 'hover:shadow-[0_0_14px_rgba(167,139,250,0.2)]' },
-    { label: 'Oport.',  value: `${simStats.opportunities}`,     Icon: Target,       color: 'text-orange-400',  glow: 'hover:shadow-[0_0_14px_rgba(251,146,60,0.2)]'  },
+    { label: t('swap.balance'),   value: fmt.currency(simStats.balance, 'USD', 0), Icon: BarChart2,    color: 'text-cyan-400',    glow: 'hover:shadow-[0_0_14px_rgba(34,211,238,0.2)]'  },
+    { label: t('sim.estimatedRoi'),value: `+${simStats.roi.toFixed(2)}%`,  Icon: TrendingUp,   color: 'text-emerald-400', glow: 'hover:shadow-[0_0_14px_rgba(52,211,153,0.2)]'  },
+    { label: t('dash.risk'),   value: `${simStats.risk.toFixed(1)}%`,  Icon: AlertTriangle,color: 'text-yellow-400',  glow: 'hover:shadow-[0_0_14px_rgba(250,204,21,0.15)]' },
+    { label: t('sim.totalTime'),   value: `${simStats.execTime.toFixed(1)}s`, Icon: Clock,     color: 'text-primary',     glow: 'hover:shadow-[0_0_14px_rgba(0,229,188,0.2)]'   },
+    { label: t('intel.pools'),   value: `${simStats.poolsAnalyzed}`,     Icon: Database,     color: 'text-violet-400',  glow: 'hover:shadow-[0_0_14px_rgba(167,139,250,0.2)]' },
+    { label: t('intel.opportunities'),  value: `${simStats.opportunities}`,     Icon: Target,       color: 'text-orange-400',  glow: 'hover:shadow-[0_0_14px_rgba(251,146,60,0.2)]'  },
   ];
+
+  // ── Dashboard context for Digital Presenter ─────────────────────────────────
+  const dashboardContext: DashboardContext = useMemo(() => {
+    const sentiment = getMarketSentiment();
+    const allAssets = getAllAssets();
+    const movers = allAssets
+      .filter(a => a.isLive)
+      .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+      .slice(0, 5)
+      .map(a => ({ symbol: a.symbol, change: a.change24h }));
+    return {
+      fearGreedIndex: sentiment.fearGreedIndex,
+      fearGreedLabel: sentiment.label,
+      dominantTrend: sentiment.dominantTrend,
+      bullishCount: sentiment.bullishCount,
+      bearishCount: sentiment.bearishCount,
+      neutralCount: sentiment.neutralCount,
+      totalVolume: sentiment.totalVolume,
+      totalTvl: sentiment.totalTvl,
+      btcDominance: sentiment.btcDominance,
+      activeNetworkName: activeNetwork.name,
+      topMovers: movers,
+      isLiveData: sentiment.isLive,
+    };
+  }, [activeNetwork.name]);
 
   // shared NV card wrapper style
   const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 hover:shadow-[0_4px_32px_rgba(0,0,0,0.4),0_0_18px_rgba(0,229,188,0.04)] transition-all duration-300";
@@ -1035,7 +1071,7 @@ function Home() {
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-border/40 bg-background/95 backdrop-blur-xl min-h-screen z-10 relative">
         <SidebarContent activeView={activeView} onNavigate={(v) => {
           const item = SIDEBAR_ITEMS.find(i => i.view === v);
-          if (item?.comingSoon) { setComingSoonFeature(item.label); return; }
+          if (item?.comingSoon) { setComingSoonFeature(t(item.key)); return; }
           setActiveView(v);
         }} />
       </aside>
@@ -1056,7 +1092,7 @@ function Home() {
             >
               <SidebarContent onClose={() => setSidebarOpen(false)} activeView={activeView} onNavigate={(v) => {
                 const item = SIDEBAR_ITEMS.find(i => i.view === v);
-                if (item?.comingSoon) { setComingSoonFeature(item.label); return; }
+                if (item?.comingSoon) { setComingSoonFeature(t(item.key)); return; }
                 setActiveView(v);
               }} />
             </motion.aside>
@@ -1105,7 +1141,7 @@ function Home() {
               }`}>
                 {envMode === 'testnet' ? '🧪' : '🚀'}
                 <span className="hidden md:inline ml-0.5">
-                  {envMode === 'testnet' ? 'Testnet • Arc' : 'Mainnet (Em breve)'}
+                  {envMode === 'testnet' ? t('net.testnetArc') : t('net.mainnetSoon')}
                 </span>
               </span>
 
@@ -1124,10 +1160,13 @@ function Home() {
                     onClick={handleSwitchNetwork}
                     className="hidden md:flex items-center gap-1.5 bg-amber-500/8 hover:bg-amber-500/15 border border-amber-500/25 text-amber-400 text-xs font-mono px-2.5 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap"
                   >
-                    <AlertTriangle size={11} /> Trocar para {activeNetwork.shortName}
+                    <AlertTriangle size={11} /> {t('net.switchTo')} {activeNetwork.shortName}
                   </motion.button>
                 )}
               </AnimatePresence>
+
+              {/* Language Selector */}
+              <LanguageSelector compact />
 
               {/* Wallet button */}
               <div className="relative">
@@ -1136,7 +1175,7 @@ function Home() {
                     <button
                       onClick={handleConnect}
                       className="relative w-full h-full bg-secondary/90 hover:bg-secondary text-primary px-3 py-2 rounded-[7px] text-sm font-medium transition-colors font-mono whitespace-nowrap cursor-pointer">
-                      Connect
+                      {t('action.connect')}
                     </button>
                   </div>
                 ) : (
@@ -1155,7 +1194,7 @@ function Home() {
                           className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 min-w-full">
                           <button onClick={handleDisconnect}
                             className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/8 transition-colors cursor-pointer whitespace-nowrap">
-                            <LogOut size={14} /> Disconnect
+                            <LogOut size={14} /> {t('action.disconnect')}
                           </button>
                         </motion.div>
                       )}
@@ -1189,8 +1228,42 @@ function Home() {
           {/* Nova Simulação */}
           <button onClick={handleStartNewSim}
             className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-[0_0_20px_rgba(0,229,188,0.3)] cursor-pointer shrink-0 active:scale-[0.97]">
+        {/* ── Simulation mode banner (shown when no wallet connected) ── */}
+        <AnimatePresence>
+          {!isConnected && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden border-b border-border/25 bg-gradient-to-r from-violet-500/8 via-blue-500/5 to-transparent"
+            >
+              <div className="flex items-center gap-3 px-4 py-2.5">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-base leading-none">🧪</span>
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-violet-400">
+                    Simulation Mode
+                  </span>
+                </div>
+                <div className="w-px h-4 bg-border/40 shrink-0" />
+                <span className="text-[11px] font-mono text-muted-foreground/70 hidden sm:inline">
+                  Nenhuma carteira conectada — usando dados simulados. Nenhuma transação blockchain será enviada.
+                </span>
+                <span className="text-[11px] font-mono text-muted-foreground/70 sm:hidden">
+                  Dados simulados — sem transações reais.
+                </span>
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                  <span className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-wider hidden md:inline">
+                    {activeNetwork.shortName} Testnet
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
             <RefreshCw size={13} className={swapModalOpen && !simPaused && simPhase === 'pipeline' ? 'animate-spin' : ''} />
-            Nova Simulação
+            {t('action.newSimulation')}
           </button>
 
           {/* Pausar / Retomar */}
@@ -1202,7 +1275,7 @@ function Home() {
                 : 'bg-secondary/80 hover:bg-secondary border-border/50 text-foreground'
             }`}>
             <Pause size={13} className={simPaused ? 'text-emerald-400' : 'text-yellow-400'} />
-            {simPaused ? 'Retomar' : 'Pausar'}
+            {simPaused ? t('action.resume') : t('action.pause')}
           </button>
 
           {/* Cancelar */}
@@ -1210,7 +1283,7 @@ function Home() {
             disabled={!swapModalOpen}
             className="flex items-center gap-1.5 bg-secondary/80 hover:bg-red-500/8 border border-border/50 hover:border-red-500/25 text-foreground hover:text-red-400 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-[0.97] disabled:opacity-35 disabled:cursor-not-allowed">
             <X size={13} />
-            Cancelar
+            {t('action.cancel')}
           </button>
 
           <div className="w-px h-5 bg-border/50 shrink-0" />
@@ -1224,7 +1297,7 @@ function Home() {
                 : 'bg-secondary/80 hover:bg-primary/8 border-border/50 hover:border-primary/25 text-foreground hover:text-primary'
             }`}>
             {reportExported ? <CheckCircle2 size={13} /> : <Download size={13} />}
-            {reportExported ? 'Exportado!' : 'Exportar Relatório'}
+            {reportExported ? t('action.exported') : t('action.exportReport')}
           </button>
         </div>
 
@@ -1240,7 +1313,7 @@ function Home() {
                 <PoolsView
                   provider={provider}
                   connectedAddress={connectedAddress}
-                  onAddLiquidity={() => setComingSoonFeature('Adicionar Liquidez')}
+                  onAddLiquidity={() => setComingSoonFeature(t('action.addLiquidity'))}
                 />
               )}
 
@@ -1258,6 +1331,9 @@ function Home() {
               {/* ── Dashboard / Simulation View (default) ──────────────────── */}
               {activeView === 'dashboard' && (
                 <>
+
+              {/* ── Digital Presenter ─────────────────────────────────── */}
+              <DigitalPresenter context={dashboardContext} />
 
               {/* ── Executive Dashboard ──────────────────────────────────── */}
               <ExecutiveDashboard
@@ -1279,7 +1355,7 @@ function Home() {
                 <div className="p-5">
                   <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/15 to-transparent mb-5 -mt-1" />
                   <div className="flex justify-between items-center mb-5 px-0.5">
-                    <h2 className="text-base font-semibold text-foreground tracking-wide">Swap</h2>
+                    <h2 className="text-base font-semibold text-foreground tracking-wide">{t('swap.title')}</h2>
                     <div className="flex items-center gap-1.5">
                       <button className="text-muted-foreground/60 hover:text-foreground transition-colors p-1.5 rounded-xl hover:bg-secondary cursor-pointer"><Activity size={16} /></button>
                       <button className="text-muted-foreground/60 hover:text-foreground transition-colors p-1.5 rounded-xl hover:bg-secondary cursor-pointer"><Settings size={16} /></button>
@@ -1287,7 +1363,7 @@ function Home() {
                   </div>
                   <div className="relative flex flex-col gap-1">
                     <div className="bg-input/30 border border-border/30 focus-within:border-primary/30 focus-within:shadow-[0_0_0_3px_rgba(0,229,188,0.05)] rounded-2xl p-4 transition-all duration-200">
-                      <div className="text-xs text-muted-foreground/60 font-mono mb-3">Token Origem</div>
+                      <div className="text-xs text-muted-foreground/60 font-mono mb-3">{t('swap.tokenOrigin')}</div>
                       <div className="flex justify-between items-center gap-4">
                         <input type="number" placeholder="0.0" value={amount} onChange={e => setAmount(e.target.value)}
                           className="bg-transparent text-4xl font-mono outline-none w-full text-foreground placeholder:text-muted-foreground/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
@@ -1296,8 +1372,8 @@ function Home() {
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${isValidNum(sourceUsd) ? sourceUsd.toFixed(2) : '—'}</span>
                         <span className="flex items-center gap-2">
-                          Balance: {realBalances ? (realBalances[sourceToken] ?? 0).toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
-                          <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">MAX</button>
+                          {t('swap.balance')}: {realBalances ? (realBalances[sourceToken] ?? 0).toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
+                          <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">{t('action.max')}</button>
                         </span>
                       </div>
                     </div>
@@ -1308,7 +1384,7 @@ function Home() {
                       </button>
                     </div>
                     <div className="bg-input/30 border border-border/30 rounded-2xl p-4 transition-all duration-200">
-                      <div className="text-xs text-muted-foreground/60 font-mono mb-3">Token Destino</div>
+                      <div className="text-xs text-muted-foreground/60 font-mono mb-3">{t('swap.tokenDest')}</div>
                       <div className="flex justify-between items-center gap-4">
                         <input type="number" placeholder="0.0" disabled
                           value={amount && sourceAmountNum > 0 ? destAmountNum.toFixed(4) : ''}
@@ -1317,20 +1393,20 @@ function Home() {
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${isValidNum(destUsd) ? destUsd.toFixed(2) : '—'}</span>
-                        <span>Balance: {realBalances ? (realBalances[destToken] ?? 0).toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
+                        <span>{t('swap.balance')}: {realBalances ? (realBalances[destToken] ?? 0).toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-5 mb-2 flex justify-between text-xs font-mono text-muted-foreground/50 px-1">
-                    <span className="flex items-center gap-1"><Zap size={11} className="text-primary" /> Routing</span>
+                    <span className="flex items-center gap-1"><Zap size={11} className="text-primary" /> {t('swap.routing')}</span>
                     <span translate="no">1 {sourceToken} = {formatRate(rate)} {destToken}</span>
                   </div>
                   <AnimatePresence>
                     {amount && parseFloat(amount) > 0 && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                         <div className="pt-2.5 pb-1 mt-1.5 mb-1.5 border-t border-border/40 flex justify-between text-xs font-mono px-1">
-                          <span className="flex items-center gap-1.5 text-muted-foreground/50"><Flame size={11} className="text-orange-500" /> Est. Gas</span>
+                          <span className="flex items-center gap-1.5 text-muted-foreground/50"><Flame size={11} className="text-orange-500" /> {t('swap.estGas')}</span>
                           <span className="text-muted-foreground/60">$1.24</span>
                         </div>
                       </motion.div>
@@ -1344,7 +1420,7 @@ function Home() {
                           ? 'bg-secondary/40 text-muted-foreground/50 border-border/30 cursor-not-allowed'
                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                       }`}>
-                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> Simular Swap</span>
+                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> {t('action.simulateSwap')}</span>
                       {amount && parseFloat(amount) > 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
                       )}
@@ -1358,7 +1434,7 @@ function Home() {
                       }`}>
                       <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
                         {isRealSwap ? <Zap size={16} /> : <Wallet size={16} />}
-                        {isRealSwap ? `Swap na ${activeNetwork.shortName}` : 'Swap'}
+                        {isRealSwap ? t('action.swapOn') + ' ' + activeNetwork.shortName : t('action.swap')}
                       </span>
                       {amount && parseFloat(amount) > 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
@@ -1375,7 +1451,7 @@ function Home() {
                   <div className="h-px w-full bg-gradient-to-r from-transparent via-white/8 to-transparent mb-5 -mt-1" />
                   <div className="flex items-center gap-2 mb-4 px-0.5">
                     <ArrowRight size={13} className="text-primary" />
-                    <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">Recent Transactions</h3>
+                    <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">{t('swap.recentTransactions')}</h3>
                   </div>
                   <div className="flex flex-col gap-2">
                     <AnimatePresence initial={false}>
@@ -1417,7 +1493,7 @@ function Home() {
                         className="w-full flex items-center justify-between cursor-pointer group">
                         <div className="flex items-center gap-2">
                           <History size={13} className="text-primary" />
-                          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">Histórico de Simulações</span>
+                          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">{t('sim.simulationHistory')}</span>
                           <span className="text-[9px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{simHistory.length}</span>
                         </div>
                         <ChevronUp size={14} className={`text-muted-foreground/50 transition-transform duration-200 ${historyOpen ? '' : 'rotate-180'}`} />
@@ -1503,11 +1579,11 @@ function Home() {
                     <div className="px-7 pt-7 pb-5 border-b border-border/40">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">Simulação em andamento</span>
+                        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">{t('sim.inProgress')}</span>
                         {simId && <span className="ml-auto text-[10px] font-mono text-primary/50">{simId}</span>}
                       </div>
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-base font-medium text-foreground">Executando pipeline...</span>
+                        <span className="text-base font-medium text-foreground">{t('sim.executingPipeline')}</span>
                         <span className="text-sm font-mono text-primary font-bold tabular-nums">{Math.round(simProgress)}%</span>
                       </div>
                       <div className="h-1.5 w-full bg-secondary/60 rounded-full overflow-hidden">
@@ -1521,13 +1597,13 @@ function Home() {
                     <div className="flex flex-col md:flex-row min-h-0">
                       {/* Pipeline steps */}
                       <div className="w-full md:w-[42%] p-6 border-b md:border-b-0 md:border-r border-border/40">
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">Pipeline</div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">{t('sim.pipeline')}</div>
                         <div className="flex flex-col gap-2.5">
-                          {PIPELINE_STEPS.map(({ label, Icon }, i) => {
+                          {PIPELINE_STEPS.map(({ labelKey, Icon }, i) => {
                             const past   = simStep > i;
                             const active = simStep === i;
                             return (
-                              <div key={label} className="flex items-center gap-3 relative">
+                              <div key={labelKey} className="flex items-center gap-3 relative">
                                 {i < PIPELINE_STEPS.length - 1 && (
                                   <div className={`absolute left-[13px] top-7 w-[2px] h-3 rounded-full transition-colors duration-500 ${past ? 'bg-primary/40' : 'bg-border/20'}`} />
                                 )}
@@ -1544,7 +1620,7 @@ function Home() {
                                 <span className={`text-[11px] font-mono transition-colors duration-400 truncate ${
                                   past   ? 'text-muted-foreground/30 line-through decoration-primary/20' :
                                   active ? 'text-foreground' : 'text-muted-foreground/20'
-                                }`}>{label}</span>
+                                }`}>{t(labelKey)}</span>
                               </div>
                             );
                           })}
@@ -1555,7 +1631,7 @@ function Home() {
                       <div className="w-full md:flex-1 p-6 flex flex-col">
                         <div className="flex items-center gap-2 mb-3">
                           <Terminal size={13} className="text-primary" />
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">Console</span>
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">{t('sim.console')}</span>
                           <div className="ml-auto flex gap-1.5">
                             {['bg-red-500/60','bg-yellow-500/60','bg-green-500/60'].map(c => <div key={c} className={`w-2.5 h-2.5 rounded-full ${c}`} />)}
                           </div>
@@ -1579,7 +1655,7 @@ function Home() {
 
                         {/* Mini ROI chart */}
                         <div className="mt-4">
-                          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">ROI em tempo real</div>
+                          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">{t('sim.realTimeRoi')}</div>
                           <div className="bg-black/40 rounded-xl border border-border/25 px-3 py-2 overflow-hidden" style={{ boxShadow: 'inset 0 0 16px rgba(0,0,0,0.3)' }}>
                             <RoiChart points={roiPoints} />
                           </div>
@@ -1589,7 +1665,7 @@ function Home() {
 
                     {/* Stats */}
                     <div className="px-6 pb-6 pt-4 border-t border-border/40">
-                      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">Métricas em tempo real</div>
+                      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">{t('sim.realTimeMetrics')}</div>
                       <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                         {statCards.map(({ label, value, Icon, color, glow }) => (
                           <motion.div key={label}
@@ -1624,17 +1700,17 @@ function Home() {
                     </motion.div>
 
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="text-center mb-5">
-                      <h2 className="text-2xl font-bold text-foreground mb-1">Operação Concluída</h2>
+                      <h2 className="text-2xl font-bold text-foreground mb-1">{t('sim.operationComplete')}</h2>
                       <div className="flex items-center justify-center gap-2 mb-1">
                         <span className="text-xs font-mono text-primary bg-primary/8 px-2 py-0.5 rounded-full border border-primary/20">{simId}</span>
                       </div>
-                      <p className="text-[11px] font-mono text-muted-foreground/50">Executado em: {simDateTime}</p>
+                      <p className="text-[11px] font-mono text-muted-foreground/50">{t('sim.executedAt')} {simDateTime}</p>
                     </motion.div>
 
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                       className="w-full bg-black/30 border border-border/35 rounded-2xl px-4 pt-3 pb-2 mb-5">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">Evolução do ROI</span>
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">{t('sim.roiEvolution')}</span>
                         <span className="text-sm font-mono font-bold text-emerald-400">+{simStats.roi.toFixed(2)}%</span>
                       </div>
                       <RoiChart points={roiPoints} isComplete />
@@ -1642,9 +1718,9 @@ function Home() {
 
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }} className="grid grid-cols-3 gap-3 w-full mb-5">
                       {[
-                        { label: 'Tempo Total', value: `${simTotalTime.toFixed(2)}s`, Icon: Clock, color: 'text-primary', shadow: '0 0 20px rgba(0,229,188,0.12)' },
-                        { label: 'ROI Estimado', value: `+${simStats.roi.toFixed(2)}%`, Icon: TrendingUp, color: 'text-emerald-400', shadow: '0 0 20px rgba(52,211,153,0.12)' },
-                        { label: 'Risco', value: `${simStats.risk.toFixed(1)}%`, Icon: AlertTriangle, color: 'text-yellow-400', shadow: '0 0 20px rgba(250,204,21,0.08)' },
+                        { label: t('sim.totalTime'), value: `${simTotalTime.toFixed(2)}s`, Icon: Clock, color: 'text-primary', shadow: '0 0 20px rgba(0,229,188,0.12)' },
+                        { label: t('sim.estimatedRoi'), value: `+${simStats.roi.toFixed(2)}%`, Icon: TrendingUp, color: 'text-emerald-400', shadow: '0 0 20px rgba(52,211,153,0.12)' },
+                        { label: t('dash.risk'), value: `${simStats.risk.toFixed(1)}%`, Icon: AlertTriangle, color: 'text-yellow-400', shadow: '0 0 20px rgba(250,204,21,0.08)' },
                       ].map(({ label, value, Icon, color, shadow }) => (
                         <div key={label} className="bg-secondary/40 border border-border/40 rounded-2xl p-4 flex flex-col items-center gap-2 transition-all duration-300 hover:scale-[1.02]" style={{ boxShadow: shadow }}>
                           <Icon size={18} className={color} />
@@ -1666,7 +1742,7 @@ function Home() {
                     <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
 
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="w-full bg-secondary/25 border border-border/35 rounded-2xl p-4 mb-5">
-                      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">Estratégia utilizada</div>
+                      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">{t('sim.strategyUsed')}</div>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Zap size={14} className="text-primary" />
@@ -1697,7 +1773,7 @@ function Home() {
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex flex-col sm:flex-row gap-3 w-full">
                       <button onClick={handleNovaSimulacao}
                         className="flex-1 flex items-center justify-center gap-2 bg-secondary/80 hover:bg-secondary border border-border/50 hover:border-primary/20 text-foreground font-semibold py-3.5 rounded-2xl transition-all duration-200 cursor-pointer">
-                        <RefreshCw size={16} className="text-primary" /> Nova Simulação
+                        <RefreshCw size={16} className="text-primary" /> {t('action.newSimulation')}
                       </button>
                       <button onClick={handleExportReport}
                         className={`flex-1 flex items-center justify-center gap-2 font-semibold py-3.5 rounded-2xl transition-all duration-200 cursor-pointer border ${
@@ -1706,14 +1782,14 @@ function Home() {
                             : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(0,255,200,0.25)] border-primary/20'
                         }`}>
                         {reportExported ? <CheckCircle2 size={16} /> : <Download size={16} />}
-                        {reportExported ? 'Exportado!' : 'Exportar Relatório'}
+                        {reportExported ? t('action.exported') : t('action.exportReport')}
                       </button>
                     </motion.div>
 
                     <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
                       onClick={closeSwapModal}
                       className="mt-4 text-sm text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer font-mono underline underline-offset-4">
-                      Fechar
+                      {t('action.close')}
                     </motion.button>
                   </motion.div>
                 )}
