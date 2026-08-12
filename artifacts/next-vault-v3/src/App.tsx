@@ -928,7 +928,7 @@ function Home() {
       }, ...prev]);
       setAmount('');
       await refreshBalances(prov, from);
-      const xpGained = gamification.recordSwap();
+      const xpGained = gamification.recordSwap(txHash || undefined);
       toast({ title: `${t('wallet.realSwapSent')} ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
       toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
     } catch (err) {
@@ -958,13 +958,14 @@ function Home() {
   const closeSwapModal = () => {
     setSwapModalOpen(false);
     if (pendingSwap) {
+      const simTxId = Math.random().toString();
       setTransactions(prev => [{
-        id: Math.random().toString(),
+        id: simTxId,
         fromToken: pendingSwap.fromToken, toToken: pendingSwap.toToken,
         fromAmount: pendingSwap.fromAmount, toAmount: pendingSwap.toAmount,
         time: 'Just now', status: 'Success'
       }, ...prev]);
-      const xpGained = gamification.recordSwap();
+      const xpGained = gamification.recordSwap(simTxId);
       toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
     }
     setAmount('');

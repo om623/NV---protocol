@@ -6,6 +6,7 @@ export const BASE_LEVEL = 1000;
 export const SWAP_XP_BASE = 0.5;
 export const BOOST_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 export const PAYMENT_WALLET = '0xAd397122941D03450c70d0076379e079334D434f';
+export const SWAP_COOLDOWN_MS = 2000; // dedup window for calls without a swap ID
 
 export type BoostMultiplier = 1 | 2 | 3 | 4;
 
@@ -117,6 +118,7 @@ export interface GamificationState {
   boostEndsAt: number | null; // epoch ms
   seasonXP: number;
   lastSwapAt: number | null;
+  lastSwapId: string | null;
 }
 
 export const DEFAULT_GAMIFICATION_STATE: GamificationState = {
@@ -131,53 +133,47 @@ export const DEFAULT_GAMIFICATION_STATE: GamificationState = {
   boostEndsAt: null,
   seasonXP: 0,
   lastSwapAt: null,
+  lastSwapId: null,
 };
 
 // ── Derived helpers ───────────────────────────────────────────────────────────
 
-/** Compute effective level from XP and badge/title grants. */
+/** Compute effective level from accumulated XP (single source of truth). */
 export function computeLevel(state: GamificationState): number {
-  let level = BASE_LEVEL;
-  for (const b of BADGES) {
-    if (state.unlockedBadges.includes(b.id)) level += b.levelGrant;
-  }
-  for (const t of TITLES) {
-    if (state.unlockedTitles.includes(t.id)) level += t.levelGrant;
-  }
-  return level;
+  return BASE_LEVEL + state.xp;
 }
 
-/** XP needed to reach the next badge milestone. */
+/** XP progress toward the next level threshold, using XP as the single source. */
 export function nextMilestone(state: GamificationState): { level: number; xpNeeded: number; progress: number } {
-  const currentLevel = computeLevel(state);
-  const allMilestones = [...BADGES.map(b => b.levelRequired), ...TITLES.map(t => t.levelRequired)]
-    .filter(l => l > currentLevel)
+  const currentXp = state.xp;
+  const currentLevel = BASE_LEVEL + currentXp;
+  const allThresholds = [...new Set([...BADGES.map(b => b.levelRequired), ...TITLES.map(t => t.levelRequired)])]
     .sort((a, b) => a - b);
-  const next = allMilestones[0] ?? currentLevel + 500;
-  const prev = currentLevel;
-  const xpNeeded = next - prev;
-  const progress = xpNeeded > 0 ? Math.min(1, state.xp / xpNeeded) : 1;
-  return { level: next, xpNeeded, progress };
+  const next = allThresholds.find(t => t > currentLevel) ?? (allThresholds[allThresholds.length - 1] ?? BASE_LEVEL) + 500;
+  const prev = [...allThresholds].reverse().find(t => t <= currentLevel) ?? BASE_LEVEL;
+  const prevXp = prev - BASE_LEVEL;
+  const nextXp = next - BASE_LEVEL;
+  const span = nextXp - prevXp;
+  const progress = span > 0 ? Math.min(1, Math.max(0, (currentXp - prevXp) / span)) : 1;
+  return { level: next, xpNeeded: nextXp, progress };
 }
 
-/** Check and unlock badges/titles based on swap count. */
+/** Check and unlock badges/titles based on XP-derived level vs levelRequired. */
 export function checkUnlocks(state: GamificationState): GamificationState {
-  const swaps = state.totalSwaps;
+  const currentLevel = BASE_LEVEL + state.xp;
   const newBadges = [...state.unlockedBadges];
   const newTitles = [...state.unlockedTitles];
   let changed = false;
 
   for (const b of BADGES) {
-    const swapThreshold = badgeSwapThreshold(b.id);
-    if (swaps >= swapThreshold && !newBadges.includes(b.id)) {
+    if (state.xp > 0 && currentLevel >= b.levelRequired && !newBadges.includes(b.id)) {
       newBadges.push(b.id);
       changed = true;
     }
   }
   for (const t of TITLES) {
     if (t.id === 'collector') continue; // only from premium skins
-    const swapThreshold = titleSwapThreshold(t.id);
-    if (swaps >= swapThreshold && !newTitles.includes(t.id)) {
+    if (state.xp > 0 && currentLevel >= t.levelRequired && !newTitles.includes(t.id)) {
       newTitles.push(t.id);
       changed = true;
     }
@@ -186,23 +182,15 @@ export function checkUnlocks(state: GamificationState): GamificationState {
   return { ...state, unlockedBadges: newBadges, unlockedTitles: newTitles };
 }
 
-function badgeSwapThreshold(id: string): number {
-  const map: Record<string, number> = {
-    'first-swap': 1, 'swapper-50': 50, 'swapper-100': 100,
-    'swapper-250': 250, 'swapper-500': 500, 'swapper-1000': 1000,
-  };
-  return map[id] ?? Infinity;
-}
-
-function titleSwapThreshold(id: string): number {
-  const map: Record<string, number> = {
-    'novice': 0, 'trader': 50, 'expert': 100, 'master': 250, 'legend': 500,
-  };
-  return map[id] ?? Infinity;
-}
-
-/** Award XP for a swap, respecting active boost. */
-export function awardSwapXP(state: GamificationState): { state: GamificationState; xpGained: number } {
+/** Award XP for a swap, respecting active boost. Idempotent via swapId or cooldown. */
+export function awardSwapXP(state: GamificationState, swapId?: string): { state: GamificationState; xpGained: number } {
+  const now = Date.now();
+  if (swapId && state.lastSwapId === swapId) {
+    return { state, xpGained: 0 };
+  }
+  if (!swapId && state.lastSwapAt && now - state.lastSwapAt < SWAP_COOLDOWN_MS) {
+    return { state, xpGained: 0 };
+  }
   const multiplier = getActiveBoost(state);
   const xpGained = SWAP_XP_BASE * multiplier;
   const newState = {
@@ -210,7 +198,8 @@ export function awardSwapXP(state: GamificationState): { state: GamificationStat
     xp: state.xp + xpGained,
     totalSwaps: state.totalSwaps + 1,
     seasonXP: state.seasonXP + xpGained,
-    lastSwapAt: Date.now(),
+    lastSwapAt: now,
+    lastSwapId: swapId ?? null,
   };
   return { state: checkUnlocks(newState), xpGained };
 }

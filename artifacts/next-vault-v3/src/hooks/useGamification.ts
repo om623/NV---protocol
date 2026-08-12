@@ -44,10 +44,10 @@ export function useGamification() {
   // Persist on change
   useEffect(() => { saveState(state); }, [state]);
 
-  const recordSwap = useCallback((): number => {
+  const recordSwap = useCallback((swapId?: string): number => {
     let gained = 0;
     setState(prev => {
-      const { state: next, xpGained } = awardSwapXP(prev);
+      const { state: next, xpGained } = awardSwapXP(prev, swapId);
       gained = xpGained;
       return next;
     });
