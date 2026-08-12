@@ -12,11 +12,12 @@ interface WalletViewProps {
   onConnect: () => void;
   explorerUrl: string;
   activeNetwork: NetworkConfig;
+  walletName?: string | null;
 }
 
 const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 transition-all duration-300";
 
-export function WalletView({ provider, connectedAddress, onConnect, explorerUrl, activeNetwork }: WalletViewProps) {
+export function WalletView({ provider, connectedAddress, onConnect, explorerUrl, activeNetwork, walletName }: WalletViewProps) {
   const { t } = useI18n();
   const fmt = useFormat();
   const [balances, setBalances] = useState<Record<string, number> | null>(null);
@@ -128,7 +129,12 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl,
 
         {/* Address */}
         <div className="bg-secondary/30 rounded-xl p-3 mb-4 border border-border/30 flex items-center justify-between gap-2">
-          <span className="text-xs font-mono text-muted-foreground/60 truncate">{shortAddress(connectedAddress)}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {walletName && (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-primary/8 border border-primary/15 text-primary shrink-0">{walletName}</span>
+            )}
+            <span className="text-xs font-mono text-muted-foreground/60 truncate">{shortAddress(connectedAddress)}</span>
+          </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={handleCopy} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
               {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}

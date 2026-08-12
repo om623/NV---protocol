@@ -12,6 +12,8 @@ import {
   transferNative, transferErc20, getAllBalances, shortAddress,
   getTokensForNetwork, ARC_TOKENS,
 } from './lib/arc';
+import { type WalletInfo, getLegacyProvider } from './lib/walletDiscovery';
+import { WalletPickerModal } from './components/WalletPickerModal';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
@@ -634,6 +636,8 @@ function Home() {
   const [amount,      setAmount]      = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
+  const [showWalletPicker, setShowWalletPicker] = useState(false);
+  const [activeWalletName, setActiveWalletName] = useState<string | null>(null);
 
   // Real wallet state
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
@@ -805,7 +809,21 @@ function Home() {
       setRealBalances(null);
     }
   };
-  const handleSwitchNetwork = () => { setWalletChainId(activeNetwork.chainId); };
+  const handleSwitchNetwork = async () => {
+    if (!provider) { setWalletChainId(activeNetwork.chainId); return; }
+    try {
+      if (activeNetwork.type === 'testnet') {
+        await ensureNetwork(provider, networkChainParams(activeNetwork));
+      } else {
+        await ensureArcNetwork(provider);
+      }
+      const chainId = await getChainId(provider);
+      setWalletChainId(chainId);
+    } catch {
+      // user refused or network unavailable — update local state only
+      setWalletChainId(activeNetwork.chainId);
+    }
+  };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
   // True when a wallet is connected and the active network is a testnet
@@ -822,17 +840,12 @@ function Home() {
     }
   }, []);
 
-  const handleConnect = async () => {
-    const prov = getProvider();
-    if (!prov) {
-      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
-      return;
-    }
+  const connectWithWallet = async (wallet: WalletInfo) => {
+    const prov = wallet.provider;
     try {
       const accounts = await getAccounts(prov);
       const addr = accounts?.[0];
       if (!addr) { toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' }); return; }
-      // Switch to the active testnet when applicable (supports all testnets).
       if (activeNetwork.type === 'testnet') {
         await ensureNetwork(prov, networkChainParams(activeNetwork));
       } else {
@@ -843,13 +856,22 @@ function Home() {
       setConnectedAddress(addr);
       setIsConnected(true);
       setWalletChainId(chainId);
+      setActiveWalletName(wallet.name);
+      setShowWalletPicker(false);
       await refreshBalances(prov, addr);
-      toast({ title: t('wallet.connected'), description: `${t('wallet.address')}: ${shortAddress(addr)}` });
+      toast({ title: t('wallet.connected'), description: `${wallet.name} · ${shortAddress(addr)}` });
     } catch (err) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) toast({ title: t('wallet.connectionRefused'), variant: 'destructive' });
       else toast({ title: t('wallet.connectError'), description: (err as Error)?.message, variant: 'destructive' });
+      setShowWalletPicker(false);
     }
+  };
+
+  const handleConnect = () => {
+    // Legacy fallback: if only one wallet is likely available, connect directly.
+    // Otherwise open the picker modal.
+    setShowWalletPicker(true);
   };
 
   const handleDisconnect = () => {
@@ -859,13 +881,15 @@ function Home() {
     setRealBalances(null);
     setWalletChainId(null);
     setShowDisconnect(false);
+    setActiveWalletName(null);
+    toast({ title: t('wallet.disconnected') });
   };
 
   // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
   const handleRealSwap = async () => {
     const n = parseFloat(amount);
     if (!n || n <= 0) return;
-    const prov = provider ?? getProvider();
+    const prov = provider ?? getLegacyProvider();
     if (!prov) {
       toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
       return;
@@ -1058,6 +1082,35 @@ function Home() {
     };
   }, [activeNetwork.name, isConnected, transactions.length, swapModalOpen, simPaused, simPhase]);
 
+  // ── Wallet event listeners (account / chain changes) ───────────────────────
+  useEffect(() => {
+    if (!provider || !isConnected) return;
+    const handleAccountsChanged = (...args: unknown[]) => {
+      const accounts = args[0] as string[];
+      if (!accounts || accounts.length === 0) {
+        handleDisconnect();
+        return;
+      }
+      const newAddr = accounts[0];
+      setConnectedAddress(newAddr);
+      toast({ title: t('wallet.accountChanged'), description: shortAddress(newAddr) });
+      refreshBalances(provider, newAddr);
+    };
+    const handleChainChanged = (...args: unknown[]) => {
+      const raw = args[0] as string;
+      const newChainId = typeof raw === 'string' ? parseInt(raw, 16) : (raw as number);
+      setWalletChainId(newChainId);
+      toast({ title: t('wallet.networkChanged') });
+      if (connectedAddress) refreshBalances(provider, connectedAddress);
+    };
+    provider.on?.('accountsChanged', handleAccountsChanged);
+    provider.on?.('chainChanged', handleChainChanged);
+    return () => {
+      provider.removeListener?.('accountsChanged', handleAccountsChanged);
+      provider.removeListener?.('chainChanged', handleChainChanged);
+    };
+  }, [provider, isConnected, connectedAddress, t]);
+
   // shared NV card wrapper style
   const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 hover:shadow-[0_4px_32px_rgba(0,0,0,0.4),0_0_18px_rgba(0,229,188,0.04)] transition-all duration-300";
 
@@ -1195,7 +1248,16 @@ function Home() {
                     <AnimatePresence>
                       {showDisconnect && (
                         <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}
-                          className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 min-w-full">
+                          className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 min-w-[180px]">
+                          {activeWalletName && (
+                            <div className="px-4 py-2 text-[10px] font-mono text-muted-foreground/40 border-b border-border/30 truncate">
+                              {activeWalletName}
+                            </div>
+                          )}
+                          <button onClick={() => { setShowDisconnect(false); setShowWalletPicker(true); }}
+                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors cursor-pointer whitespace-nowrap">
+                            <Wallet size={14} /> {t('wallet.pickerTitle')}
+                          </button>
                           <button onClick={handleDisconnect}
                             className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/8 transition-colors cursor-pointer whitespace-nowrap">
                             <LogOut size={14} /> {t('action.disconnect')}
@@ -1329,6 +1391,7 @@ function Home() {
                   onConnect={handleConnect}
                   explorerUrl={activeNetwork.explorerUrl}
                   activeNetwork={activeNetwork}
+                  walletName={activeWalletName}
                 />
               )}
 
@@ -1807,6 +1870,12 @@ function Home() {
         open={comingSoonFeature !== null}
         onClose={() => setComingSoonFeature(null)}
         featureName={comingSoonFeature ?? undefined}
+      />
+
+      <WalletPickerModal
+        open={showWalletPicker}
+        onClose={() => setShowWalletPicker(false)}
+        onSelect={connectWithWallet}
       />
     </div>
   );
