@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight, Award } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
@@ -13,7 +13,9 @@ import {
   getTokensForNetwork, ARC_TOKENS,
 } from './lib/arc';
 import { type WalletInfo, getLegacyProvider } from './lib/walletDiscovery';
+import { useGamification } from './hooks/useGamification';
 import { WalletPickerModal } from './components/WalletPickerModal';
+import { ProfileView } from './components/ProfileView';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { PoolsView } from './components/PoolsView';
@@ -123,7 +125,7 @@ const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'configuracoes' | 'ajuda';
+type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'perfil' | 'configuracoes' | 'ajuda';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
@@ -132,7 +134,8 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
   { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
   { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
-  { key: 'nav.settings',      Icon: Settings,        view: 'configuracoes', comingSoon: true },
+  { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
+  { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes', comingSoon: true },
   { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
 ];
 
@@ -652,6 +655,9 @@ function Home() {
   const [envMode,       setEnvMode]       = useState<EnvMode>('testnet');
   const [activeNetwork, setActiveNetwork] = useState<NetworkConfig>(DEFAULT_TESTNET);
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
+
+  // ── Gamification ───────────────────────────────────────────────────────────
+  const gamification = useGamification();
   const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
   const [swapModalOpen,  setSwapModalOpen]  = useState(false);
   const [swapStep,       setSwapStep]       = useState(0);
@@ -922,7 +928,9 @@ function Home() {
       }, ...prev]);
       setAmount('');
       await refreshBalances(prov, from);
+      const xpGained = gamification.recordSwap();
       toast({ title: `${t('wallet.realSwapSent')} ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
+      toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
     } catch (err) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) toast({ title: t('wallet.txRefused'), description: t('wallet.walletRefused'), variant: 'destructive' });
@@ -956,6 +964,8 @@ function Home() {
         fromAmount: pendingSwap.fromAmount, toAmount: pendingSwap.toAmount,
         time: 'Just now', status: 'Success'
       }, ...prev]);
+      const xpGained = gamification.recordSwap();
+      toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
     }
     setAmount('');
   };
@@ -1392,6 +1402,19 @@ function Home() {
                   explorerUrl={activeNetwork.explorerUrl}
                   activeNetwork={activeNetwork}
                   walletName={activeWalletName}
+                />
+              )}
+
+              {/* ── Profile / Gamification View ─────────────────────────── */}
+              {activeView === 'perfil' && (
+                <ProfileView
+                  gamification={gamification.state}
+                  hasBoost={gamification.hasBoost}
+                  boostRemaining={gamification.boostRemaining}
+                  onEquipSkin={gamification.setEquippedSkin}
+                  onEquipTitle={gamification.setEquippedTitle}
+                  onActivateBoost={gamification.startBoost}
+                  onPurchasePremiumSkin={gamification.purchasePremiumSkin}
                 />
               )}
 
