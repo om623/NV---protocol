@@ -1051,8 +1051,12 @@ function Home() {
       activeNetworkName: activeNetwork.name,
       topMovers: movers,
       isLiveData: sentiment.isLive,
+      isWalletConnected: isConnected,
+      networkOnline: true,
+      recentSwapActivity: transactions.length > 0,
+      simulationRunning: swapModalOpen && !simPaused && simPhase === 'pipeline',
     };
-  }, [activeNetwork.name]);
+  }, [activeNetwork.name, isConnected, transactions.length, swapModalOpen, simPaused, simPhase]);
 
   // shared NV card wrapper style
   const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 hover:shadow-[0_4px_32px_rgba(0,0,0,0.4),0_0_18px_rgba(0,229,188,0.04)] transition-all duration-300";
