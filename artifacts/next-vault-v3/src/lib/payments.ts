@@ -27,6 +27,14 @@ export const PAYMENT_TOKEN_ADDRESS = PAYMENT_NETWORK.tokens.find(
   (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
 )?.address ?? null;
 
+// ── Supabase client (anon key, no auth) ──────────────────────────────────
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
 // ── Server-fetched payment config ────────────────────────────────────────
 // The payment wallet address is fetched from the edge function's config
 // endpoint. The frontend needs it to construct the on-chain transfer,
@@ -54,21 +62,36 @@ export interface ServerProductInfo {
 // This is not a secret — the wallet address is public on-chain — but the
 // server's copy is authoritative for verification.
 export async function fetchServerPaymentConfig(): Promise<void> {
-  if (!supabaseUrl) return;
+  if (!supabaseUrl) {
+    console.warn("[payments] VITE_SUPABASE_URL not set — cannot fetch payment config");
+    return;
+  }
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/verify-purchase?config=1`, {
       method: "GET",
       headers: { Authorization: `Bearer ${supabaseAnonKey}` },
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.warn(`[payments] Config endpoint returned HTTP ${res.status}: ${text}`);
+      return;
+    }
     const data = await res.json() as { paymentWallet?: string; chainId?: number; tokenSymbol?: string };
     if (data.paymentWallet) {
       serverPaymentWallet = data.paymentWallet;
       serverConfigLoaded = true;
+    } else {
+      console.warn("[payments] Config endpoint returned no paymentWallet field", data);
     }
-  } catch {
-    // Fallback to network config — server will reject if mismatched
+  } catch (err) {
+    console.warn("[payments] Failed to fetch payment config:", err instanceof Error ? err.message : err);
   }
+}
+
+// Auto-fetch on module load so config is available before wallet connects.
+// This is a fire-and-forget — if it fails, executePayment will retry.
+if (supabaseUrl) {
+  fetchServerPaymentConfig().catch(() => {});
 }
 
 // Fetch product catalog from the database (for display only).
@@ -90,14 +113,6 @@ export async function fetchServerProducts(): Promise<ServerProductInfo[]> {
     xpAmount: parseFloat(p.xp_amount),
   }));
 }
-
-// ── Supabase client (anon key, no auth) ──────────────────────────────────
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
 
 // ── Types ────────────────────────────────────────────────────────────────
 export type PurchaseStatus = "idle" | "sending_tx" | "verifying" | "confirmed" | "failed" | "limit_reached";
@@ -326,7 +341,10 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
   const { provider, walletAddress, productId, productType, amountUsd, xpAmount } = params;
 
   // Resolve the payment wallet: must come from server-side payment_config.
-  // No fallback — if the server hasn't provided it, abort.
+  // If not loaded yet, try one more fetch before aborting.
+  if (!serverPaymentWallet) {
+    await fetchServerPaymentConfig();
+  }
   const paymentWallet = serverPaymentWallet;
   if (!paymentWallet) {
     return {
