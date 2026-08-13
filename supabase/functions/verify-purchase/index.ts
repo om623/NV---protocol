@@ -8,11 +8,7 @@ const corsHeaders = {
 
 // ─── RPC endpoints by chain ID ───────────────────────────────────────────
 const CHAIN_RPCS: Record<number, string> = {
-  5042002: "https://rpc.testnet.arc.network",
-  1: "https://cloudflare-eth.com",
   8453: "https://mainnet.base.org",
-  42161: "https://arb1.arbitrum.io/rpc",
-  10: "https://mainnet.optimism.io",
 };
 
 // ─── Request interface (only txHash, walletAddress, productId are trusted) ──
@@ -86,10 +82,10 @@ async function loadPaymentConfig(supabase: ReturnType<typeof createClient>): Pro
 
   const minConfirmations = parseInt(cfg.get("min_confirmations") ?? "1", 10);
   const tokenSymbol = cfg.get("token_symbol") ?? "USDC";
-  const tokenDecimals = parseInt(cfg.get("token_decimals") ?? "18", 10);
+  const tokenDecimals = parseInt(cfg.get("token_decimals") ?? "6", 10);
   const tokenAddressRaw = cfg.get("token_address") ?? "";
   const tokenAddress = tokenAddressRaw.trim() === "" ? null : tokenAddressRaw.trim();
-  const chainId = parseInt(cfg.get("chain_id") ?? "5042002", 10);
+  const chainId = parseInt(cfg.get("chain_id") ?? "8453", 10);
 
   return { paymentWallet, minConfirmations, tokenSymbol, tokenDecimals, tokenAddress, chainId };
 }

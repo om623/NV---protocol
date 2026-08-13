@@ -4,24 +4,26 @@
 // No product is unlocked without server-verified on-chain confirmation.
 
 import { transferErc20, transferNative, getTokensForNetwork, type Eip1193Provider } from "./arc";
-import { DEFAULT_TESTNET } from "../networks";
+import { NETWORKS_CONFIG } from "../networks";
 import { createClient } from "@supabase/supabase-js";
+
+// ── Payment network: Base Mainnet (chainId 8453) ──────────────────────────
+// Payments run exclusively on Base Mainnet using official USDC.
+// The rest of the NV Protocol (swaps, pools, bridge, wallet) is unaffected.
+const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 8453)!;
 
 // ── Payment configuration (display-only, from server) ────────────────────
 // The frontend fetches these from the server on init. They are used ONLY
 // for display and for constructing the on-chain transaction. The server
 // re-derives all of these from its own database during verification —
 // it never trusts the frontend's copy.
-//
-// Fallbacks match the current Arc Testnet config so the UI renders before
-// the server fetch completes. These fallbacks are NOT authoritative.
-export const PAYMENT_CHAIN_ID = DEFAULT_TESTNET.chainId; // 5042002
-export const PAYMENT_CHAIN_NAME = DEFAULT_TESTNET.name; // "Arc Testnet"
+export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 8453
+export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Base"
 export const PAYMENT_TOKEN_SYMBOL = "USDC";
-export const PAYMENT_TOKEN_DECIMALS = DEFAULT_TESTNET.tokens.find(
+export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.tokens.find(
   (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.decimals ?? 18;
-export const PAYMENT_TOKEN_ADDRESS = DEFAULT_TESTNET.tokens.find(
+)?.decimals ?? 6;
+export const PAYMENT_TOKEN_ADDRESS = PAYMENT_NETWORK.tokens.find(
   (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
 )?.address ?? null;
 
@@ -325,7 +327,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
 
   // Resolve the payment wallet: prefer server-fetched address, fall back to
   // the network default. The server uses its OWN copy for verification.
-  const paymentWallet = serverPaymentWallet ?? DEFAULT_TESTNET.tokens
+  const paymentWallet = serverPaymentWallet ?? PAYMENT_NETWORK.tokens
     .find(t => t.symbol === PAYMENT_TOKEN_SYMBOL)?.address ?? null;
   if (!paymentWallet) {
     return {
@@ -337,7 +339,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
   // Step 1: Send the real on-chain transaction
   let txHash: string;
   try {
-    const tokenMap = getTokensForNetwork(DEFAULT_TESTNET);
+    const tokenMap = getTokensForNetwork(PAYMENT_NETWORK);
     const tokenCfg = tokenMap[PAYMENT_TOKEN_SYMBOL];
 
     if (tokenCfg?.isNative || !tokenCfg?.address) {
