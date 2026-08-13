@@ -1,18 +1,20 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
 import { useI18n, useFormat } from '../i18n';
 import {
   BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS,
-  BADGES, TITLES, SKINS, XP_PACKAGES, SEASONS, EVENT_TOTAL_MONTHS,
-  computeLevel, nextMilestone, getActiveBoost, getCurrentSeason,
-  generateLeaderboard, type GamificationState, type BoostMultiplier,
+  BADGES, TITLES, SKINS, XP_PACKAGES,
+  computeLevel, nextMilestone, getActiveBoost,
+  type GamificationState, type BoostMultiplier,
 } from '../lib/gamification';
 import {
   PAYMENT_CHAIN_NAME, PAYMENT_TOKEN_SYMBOL, PAYMENT_CHAIN_ID,
   getServerPaymentWallet,
   type PurchaseState, type LimitStatus,
 } from '../lib/payments';
+
+const BASE_EXPLORER_TX = 'https://basescan.org/tx';
 
 const BADGE_ICONS: Record<string, typeof Sparkles> = {
   Sparkles, Zap, Flame, Trophy, Crown, Diamond,
@@ -49,8 +51,6 @@ export function ProfileView({
   const level = computeLevel(gamification);
   const milestone = nextMilestone(gamification);
   const activeBoost = getActiveBoost(gamification);
-  const currentSeason = getCurrentSeason();
-  const leaderboard = useMemo(() => generateLeaderboard(gamification, t('profile.you')), [gamification, t]);
 
   const boostMinutes = Math.floor(boostRemaining / 60000);
   const boostSeconds = Math.floor((boostRemaining % 60000) / 1000);
@@ -69,13 +69,6 @@ export function ProfileView({
       loadLimits();
     }
   }, [activeTab, walletAddress, loadLimits]);
-
-  // Season progress
-  const seasonStartMonth = currentSeason.startMonth;
-  const seasonEndMonth = seasonStartMonth + currentSeason.durationMonths;
-  const eventStart = new Date(2025, 0, 1);
-  const now = new Date();
-  const monthsElapsed = (now.getFullYear() - eventStart.getFullYear()) * 12 + (now.getMonth() - eventStart.getMonth());
 
   function isProductBusy(productId: string): boolean {
     return purchaseState.status !== "idle" && purchaseState.productId === productId;
@@ -103,7 +96,7 @@ export function ProfileView({
         <span className="truncate max-w-[160px]">{cfg.text}</span>
         {purchaseState.txHash && (purchaseState.status === "confirmed" || purchaseState.status === "failed") && (
           <a
-            href={`${'https://testnet.arcscan.app'}/tx/${purchaseState.txHash}`}
+            href={`${BASE_EXPLORER_TX}/${purchaseState.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-0.5 hover:underline"
@@ -254,26 +247,13 @@ export function ProfileView({
             <div className="flex items-center gap-2 mb-3">
               <Calendar size={14} className="text-violet-400" />
               <h3 className="text-sm font-semibold text-foreground">{t('profile.event')}</h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-violet-400/10 text-violet-400 border border-violet-400/20">
-                {t('profile.season')} {currentSeason.index}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                {t('nav.comingSoon')}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-xl bg-secondary/30 p-2.5 border border-border/20">
-                <div className="text-sm font-bold text-violet-400">{currentSeason.index}/{SEASONS.length}</div>
-                <div className="text-[9px] font-mono text-muted-foreground/40 uppercase">{t('profile.seasonCount')}</div>
-              </div>
-              <div className="rounded-xl bg-secondary/30 p-2.5 border border-border/20">
-                <div className="text-sm font-bold text-cyan-400">{number(gamification.seasonXP, 1)}</div>
-                <div className="text-[9px] font-mono text-muted-foreground/40 uppercase">{t('profile.seasonXP')}</div>
-              </div>
-              <div className="rounded-xl bg-secondary/30 p-2.5 border border-border/20">
-                <div className="text-sm font-bold text-amber-400">{EVENT_TOTAL_MONTHS}</div>
-                <div className="text-[9px] font-mono text-muted-foreground/40 uppercase">{t('profile.eventMonths')}</div>
-              </div>
-            </div>
-            <div className="mt-3 text-[10px] font-mono text-muted-foreground/40 text-center">
-              {t('profile.month')}: {monthsElapsed + 1} / {EVENT_TOTAL_MONTHS}
+            <div className="py-6 text-center">
+              <Calendar size={28} className="text-muted-foreground/20 mx-auto mb-2" />
+              <p className="text-[11px] font-mono text-muted-foreground/40">{t('profile.eventSoon')}</p>
             </div>
           </div>
 
@@ -380,7 +360,7 @@ export function ProfileView({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {SKINS.map(skin => {
             const serverOwned = skin.premium ? isSkinOwned(skin.id) : false;
-            const unlocked = gamification.unlockedSkins.includes(skin.id);
+            const unlocked = skin.premium ? serverOwned : gamification.unlockedSkins.includes(skin.id);
             const equipped = gamification.equippedSkin === skin.id;
             const busy = isProductBusy(skin.id);
             const canBuy = canBuyProduct(skin.id);
@@ -453,35 +433,28 @@ export function ProfileView({
               {t('profile.leaderboard')}
             </h3>
           </div>
-          <div className="divide-y divide-border/20">
-            {leaderboard.map((entry, i) => (
-              <div key={i} className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                entry.isCurrentUser ? 'bg-primary/8' : 'hover:bg-secondary/30'
-              }`}>
-                <div className={`w-7 text-center text-sm font-bold ${
-                  entry.rank === 1 ? 'text-amber-400' : entry.rank === 2 ? 'text-slate-300' :
-                  entry.rank === 3 ? 'text-orange-400' : 'text-muted-foreground/50'
-                }`}>
-                  {entry.rank}
-                </div>
+          {gamification.xp > 0 ? (
+            <div className="divide-y divide-border/20">
+              <div className={`flex items-center gap-3 px-4 py-2.5 bg-primary/8`}>
+                <div className="w-7 text-center text-sm font-bold text-primary">1</div>
                 <div className="w-8 h-8 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center shrink-0">
                   <Shield size={14} className="text-primary/60" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className={`text-sm font-medium truncate block ${entry.isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
-                    {entry.name}
-                  </span>
-                  {entry.title && (
-                    <span className="text-[9px] font-mono text-muted-foreground/40">{t(`title.${entry.title}`)}</span>
-                  )}
+                  <span className="text-sm font-medium text-primary block">{t('profile.you')}</span>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-sm font-bold text-cyan-400">{number(entry.level, 0)}</div>
-                  <div className="text-[9px] font-mono text-muted-foreground/40">{number(entry.xp, 0)} XP</div>
+                  <div className="text-sm font-bold text-cyan-400">{number(level, 0)}</div>
+                  <div className="text-[9px] font-mono text-muted-foreground/40">{number(gamification.xp, 0)} XP</div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <Trophy size={32} className="text-muted-foreground/20 mx-auto mb-3" />
+              <p className="text-xs font-mono text-muted-foreground/40">{t('profile.leaderboardEmpty')}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -504,18 +477,36 @@ export function ProfileView({
             </div>
             <p className="text-[11px] text-muted-foreground/50 mb-3">{t('profile.boostDescription')}</p>
             <div className="grid grid-cols-4 gap-2">
-              {([1, 2, 3, 4] as BoostMultiplier[]).map(m => (
-                <button key={m} onClick={() => onActivateBoost(m)}
-                  disabled={hasBoost}
-                  className={`rounded-xl border p-3 text-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
-                    activeBoost === m && hasBoost ? 'border-primary/30 bg-primary/10' : 'border-border/30 bg-secondary/20 hover:border-primary/20'
-                  }`}>
-                  <div className={`text-lg font-bold ${m === 4 ? 'text-amber-400' : 'text-primary'}`}>{m}x</div>
-                  <div className="text-[9px] font-mono text-muted-foreground/40 mt-0.5">
-                    {number(SWAP_XP_BASE * m, 1)} XP
-                  </div>
-                </button>
-              ))}
+              {([1, 2, 3, 4] as BoostMultiplier[]).map(m => {
+                const isFree = m === 1;
+                const isPurchased = isFree || entitlements.some(
+                  (e) => e.product_type === 'xp' && e.product_id === `boost-${m}x`,
+                );
+                return (
+                  <button
+                    key={m}
+                    onClick={() => isPurchased ? onActivateBoost(m) : undefined}
+                    disabled={!isPurchased || hasBoost}
+                    className={`rounded-xl border p-3 text-center transition-all ${
+                      isPurchased
+                        ? activeBoost === m && hasBoost
+                          ? 'border-primary/30 bg-primary/10 cursor-default'
+                          : 'border-border/30 bg-secondary/20 hover:border-primary/20 cursor-pointer'
+                        : 'border-border/20 bg-secondary/10 opacity-50 cursor-not-allowed'
+                    } disabled:cursor-not-allowed`}
+                  >
+                    <div className={`text-lg font-bold ${m === 4 ? 'text-amber-400' : 'text-primary'}`}>{m}x</div>
+                    <div className="text-[9px] font-mono text-muted-foreground/40 mt-0.5">
+                      {number(SWAP_XP_BASE * m, 3)} XP
+                    </div>
+                    {!isPurchased && (
+                      <div className="text-[8px] font-mono text-amber-400/60 mt-1 flex items-center justify-center gap-0.5">
+                        <Lock size={7} /> {t('profile.locked')}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-2 text-[10px] font-mono text-muted-foreground/40 text-center">
               {t('profile.boostDuration')}: 15 {t('profile.minutes')}

@@ -8,7 +8,7 @@ import NotFound from '@/pages/not-found';
 import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight, Award } from 'lucide-react';
 import {
   type Eip1193Provider,
-  getProvider, getAccounts, getChainId, ensureArcNetwork, ensureNetwork, networkChainParams,
+  getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
   transferNative, transferErc20, getAllBalances, shortAddress,
   getTokensForNetwork, ARC_TOKENS,
 } from './lib/arc';
@@ -803,10 +803,6 @@ function Home() {
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
   const handleEnvChange = (mode: EnvMode) => {
-    if (mode === 'mainnet') {
-      setComingSoonFeature('Mainnet');
-      return;
-    }
     setEnvMode(mode);
     setActiveNetwork(mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET);
   };
@@ -828,7 +824,7 @@ function Home() {
       if (activeNetwork.type === 'testnet') {
         await ensureNetwork(provider, networkChainParams(activeNetwork));
       } else {
-        await ensureArcNetwork(provider);
+        await ensureBaseNetwork(provider);
       }
       const chainId = await getChainId(provider);
       setWalletChainId(chainId);
@@ -862,7 +858,7 @@ function Home() {
       if (activeNetwork.type === 'testnet') {
         await ensureNetwork(prov, networkChainParams(activeNetwork));
       } else {
-        await ensureArcNetwork(prov);
+        await ensureBaseNetwork(prov);
       }
       const chainId = await getChainId(prov);
       setProvider(prov);
@@ -914,7 +910,7 @@ function Home() {
       if (activeNetwork.type === 'testnet') {
         await ensureNetwork(prov, networkChainParams(activeNetwork));
       } else {
-        await ensureArcNetwork(prov);
+        await ensureBaseNetwork(prov);
       }
       setWalletChainId(activeNetwork.chainId);
 
@@ -1214,9 +1210,9 @@ function Home() {
                   ? 'text-green-400 border-green-400/25 bg-green-400/6'
                   : 'text-amber-400 border-amber-400/25 bg-amber-400/6'
               }`}>
-                {envMode === 'testnet' ? '🧪' : '🚀'}
+                {envMode === 'testnet' ? '🧪' : '🌐'}
                 <span className="hidden md:inline ml-0.5">
-                  {envMode === 'testnet' ? t('net.testnetArc') : t('net.mainnetSoon')}
+                  {envMode === 'testnet' ? t('net.testnetArc') : t('net.mainnetBase')}
                 </span>
               </span>
 

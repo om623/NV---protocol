@@ -1,4 +1,4 @@
-import { ARC_TESTNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
+import { ARC_TESTNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
 
 /** Build EIP-3085 chain params from any registered network config. */
 export function networkChainParams(net: NetworkConfig) {
@@ -63,6 +63,11 @@ export async function getChainId(prov: Eip1193Provider): Promise<number> {
 
 export async function ensureArcNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, ARC_TESTNET_CHAIN_PARAMS);
+}
+
+/** Switch the injected wallet to Base Mainnet (chainId 8453) for real payments. */
+export async function ensureBaseNetwork(prov: Eip1193Provider): Promise<void> {
+  await ensureNetwork(prov, BASE_MAINNET_CHAIN_PARAMS);
 }
 
 /** Switch the injected wallet to any registered network (used by all testnets). */

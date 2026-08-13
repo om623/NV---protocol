@@ -3,7 +3,7 @@
 // then verifies the transaction on-chain through the verify-purchase edge function.
 // No product is unlocked without server-verified on-chain confirmation.
 
-import { transferErc20, transferNative, getTokensForNetwork, type Eip1193Provider } from "./arc";
+import { transferErc20, transferNative, getTokensForNetwork, ensureBaseNetwork, getChainId, type Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
 import { createClient } from "@supabase/supabase-js";
 
@@ -325,18 +325,40 @@ export interface ExecutePaymentResult {
 export async function executePayment(params: ExecutePaymentParams): Promise<ExecutePaymentResult> {
   const { provider, walletAddress, productId, productType, amountUsd, xpAmount } = params;
 
-  // Resolve the payment wallet: prefer server-fetched address, fall back to
-  // the network default. The server uses its OWN copy for verification.
-  const paymentWallet = serverPaymentWallet ?? PAYMENT_NETWORK.tokens
-    .find(t => t.symbol === PAYMENT_TOKEN_SYMBOL)?.address ?? null;
+  // Resolve the payment wallet: must come from server-side payment_config.
+  // No fallback — if the server hasn't provided it, abort.
+  const paymentWallet = serverPaymentWallet;
   if (!paymentWallet) {
     return {
       success: false, txHash: null, verified: false,
-      error: "Payment wallet not configured", productId,
+      error: "Payment wallet not configured — unable to fetch from server",
+      productId,
     };
   }
 
-  // Step 1: Send the real on-chain transaction
+  // Step 1: Switch wallet to Base Mainnet (chainId 8453) and verify
+  try {
+    await ensureBaseNetwork(provider);
+    const actualChainId = await getChainId(provider);
+    if (actualChainId !== PAYMENT_CHAIN_ID) {
+      return {
+        success: false, txHash: null, verified: false,
+        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Base Mainnet), got ${actualChainId}`,
+        productId,
+      };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      success: false, txHash: null, verified: false,
+      error: msg.includes("4001") || msg.includes("User rejected")
+        ? "Network switch rejected by wallet"
+        : `Failed to switch to Base Mainnet: ${msg}`,
+      productId,
+    };
+  }
+
+  // Step 2: Send the real on-chain transaction
   let txHash: string;
   try {
     const tokenMap = getTokensForNetwork(PAYMENT_NETWORK);
@@ -367,7 +389,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     };
   }
 
-  // Step 2: Insert pending purchase record
+  // Step 3: Insert pending purchase record
   if (supabase) {
     await supabase.from("gamification_purchases").insert({
       wallet_address: walletAddress.toLowerCase(),
@@ -381,7 +403,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     });
   }
 
-  // Step 3: Verify on-chain through the edge function
+  // Step 4: Verify on-chain through the edge function
   // Only txHash, walletAddress, and productId are sent — the server derives
   // price, token, chain, and XP from its own authoritative product catalog.
   const verifyResult = await verifyTransaction({

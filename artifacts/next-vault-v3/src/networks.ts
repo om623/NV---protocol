@@ -244,7 +244,7 @@ export const MAINNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'mainnet'
 
 /** App always starts in Testnet mode on Arc Testnet */
 export const DEFAULT_TESTNET = NETWORKS_CONFIG.find(n => n.id === 'arc-testnet')!;
-export const DEFAULT_MAINNET = NETWORKS_CONFIG.find(n => n.id === 'ethereum')!;
+export const DEFAULT_MAINNET = NETWORKS_CONFIG.find(n => n.id === 'base')!;
 
 /**
  * Chain ID injected as the simulated wallet's current network when the user
@@ -264,6 +264,17 @@ export const ARC_TESTNET_CHAIN_PARAMS = {
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
   rpcUrls: ['https://rpc.testnet.arc.network'],
   blockExplorerUrls: ['https://testnet.arcscan.app'],
+};
+
+/**
+ * EIP-3085 chain params for Base Mainnet — the production payment network.
+ */
+export const BASE_MAINNET_CHAIN_PARAMS = {
+  chainId: '0x' + (8453).toString(16), // 0x2105
+  chainName: 'Base',
+  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+  rpcUrls: ['https://mainnet.base.org'],
+  blockExplorerUrls: ['https://basescan.org'],
 };
 
 /** Return the tokens supported on a given network. */

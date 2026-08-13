@@ -5,7 +5,6 @@
 export const BASE_LEVEL = 1000;
 export const SWAP_XP_BASE = 0.5;
 export const BOOST_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-export const PAYMENT_WALLET = '0xAd397122941D03450c70d0076379e079334D434f';
 export const SWAP_COOLDOWN_MS = 2000; // dedup window for calls without a swap ID
 
 export type BoostMultiplier = 1 | 2 | 3 | 4;
@@ -285,23 +284,11 @@ export function equipTitle(state: GamificationState, titleId: string): Gamificat
   return { ...state, equippedTitle: titleId };
 }
 
-/** Generate a mock leaderboard for display (extensible with real data later). */
+/** Generate a leaderboard from real user data only. Returns empty if no real data. */
 export function generateLeaderboard(currentUser: GamificationState, currentUserName: string): LeaderboardEntry[] {
+  if (currentUser.xp <= 0) return [];
   const userLevel = computeLevel(currentUser);
-  const entries: LeaderboardEntry[] = [
-    { rank: 1, name: 'NV_Master', level: 3200, xp: 1850, badge: 'swapper-1000', title: 'legend' },
-    { rank: 2, name: 'CryptoWolf', level: 2800, xp: 1420, badge: 'swapper-500', title: 'legend' },
-    { rank: 3, name: 'AlphaTrader', level: 2500, xp: 1180, badge: 'swapper-500', title: 'master' },
-    { rank: 4, name: 'DeFiNinja', level: 2200, xp: 940, badge: 'swapper-250', title: 'master' },
-    { rank: 5, name: 'SwapKing', level: 2000, xp: 720, badge: 'swapper-250', title: 'expert' },
-    { rank: 6, name: 'GreenFlash', level: 1800, xp: 560, badge: 'swapper-100', title: 'expert' },
-    { rank: 7, name: 'NeonRider', level: 1600, xp: 410, badge: 'swapper-100', title: 'trader' },
-    { rank: 8, name: 'BlockRunner', level: 1400, xp: 280, badge: 'swapper-50', title: 'trader' },
-    { rank: 9, name: 'EmberFox', level: 1250, xp: 150, badge: 'swapper-50', title: 'trader' },
-    { rank: 10, name: currentUserName, level: userLevel, xp: currentUser.xp, isCurrentUser: true },
+  return [
+    { rank: 1, name: currentUserName, level: userLevel, xp: currentUser.xp, isCurrentUser: true },
   ];
-  // Sort by level desc, reassign ranks
-  entries.sort((a, b) => b.level - a.level);
-  entries.forEach((e, i) => { e.rank = i + 1; });
-  return entries;
 }
