@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
 import { useI18n, useFormat } from '../i18n';
 import {
-  BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS, PAYMENT_WALLET,
+  BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS,
   BADGES, TITLES, SKINS, XP_PACKAGES, SEASONS, EVENT_TOTAL_MONTHS,
   computeLevel, nextMilestone, getActiveBoost, getCurrentSeason,
   generateLeaderboard, type GamificationState, type BoostMultiplier,
 } from '../lib/gamification';
 import {
   PAYMENT_CHAIN_NAME, PAYMENT_TOKEN_SYMBOL, PAYMENT_CHAIN_ID,
+  getServerPaymentWallet,
   type PurchaseState, type LimitStatus,
 } from '../lib/payments';
 
@@ -610,7 +611,7 @@ export function ProfileView({
               <div className="text-xs text-foreground">{t('profile.paymentTokens')}: {PAYMENT_TOKEN_SYMBOL}</div>
               <div className="text-[10px] font-mono text-muted-foreground/40">{t('purchase.network')}: {PAYMENT_CHAIN_NAME} (Chain ID: {PAYMENT_CHAIN_ID})</div>
               <div className="text-[10px] font-mono text-muted-foreground/40">{t('profile.paymentWallet')}:</div>
-              <div className="text-[10px] font-mono text-cyan-400/70 truncate max-w-[200px] sm:max-w-none">{PAYMENT_WALLET}</div>
+              <div className="text-[10px] font-mono text-cyan-400/70 truncate max-w-[200px] sm:max-w-none">{getServerPaymentWallet() ?? '—'}</div>
             </div>
           </div>
         </div>

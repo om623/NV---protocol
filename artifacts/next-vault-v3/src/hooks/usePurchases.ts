@@ -8,6 +8,7 @@ import {
   executePayment,
   fetchEntitlements,
   fetchPurchases,
+  fetchServerPaymentConfig,
   getLimitStatus,
   syncServerTime,
   retryVerification,
@@ -39,7 +40,10 @@ export function usePurchases({ walletAddress, onSkinUnlocked, onXpGranted }: Use
     if (!addr) return;
     setSyncing(true);
     try {
-      await syncServerTime();
+      await Promise.all([
+        syncServerTime(),
+        fetchServerPaymentConfig(),
+      ]);
       const [ents, purs] = await Promise.all([
         fetchEntitlements(addr),
         fetchPurchases(addr),

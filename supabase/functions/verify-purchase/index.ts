@@ -6,31 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// ─── Server-side product catalog (authoritative) ─────────────────────────
-// The frontend MUST NOT be trusted for price, token, or chain information.
-// Only productId and txHash from the client are used; everything else is
-// derived from this catalog or verified on-chain.
-
-interface ServerProduct {
-  id: string;
-  type: "skin" | "xp";
-  priceUsd: number;
-  xpAmount: number; // 0 for skins
-}
-
-const PRODUCTS: Record<string, ServerProduct> = {
-  "xp-daily":      { id: "xp-daily",      type: "xp",   priceUsd: 10,  xpAmount: 30 },
-  "xp-weekly":     { id: "xp-weekly",     type: "xp",   priceUsd: 25,  xpAmount: 60 },
-  "xp-quarterly":  { id: "xp-quarterly",  type: "xp",   priceUsd: 100, xpAmount: 300 },
-  "premium-500":   { id: "premium-500",   type: "skin", priceUsd: 500, xpAmount: 0 },
-  "premium-1000":  { id: "premium-1000",  type: "skin", priceUsd: 1000, xpAmount: 0 },
-};
-
-// ─── Server-side payment configuration (authoritative) ───────────────────
-// Currently Arc Testnet (chainId 5042002) where USDC is the native gas token.
-// To switch to mainnet, update CHAIN_ID, TOKEN config, and CHAIN_RPCS.
-
-const CHAIN_ID = 5042002; // Arc Testnet — DO NOT change in this step
+// ─── RPC endpoints by chain ID ───────────────────────────────────────────
 const CHAIN_RPCS: Record<number, string> = {
   5042002: "https://rpc.testnet.arc.network",
   1: "https://cloudflare-eth.com",
@@ -39,26 +15,18 @@ const CHAIN_RPCS: Record<number, string> = {
   10: "https://mainnet.optimism.io",
 };
 
-// Token configuration: USDC as native gas token on Arc Testnet
-const TOKEN_SYMBOL = "USDC";
-const TOKEN_DECIMALS = 18; // Arc Testnet native USDC uses 18 decimals
-const TOKEN_ADDRESS: string | null = null; // null = native token (no contract)
-
-// Payment wallet — must match the frontend PAYMENT_WALLET
-const PAYMENT_WALLET = "0x1234567890abcdef1234567890abcdef12345678";
-
 // ─── Request interface (only txHash, walletAddress, productId are trusted) ──
 interface VerifyRequest {
   txHash: string;
   walletAddress: string;
   productId: string;
-  // The following fields from the client are IGNORED for verification:
-  amountUsd?: number;   // ignored — price comes from PRODUCTS
-  tokenSymbol?: string; // ignored — token comes from server config
-  chainId?: number;     // ignored — chain comes from server config
-  expectedRecipient?: string; // ignored — recipient comes from server config
-  xpAmount?: number;    // ignored — xp comes from PRODUCTS
-  productType?: string; // ignored — type comes from PRODUCTS
+  // All other fields from the client are IGNORED for verification.
+  amountUsd?: number;
+  tokenSymbol?: string;
+  chainId?: number;
+  expectedRecipient?: string;
+  xpAmount?: number;
+  productType?: string;
 }
 
 interface RpcResponse {
@@ -82,9 +50,77 @@ interface TxData {
   input?: string;
 }
 
-async function rpc(method: string, params: unknown[]): Promise<unknown | null> {
-  const url = CHAIN_RPCS[CHAIN_ID];
-  if (!url) throw new Error(`No RPC configured for chain ${CHAIN_ID}`);
+interface ServerProduct {
+  id: string;
+  type: "skin" | "xp";
+  priceUsd: number;
+  xpAmount: number;
+  isActive: boolean;
+}
+
+interface PaymentConfig {
+  paymentWallet: string;
+  minConfirmations: number;
+  tokenSymbol: string;
+  tokenDecimals: number;
+  tokenAddress: string | null;
+  chainId: number;
+}
+
+// ─── Load server-side config from database (authoritative) ───────────────
+async function loadPaymentConfig(supabase: ReturnType<typeof createClient>): Promise<PaymentConfig> {
+  const { data, error } = await supabase
+    .from("payment_config")
+    .select("key, value");
+
+  if (error) throw new Error(`Failed to load payment config: ${error.message}`);
+  if (!data || data.length === 0) throw new Error("Payment config table is empty");
+
+  const cfg = new Map<string, string>();
+  for (const row of data) {
+    cfg.set(row.key, row.value);
+  }
+
+  const paymentWallet = cfg.get("payment_wallet");
+  if (!paymentWallet) throw new Error("payment_wallet not configured in payment_config table");
+
+  const minConfirmations = parseInt(cfg.get("min_confirmations") ?? "1", 10);
+  const tokenSymbol = cfg.get("token_symbol") ?? "USDC";
+  const tokenDecimals = parseInt(cfg.get("token_decimals") ?? "18", 10);
+  const tokenAddressRaw = cfg.get("token_address") ?? "";
+  const tokenAddress = tokenAddressRaw.trim() === "" ? null : tokenAddressRaw.trim();
+  const chainId = parseInt(cfg.get("chain_id") ?? "5042002", 10);
+
+  return { paymentWallet, minConfirmations, tokenSymbol, tokenDecimals, tokenAddress, chainId };
+}
+
+// ─── Load product from database (authoritative) ──────────────────────────
+async function loadProduct(
+  supabase: ReturnType<typeof createClient>,
+  productId: string,
+): Promise<ServerProduct> {
+  const { data, error } = await supabase
+    .from("gamification_products")
+    .select("id, product_type, price_usd, xp_amount, is_active")
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to load product: ${error.message}`);
+  if (!data) throw new Error(`Unknown product: ${productId}`);
+  if (!data.is_active) throw new Error(`Product is not active: ${productId}`);
+
+  return {
+    id: data.id,
+    type: data.product_type as "skin" | "xp",
+    priceUsd: parseFloat(data.price_usd),
+    xpAmount: parseFloat(data.xp_amount),
+    isActive: data.is_active as boolean,
+  };
+}
+
+async function rpc(chainId: number, method: string, params: unknown[]): Promise<unknown | null> {
+  const url = CHAIN_RPCS[chainId];
+  if (!url) throw new Error(`No RPC configured for chain ${chainId}`);
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,10 +155,7 @@ function decodeErc20Transfer(log: { topics: string[]; data: string; address: str
   };
 }
 
-// Compute expected on-chain amount in base units (wei) for a given USD price
 function expectedAmountBase(priceUsd: number, decimals: number): bigint {
-  // price is in USD, token has `decimals` decimal places
-  // expected = price * 10^decimals
   const priceStr = priceUsd.toString();
   const [whole, frac = ""] = priceStr.split(".");
   const paddedFrac = (frac + "0".repeat(decimals)).slice(0, decimals);
@@ -141,29 +174,61 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // ── Config endpoint: return non-sensitive payment config to frontend ──
+  // The payment wallet address is public on-chain — this endpoint just makes
+  // it available to the frontend so it knows where to send the tx. The server
+  // uses its OWN copy from the database for verification, not this response.
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    if (url.searchParams.get("config") === "1") {
+      try {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        const config = await loadPaymentConfig(supabase);
+        return new Response(
+          JSON.stringify({
+            paymentWallet: config.paymentWallet,
+            chainId: config.chainId,
+            tokenSymbol: config.tokenSymbol,
+            tokenDecimals: config.tokenDecimals,
+            tokenAddress: config.tokenAddress,
+            minConfirmations: config.minConfirmations,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ error: err.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+  }
+
   try {
-    const body = await req.json() as VerifyRequest;
-    const { txHash, walletAddress, productId } = body;
-
-    // ── Validate required fields ────────────────────────────────────────
-    if (!txHash || !walletAddress || !productId) {
-      return failResponse("Missing required fields: txHash, walletAddress, productId");
-    }
-
-    // ── Lookup product in server-side catalog ───────────────────────────
-    const product = PRODUCTS[productId];
-    if (!product) {
-      return failResponse(`Unknown product: ${productId}`);
-    }
-
-    const expectedPriceUsd = product.priceUsd;
-    const expectedXpAmount = product.xpAmount;
-    const expectedProductType = product.type;
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // ── Load server-side config (authoritative) ─────────────────────────
+    const config = await loadPaymentConfig(supabase);
+
+    const body = await req.json() as VerifyRequest;
+    const { txHash, walletAddress, productId } = body;
+
+    if (!txHash || !walletAddress || !productId) {
+      return failResponse("Missing required fields: txHash, walletAddress, productId");
+    }
+
+    // ── Lookup product in server-side database catalog ──────────────────
+    const product = await loadProduct(supabase, productId);
+
+    const expectedPriceUsd = product.priceUsd;
+    const expectedXpAmount = product.xpAmount;
+    const expectedProductType = product.type;
 
     // ── Idempotency: check if this tx_hash was already confirmed ────────
     const { data: existing } = await supabase
@@ -180,7 +245,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Fetch on-chain transaction receipt ──────────────────────────────
-    const receipt = await rpc("eth_getTransactionReceipt", [txHash]) as TxReceipt | null;
+    const receipt = await rpc(config.chainId, "eth_getTransactionReceipt", [txHash]) as TxReceipt | null;
     if (!receipt) {
       return new Response(
         JSON.stringify({ verified: false, error: "Transaction not found on-chain", status: "pending" }),
@@ -198,71 +263,78 @@ Deno.serve(async (req: Request) => {
       return failResponse("Transaction reverted on-chain");
     }
 
+    // ── 2. Verify minimum block confirmations ───────────────────────────
+    const txBlockNumber = hexToBigInt(receipt.blockNumber);
+    if (txBlockNumber > 0n) {
+      const currentBlockHex = await rpc(config.chainId, "eth_blockNumber", []) as string;
+      const currentBlock = hexToBigInt(currentBlockHex);
+      const confirmations = currentBlock - txBlockNumber;
+      if (confirmations < BigInt(config.minConfirmations)) {
+        return new Response(
+          JSON.stringify({
+            verified: false,
+            error: `Insufficient confirmations: ${confirmations}/${config.minConfirmations}`,
+            status: "pending",
+            confirmations: Number(confirmations),
+            required: config.minConfirmations,
+          }),
+          { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // ── Fetch the original transaction ──────────────────────────────────
-    const tx = await rpc("eth_getTransactionByHash", [txHash]) as TxData | null;
+    const tx = await rpc(config.chainId, "eth_getTransactionByHash", [txHash]) as TxData | null;
     if (!tx) {
       return failResponse("Transaction data not found on-chain");
     }
 
     const buyerLower = walletAddress.toLowerCase();
-    const recipientLower = PAYMENT_WALLET.toLowerCase();
+    const recipientLower = config.paymentWallet.toLowerCase();
 
-    // ── 2. Verify sender (from) ──────────────────────────────────────────
+    // ── 3. Verify sender (from) ──────────────────────────────────────────
     if (tx.from?.toLowerCase() !== buyerLower) {
       return failResponse(`Sender mismatch: tx.from=${tx.from} expected=${buyerLower}`);
     }
 
-    // ── 3. Compute expected amount in base units ────────────────────────
-    const expectedBase = expectedAmountBase(expectedPriceUsd, TOKEN_DECIMALS);
+    // ── 4. Compute expected amount in base units ────────────────────────
+    const expectedBase = expectedAmountBase(expectedPriceUsd, config.tokenDecimals);
 
     let paymentVerified = false;
-    let actualAmountBase: bigint | null = null;
-    let actualTokenContract: string | null = null;
 
-    if (TOKEN_ADDRESS === null) {
-      // ── Native token transfer (Arc Testnet USDC is native) ───────────
-      // Verify recipient
+    if (config.tokenAddress === null) {
+      // ── Native token transfer ──────────────────────────────────────────
       if (tx.to?.toLowerCase() !== recipientLower) {
         return failResponse(`Recipient mismatch: tx.to=${tx.to} expected=${recipientLower}`);
       }
 
-      actualAmountBase = hexToBigInt(tx.value);
+      const actualAmountBase = hexToBigInt(tx.value);
 
-      // ── 4. Verify exact amount transferred ────────────────────────────
       if (actualAmountBase !== expectedBase) {
         return failResponse(
-          `Amount mismatch: transferred=${actualAmountBase} expected=${expectedBase} (${expectedPriceUsd} USD * 10^${TOKEN_DECIMALS})`,
+          `Amount mismatch: transferred=${actualAmountBase} expected=${expectedBase} (${expectedPriceUsd} USD * 10^${config.tokenDecimals})`,
         );
       }
 
       paymentVerified = true;
     } else {
-      // ── ERC-20 transfer: check Transfer event logs ───────────────────
-      const expectedContractLower = TOKEN_ADDRESS.toLowerCase();
+      // ── ERC-20 transfer: check Transfer event logs ─────────────────────
+      const expectedContractLower = config.tokenAddress.toLowerCase();
 
       if (receipt.logs && receipt.logs.length > 0) {
         for (const log of receipt.logs) {
           const decoded = decodeErc20Transfer(log);
           if (!decoded) continue;
 
-          // ── 4a. Verify token contract address ──────────────────────────
           if (decoded.tokenContract !== expectedContractLower) continue;
-
-          // ── 4b. Verify sender ──────────────────────────────────────────
           if (decoded.from !== buyerLower) continue;
-
-          // ── 4c. Verify recipient ───────────────────────────────────────
           if (decoded.to !== recipientLower) continue;
-
-          // ── 4d. Verify exact amount ────────────────────────────────────
           if (decoded.amount !== expectedBase) {
             return failResponse(
-              `Amount mismatch: transferred=${decoded.amount} expected=${expectedBase} (${expectedPriceUsd} USD * 10^${TOKEN_DECIMALS})`,
+              `Amount mismatch: transferred=${decoded.amount} expected=${expectedBase} (${expectedPriceUsd} USD * 10^${config.tokenDecimals})`,
             );
           }
 
-          actualAmountBase = decoded.amount;
-          actualTokenContract = decoded.tokenContract;
           paymentVerified = true;
           break;
         }
@@ -279,8 +351,8 @@ Deno.serve(async (req: Request) => {
       product_id: productId,
       product_type: expectedProductType,
       amount_usd: expectedPriceUsd,
-      token_symbol: TOKEN_SYMBOL,
-      chain_id: CHAIN_ID,
+      token_symbol: config.tokenSymbol,
+      chain_id: config.chainId,
       tx_hash: txHash,
       block_number: receipt.blockNumber ? BigInt(receipt.blockNumber).toString() : null,
       status: "confirmed" as const,
@@ -289,7 +361,6 @@ Deno.serve(async (req: Request) => {
       skin_unlocked: expectedProductType === "skin",
     };
 
-    // Upsert purchase (handles race: if row exists as pending, update to confirmed)
     if (existing?.id) {
       await supabase.from("gamification_purchases")
         .update(purchaseRow).eq("id", existing.id);
@@ -297,7 +368,6 @@ Deno.serve(async (req: Request) => {
       await supabase.from("gamification_purchases").insert(purchaseRow);
     }
 
-    // Insert entitlement (unique constraint on wallet+tx_hash prevents duplicates)
     const { error: entError } = await supabase
       .from("gamification_entitlements")
       .insert({
@@ -321,6 +391,7 @@ Deno.serve(async (req: Request) => {
         xpAmount: expectedXpAmount,
         amountUsd: expectedPriceUsd,
         blockNumber: purchaseRow.block_number,
+        confirmations: config.minConfirmations,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

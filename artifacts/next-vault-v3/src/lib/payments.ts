@@ -3,23 +3,91 @@
 // then verifies the transaction on-chain through the verify-purchase edge function.
 // No product is unlocked without server-verified on-chain confirmation.
 
-import { PAYMENT_WALLET } from "./gamification";
 import { transferErc20, transferNative, getTokensForNetwork, type Eip1193Provider } from "./arc";
 import { DEFAULT_TESTNET } from "../networks";
 import { createClient } from "@supabase/supabase-js";
 
-// ── Payment configuration ────────────────────────────────────────────────
-// Currently Arc Testnet (chainId 5042002) where USDC is the native gas token.
-// To switch to mainnet, change PAYMENT_CHAIN_ID and PAYMENT_RPC_URL.
+// ── Payment configuration (display-only, from server) ────────────────────
+// The frontend fetches these from the server on init. They are used ONLY
+// for display and for constructing the on-chain transaction. The server
+// re-derives all of these from its own database during verification —
+// it never trusts the frontend's copy.
+//
+// Fallbacks match the current Arc Testnet config so the UI renders before
+// the server fetch completes. These fallbacks are NOT authoritative.
 export const PAYMENT_CHAIN_ID = DEFAULT_TESTNET.chainId; // 5042002
 export const PAYMENT_CHAIN_NAME = DEFAULT_TESTNET.name; // "Arc Testnet"
 export const PAYMENT_TOKEN_SYMBOL = "USDC";
 export const PAYMENT_TOKEN_DECIMALS = DEFAULT_TESTNET.tokens.find(
   (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.decimals ?? 6;
+)?.decimals ?? 18;
 export const PAYMENT_TOKEN_ADDRESS = DEFAULT_TESTNET.tokens.find(
   (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
 )?.address ?? null;
+
+// ── Server-fetched payment config ────────────────────────────────────────
+// The payment wallet address is fetched from the edge function's config
+// endpoint. The frontend needs it to construct the on-chain transfer,
+// but the server uses its OWN copy from the database for verification.
+let serverPaymentWallet: string | null = null;
+let serverConfigLoaded = false;
+
+export function getServerPaymentWallet(): string | null {
+  return serverPaymentWallet;
+}
+
+export function isServerConfigLoaded(): boolean {
+  return serverConfigLoaded;
+}
+
+export interface ServerProductInfo {
+  id: string;
+  productType: "skin" | "xp";
+  priceUsd: number;
+  xpAmount: number;
+}
+
+// Fetch the payment wallet address from the edge function config endpoint.
+// The edge function reads it from the payment_config table (service-role).
+// This is not a secret — the wallet address is public on-chain — but the
+// server's copy is authoritative for verification.
+export async function fetchServerPaymentConfig(): Promise<void> {
+  if (!supabaseUrl) return;
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/verify-purchase?config=1`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${supabaseAnonKey}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json() as { paymentWallet?: string; chainId?: number; tokenSymbol?: string };
+    if (data.paymentWallet) {
+      serverPaymentWallet = data.paymentWallet;
+      serverConfigLoaded = true;
+    }
+  } catch {
+    // Fallback to network config — server will reject if mismatched
+  }
+}
+
+// Fetch product catalog from the database (for display only).
+// The server re-reads these prices during verification.
+export async function fetchServerProducts(): Promise<ServerProductInfo[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("gamification_products")
+    .select("id, product_type, price_usd, xp_amount, is_active")
+    .eq("is_active", true);
+  if (error) {
+    console.warn("[payments] Failed to fetch server products:", error.message);
+    return [];
+  }
+  return (data ?? []).map((p: { id: string; product_type: string; price_usd: string; xp_amount: string; is_active: boolean }) => ({
+    id: p.id,
+    productType: p.product_type as "skin" | "xp",
+    priceUsd: parseFloat(p.price_usd),
+    xpAmount: parseFloat(p.xp_amount),
+  }));
+}
 
 // ── Supabase client (anon key, no auth) ──────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -255,6 +323,17 @@ export interface ExecutePaymentResult {
 export async function executePayment(params: ExecutePaymentParams): Promise<ExecutePaymentResult> {
   const { provider, walletAddress, productId, productType, amountUsd, xpAmount } = params;
 
+  // Resolve the payment wallet: prefer server-fetched address, fall back to
+  // the network default. The server uses its OWN copy for verification.
+  const paymentWallet = serverPaymentWallet ?? DEFAULT_TESTNET.tokens
+    .find(t => t.symbol === PAYMENT_TOKEN_SYMBOL)?.address ?? null;
+  if (!paymentWallet) {
+    return {
+      success: false, txHash: null, verified: false,
+      error: "Payment wallet not configured", productId,
+    };
+  }
+
   // Step 1: Send the real on-chain transaction
   let txHash: string;
   try {
@@ -262,15 +341,13 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     const tokenCfg = tokenMap[PAYMENT_TOKEN_SYMBOL];
 
     if (tokenCfg?.isNative || !tokenCfg?.address) {
-      // Native transfer (Arc Testnet: USDC is native gas token, 18 decimals)
-      txHash = await transferNative(provider, walletAddress, PAYMENT_WALLET, amountUsd);
+      txHash = await transferNative(provider, walletAddress, paymentWallet, amountUsd);
     } else {
-      // ERC-20 transfer
       txHash = await transferErc20(
         provider,
         walletAddress,
         tokenCfg.address,
-        PAYMENT_WALLET,
+        paymentWallet,
         amountUsd,
         tokenCfg.decimals,
       );
