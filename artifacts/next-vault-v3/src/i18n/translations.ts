@@ -296,6 +296,20 @@ const ptBR: Dict = {
   'skin.platinum': 'Platina',
   'skin.premium-500': 'Premium Aurora',
   'skin.premium-1000': 'Premium Imperial',
+  'purchase.sendingTx': 'Enviando transação…',
+  'purchase.verifying': 'Verificando on-chain…',
+  'purchase.confirmed': 'Compra confirmada',
+  'purchase.failed': 'Falha na compra',
+  'purchase.limitReached': 'Limite atingido',
+  'purchase.processing': 'Processando…',
+  'purchase.connectWallet': 'Conectar carteira',
+  'purchase.connectWalletFirst': 'Conecte sua carteira para comprar.',
+  'purchase.purchased': 'Comprado',
+  'purchase.viewTx': 'Ver tx',
+  'purchase.network': 'Rede',
+  'purchase.daily': 'Diário',
+  'purchase.weekly': 'Semanal',
+  'purchase.monthly': 'Mensal',
 };
 
 const en: Dict = {
@@ -576,6 +590,20 @@ const en: Dict = {
   'skin.platinum': 'Platinum',
   'skin.premium-500': 'Premium Aurora',
   'skin.premium-1000': 'Premium Imperial',
+  'purchase.sendingTx': 'Enviando transacción…',
+  'purchase.verifying': 'Verificando on-chain…',
+  'purchase.confirmed': 'Compra confirmada',
+  'purchase.failed': 'Compra fallida',
+  'purchase.limitReached': 'Límite alcanzado',
+  'purchase.processing': 'Procesando…',
+  'purchase.connectWallet': 'Conectar billetera',
+  'purchase.connectWalletFirst': 'Conecta tu billetera para comprar.',
+  'purchase.purchased': 'Comprado',
+  'purchase.viewTx': 'Ver tx',
+  'purchase.network': 'Red',
+  'purchase.daily': 'Diario',
+  'purchase.weekly': 'Semanal',
+  'purchase.monthly': 'Mensual',
 };
 
 const es: Dict = {
@@ -856,6 +884,20 @@ const es: Dict = {
   'skin.platinum': 'Platino',
   'skin.premium-500': 'Premium Aurora',
   'skin.premium-1000': 'Premium Imperial',
+  'purchase.sendingTx': 'Sending transaction…',
+  'purchase.verifying': 'Verifying on-chain…',
+  'purchase.confirmed': 'Purchase confirmed',
+  'purchase.failed': 'Purchase failed',
+  'purchase.limitReached': 'Limit reached',
+  'purchase.processing': 'Processing…',
+  'purchase.connectWallet': 'Connect wallet',
+  'purchase.connectWalletFirst': 'Connect your wallet to purchase.',
+  'purchase.purchased': 'Purchased',
+  'purchase.viewTx': 'View tx',
+  'purchase.network': 'Network',
+  'purchase.daily': 'Daily',
+  'purchase.weekly': 'Weekly',
+  'purchase.monthly': 'Monthly',
 };
 
 const fr: Dict = {
@@ -1136,6 +1178,20 @@ const fr: Dict = {
   'skin.platinum': 'Platine',
   'skin.premium-500': 'Premium Aurora',
   'skin.premium-1000': 'Premium Imperial',
+  'purchase.sendingTx': 'Envoi de transaction…',
+  'purchase.verifying': 'Vérification on-chain…',
+  'purchase.confirmed': 'Achat confirmé',
+  'purchase.failed': "Échec de l'achat",
+  'purchase.limitReached': 'Limite atteinte',
+  'purchase.processing': 'Traitement…',
+  'purchase.connectWallet': 'Connecter portefeuille',
+  'purchase.connectWalletFirst': 'Connectez votre portefeuille pour acheter.',
+  'purchase.purchased': 'Acheté',
+  'purchase.viewTx': 'Voir tx',
+  'purchase.network': 'Réseau',
+  'purchase.daily': 'Quotidien',
+  'purchase.weekly': 'Hebdomadaire',
+  'purchase.monthly': 'Mensuel',
 };
 
 const DICTS: Record<Locale, Dict> = { 'pt-BR': ptBR, en, es, fr };

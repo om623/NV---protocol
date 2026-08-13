@@ -7,7 +7,8 @@ import {
   activateBoost,
   equipSkin,
   equipTitle,
-  unlockPremiumSkin,
+  grantPurchasedSkin,
+  creditPurchasedXp,
   boostTimeRemaining,
 } from '../lib/gamification';
 
@@ -66,8 +67,17 @@ export function useGamification() {
     setState(prev => equipTitle(prev, titleId));
   }, []);
 
-  const purchasePremiumSkin = useCallback((skinId: string) => {
-    setState(prev => unlockPremiumSkin(prev, skinId));
+  // Called by usePurchases after server verifies an on-chain skin payment
+  const grantSkin = useCallback((skinId: string) => {
+    setState(prev => grantPurchasedSkin(prev, skinId));
+  }, []);
+
+  // Called by usePurchases after server verifies an on-chain XP payment
+  const grantXp = useCallback((xpAmount: number, txHash: string) => {
+    setState(prev => {
+      const { state: next } = creditPurchasedXp(prev, xpAmount, txHash);
+      return next;
+    });
   }, []);
 
   const boostRemaining = boostTimeRemaining(state);
@@ -79,7 +89,8 @@ export function useGamification() {
     startBoost,
     setEquippedSkin,
     setEquippedTitle,
-    purchasePremiumSkin,
+    grantSkin,
+    grantXp,
     boostRemaining,
     hasBoost,
   };

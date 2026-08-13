@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight,
   Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users,
-  Calendar, Shield, Sword, Eye,
+  Calendar, Shield, Sword, Eye, Loader2, AlertCircle, ExternalLink,
 } from 'lucide-react';
 import { useI18n, useFormat } from '../i18n';
 import {
@@ -12,6 +12,10 @@ import {
   computeLevel, nextMilestone, getActiveBoost, getCurrentSeason,
   generateLeaderboard, type GamificationState, type BoostMultiplier,
 } from '../lib/gamification';
+import {
+  PAYMENT_CHAIN_NAME, PAYMENT_TOKEN_SYMBOL, PAYMENT_CHAIN_ID,
+  type PurchaseState, type LimitStatus,
+} from '../lib/payments';
 
 const BADGE_ICONS: Record<string, typeof Sparkles> = {
   Sparkles, Zap, Flame, Trophy, Crown, Diamond,
@@ -24,12 +28,22 @@ interface ProfileViewProps {
   onEquipSkin: (skinId: string) => void;
   onEquipTitle: (titleId: string) => void;
   onActivateBoost: (m: BoostMultiplier) => void;
-  onPurchasePremiumSkin: (skinId: string) => void;
+  // Real payment flow
+  walletAddress: string | null;
+  purchaseState: PurchaseState;
+  entitlements: { product_id: string; product_type: string; tx_hash: string }[];
+  isSkinOwned: (skinId: string) => boolean;
+  getLimit: (productId: string) => Promise<LimitStatus>;
+  limits: Record<string, LimitStatus>;
+  onBuySkin: (skinId: string) => void;
+  onBuyXp: (packageId: string) => void;
 }
 
 export function ProfileView({
   gamification, hasBoost, boostRemaining,
-  onEquipSkin, onEquipTitle, onActivateBoost, onPurchasePremiumSkin,
+  onEquipSkin, onEquipTitle, onActivateBoost,
+  walletAddress, purchaseState, entitlements, isSkinOwned,
+  getLimit, limits, onBuySkin, onBuyXp,
 }: ProfileViewProps) {
   const { t } = useI18n();
   const { number } = useFormat();
@@ -44,12 +58,87 @@ export function ProfileView({
   const boostMinutes = Math.floor(boostRemaining / 60000);
   const boostSeconds = Math.floor((boostRemaining % 60000) / 1000);
 
+  // Fetch limits for XP packages and premium skins when shop tab opens
+  const loadLimits = useCallback(async () => {
+    if (!walletAddress) return;
+    await Promise.all([
+      ...XP_PACKAGES.map(p => getLimit(p.id)),
+      ...SKINS.filter(s => s.premium).map(s => getLimit(s.id)),
+    ]);
+  }, [walletAddress, getLimit]);
+
+  useEffect(() => {
+    if (activeTab === 'shop' && walletAddress) {
+      loadLimits();
+    }
+  }, [activeTab, walletAddress, loadLimits]);
+
   // Season progress
   const seasonStartMonth = currentSeason.startMonth;
   const seasonEndMonth = seasonStartMonth + currentSeason.durationMonths;
   const eventStart = new Date(2025, 0, 1);
   const now = new Date();
   const monthsElapsed = (now.getFullYear() - eventStart.getFullYear()) * 12 + (now.getMonth() - eventStart.getMonth());
+
+  function isProductBusy(productId: string): boolean {
+    return purchaseState.status !== "idle" && purchaseState.productId === productId;
+  }
+
+  function renderPurchaseStatus(productId: string): React.ReactNode {
+    if (purchaseState.productId !== productId || purchaseState.status === "idle") return null;
+
+    const statusConfig: Record<string, { icon: typeof Loader2; text: string; color: string }> = {
+      sending_tx: { icon: Loader2, text: t('purchase.sendingTx'), color: "text-amber-400" },
+      verifying: { icon: Loader2, text: t('purchase.verifying'), color: "text-cyan-400" },
+      confirmed: { icon: Check, text: t('purchase.confirmed'), color: "text-emerald-400" },
+      failed: { icon: AlertCircle, text: purchaseState.error ?? t('purchase.failed'), color: "text-red-400" },
+      limit_reached: { icon: Lock, text: t('purchase.limitReached'), color: "text-orange-400" },
+    };
+
+    const cfg = statusConfig[purchaseState.status];
+    if (!cfg) return null;
+    const Icon = cfg.icon;
+    const spin = purchaseState.status === "sending_tx" || purchaseState.status === "verifying";
+
+    return (
+      <div className={`flex items-center gap-1.5 mt-1.5 text-[10px] font-mono ${cfg.color}`}>
+        <Icon size={11} className={spin ? "animate-spin" : ""} />
+        <span className="truncate max-w-[160px]">{cfg.text}</span>
+        {purchaseState.txHash && (purchaseState.status === "confirmed" || purchaseState.status === "failed") && (
+          <a
+            href={`${'https://testnet.arcscan.app'}/tx/${purchaseState.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 hover:underline"
+          >
+            <ExternalLink size={9} /> {t('purchase.viewTx')}
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  function renderLimitBadge(productId: string): React.ReactNode {
+    const limit = limits[productId];
+    if (!limit) return null;
+
+    return (
+      <div className="flex items-center gap-1 mt-1 text-[9px] font-mono text-muted-foreground/40">
+        <Calendar size={8} />
+        <span>{t('purchase.daily')}: {limit.usedToday}/{limit.maxPerDay}</span>
+        <span className="mx-0.5">·</span>
+        <span>{t('purchase.weekly')}: {limit.usedThisWeek}/{limit.maxPerWeek}</span>
+        <span className="mx-0.5">·</span>
+        <span>{t('purchase.monthly')}: {limit.usedThisMonth}/{limit.maxPerMonth}</span>
+      </div>
+    );
+  }
+
+  function canBuyProduct(productId: string): boolean {
+    const limit = limits[productId];
+    if (!limit) return true;
+    return limit.canBuyNow;
+  }
 
   return (
     <div className="space-y-4">
@@ -293,9 +382,11 @@ export function ProfileView({
       {activeTab === 'skins' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {SKINS.map(skin => {
+            const serverOwned = skin.premium ? isSkinOwned(skin.id) : false;
             const unlocked = gamification.unlockedSkins.includes(skin.id);
             const equipped = gamification.equippedSkin === skin.id;
-            const levelReq = computeLevel(gamification) >= skin.levelRequired;
+            const busy = isProductBusy(skin.id);
+            const canBuy = canBuyProduct(skin.id);
             return (
               <div key={skin.id} className={`rounded-xl border p-3 transition-all relative overflow-hidden ${
                 equipped ? 'border-primary/30 bg-primary/8' : unlocked ? 'border-border/30 bg-secondary/20' : 'border-border/20 bg-secondary/10'
@@ -317,7 +408,7 @@ export function ProfileView({
                 </div>
                 <div className="text-xs font-medium text-foreground mb-1">{t(`skin.${skin.id}`)}</div>
                 {!unlocked && skin.premium && (
-                  <div className="text-[10px] font-mono text-amber-400/70 mb-1.5">${skin.price} USD</div>
+                  <div className="text-[10px] font-mono text-amber-400/70 mb-1.5">${skin.price} {PAYMENT_TOKEN_SYMBOL}</div>
                 )}
                 {!unlocked && !skin.premium && (
                   <div className="text-[9px] font-mono text-muted-foreground/40">{t('profile.level')} {skin.levelRequired}</div>
@@ -332,10 +423,19 @@ export function ProfileView({
                     {t('profile.equip')}
                   </button>
                 ) : skin.premium ? (
-                  <button onClick={() => onPurchasePremiumSkin(skin.id)}
-                    className="text-[9px] font-mono text-amber-400/70 hover:text-amber-400 transition-colors cursor-pointer">
-                    {t('profile.buy')}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => onBuySkin(skin.id)}
+                      disabled={busy || !walletAddress || !canBuy}
+                      className="text-[9px] font-mono text-amber-400/70 hover:text-amber-400 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      {!walletAddress ? t('purchase.connectWallet') :
+                       !canBuy ? t('purchase.limitReached') :
+                       busy ? t('purchase.processing') :
+                       t('profile.buy')}
+                    </button>
+                    {renderPurchaseStatus(skin.id)}
+                  </>
                 ) : (
                   <div className="text-[9px] font-mono text-muted-foreground/30 flex items-center gap-1">
                     <Lock size={9} /> {t('profile.locked')}
@@ -391,6 +491,14 @@ export function ProfileView({
       {/* ── Shop Tab ──────────────────────────────────────────────────────── */}
       {activeTab === 'shop' && (
         <div className="space-y-4">
+          {/* Wallet status banner */}
+          {!walletAddress && (
+            <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-3 flex items-center gap-2">
+              <AlertCircle size={14} className="text-amber-400 shrink-0" />
+              <span className="text-xs text-amber-400/80">{t('purchase.connectWalletFirst')}</span>
+            </div>
+          )}
+
           {/* Boost section */}
           <div className="rounded-2xl border border-border/40 bg-card/80 p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -424,18 +532,31 @@ export function ProfileView({
               <h3 className="text-sm font-semibold text-foreground">{t('profile.xpPackages')}</h3>
             </div>
             <div className="space-y-2">
-              {XP_PACKAGES.map(pkg => (
-                <div key={pkg.id} className="flex items-center gap-3 rounded-xl border border-border/30 bg-secondary/20 p-3">
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-foreground">{number(pkg.xp, 0)} XP</div>
-                    <div className="text-[10px] font-mono text-muted-foreground/40">{t(`profile.duration.${pkg.duration}`)}</div>
+              {XP_PACKAGES.map(pkg => {
+                const busy = isProductBusy(pkg.id);
+                const canBuy = canBuyProduct(pkg.id);
+                return (
+                  <div key={pkg.id} className="flex items-center gap-3 rounded-xl border border-border/30 bg-secondary/20 p-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-foreground">{number(pkg.xp, 0)} XP</div>
+                      <div className="text-[10px] font-mono text-muted-foreground/40">{t(`profile.duration.${pkg.duration}`)}</div>
+                      {walletAddress && renderLimitBadge(pkg.id)}
+                      {renderPurchaseStatus(pkg.id)}
+                    </div>
+                    <div className="text-sm font-bold text-amber-400 shrink-0">${pkg.price}</div>
+                    <button
+                      onClick={() => onBuyXp(pkg.id)}
+                      disabled={busy || !walletAddress || !canBuy}
+                      className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs font-medium text-primary hover:bg-primary/15 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    >
+                      {!walletAddress ? t('purchase.connectWallet') :
+                       !canBuy ? t('purchase.limitReached') :
+                       busy ? t('purchase.processing') :
+                       t('profile.buyXP')}
+                    </button>
                   </div>
-                  <div className="text-sm font-bold text-amber-400">${pkg.price}</div>
-                  <button className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs font-medium text-primary hover:bg-primary/15 transition-colors cursor-pointer">
-                    {t('profile.buyXP')}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -446,36 +567,54 @@ export function ProfileView({
               <h3 className="text-sm font-semibold text-amber-400">{t('profile.premiumSkins')}</h3>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
-              {SKINS.filter(s => s.premium).map(skin => (
-                <div key={skin.id} className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
-                  <div className="h-12 rounded-lg mb-2 bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/25 flex items-center justify-center">
-                    <Crown size={16} className="text-amber-400/60" />
-                  </div>
-                  <div className="text-xs font-medium text-foreground mb-1">{t(`skin.${skin.id}`)}</div>
-                  <div className="text-sm font-bold text-amber-400 mb-1.5">${skin.price}</div>
-                  {skin.collectorTitle && (
-                    <div className="text-[9px] font-mono text-amber-400/60 flex items-center gap-1">
-                      <Star size={9} /> {t('profile.collectorTitle')}
+              {SKINS.filter(s => s.premium).map(skin => {
+                const owned = isSkinOwned(skin.id);
+                const busy = isProductBusy(skin.id);
+                const canBuy = canBuyProduct(skin.id);
+                return (
+                  <div key={skin.id} className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
+                    <div className="h-12 rounded-lg mb-2 bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/25 flex items-center justify-center">
+                      <Crown size={16} className="text-amber-400/60" />
                     </div>
-                  )}
-                  <button onClick={() => onPurchasePremiumSkin(skin.id)}
-                    className="mt-2 w-full px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/25 text-xs font-medium text-amber-400 hover:bg-amber-400/15 transition-colors cursor-pointer">
-                    {t('profile.buy')}
-                  </button>
-                </div>
-              ))}
+                    <div className="text-xs font-medium text-foreground mb-1">{t(`skin.${skin.id}`)}</div>
+                    <div className="text-sm font-bold text-amber-400 mb-1.5">${skin.price} {PAYMENT_TOKEN_SYMBOL}</div>
+                    {skin.collectorTitle && (
+                      <div className="text-[9px] font-mono text-amber-400/60 flex items-center gap-1">
+                        <Star size={9} /> {t('profile.collectorTitle')}
+                      </div>
+                    )}
+                    {walletAddress && renderLimitBadge(skin.id)}
+                    {owned ? (
+                      <div className="mt-2 w-full px-3 py-1.5 rounded-lg bg-emerald-400/10 border border-emerald-400/20 text-xs font-medium text-emerald-400 text-center flex items-center justify-center gap-1">
+                        <Check size={12} /> {t('purchase.purchased')}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onBuySkin(skin.id)}
+                        disabled={busy || !walletAddress || !canBuy}
+                        className="mt-2 w-full px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/25 text-xs font-medium text-amber-400 hover:bg-amber-400/15 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        {!walletAddress ? t('purchase.connectWallet') :
+                         !canBuy ? t('purchase.limitReached') :
+                         busy ? t('purchase.processing') :
+                         t('profile.buy')}
+                      </button>
+                    )}
+                    {renderPurchaseStatus(skin.id)}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Payment info */}
           <div className="rounded-xl border border-border/30 bg-secondary/20 p-3">
             <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 mb-2">{t('profile.paymentInfo')}</div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs text-foreground">{t('profile.paymentTokens')}: USDC / USDT</div>
-                <div className="text-[10px] font-mono text-muted-foreground/40 mt-0.5">{t('profile.paymentWallet')}:</div>
-                <div className="text-[10px] font-mono text-cyan-400/70 truncate max-w-[200px] sm:max-w-none">{PAYMENT_WALLET}</div>
-              </div>
+            <div className="space-y-1">
+              <div className="text-xs text-foreground">{t('profile.paymentTokens')}: {PAYMENT_TOKEN_SYMBOL}</div>
+              <div className="text-[10px] font-mono text-muted-foreground/40">{t('purchase.network')}: {PAYMENT_CHAIN_NAME} (Chain ID: {PAYMENT_CHAIN_ID})</div>
+              <div className="text-[10px] font-mono text-muted-foreground/40">{t('profile.paymentWallet')}:</div>
+              <div className="text-[10px] font-mono text-cyan-400/70 truncate max-w-[200px] sm:max-w-none">{PAYMENT_WALLET}</div>
             </div>
           </div>
         </div>

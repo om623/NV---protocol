@@ -119,6 +119,7 @@ export interface GamificationState {
   seasonXP: number;
   lastSwapAt: number | null;
   lastSwapId: string | null;
+  creditedTxHashes: string[]; // XP purchase tx hashes already credited (idempotency)
 }
 
 export const DEFAULT_GAMIFICATION_STATE: GamificationState = {
@@ -134,6 +135,7 @@ export const DEFAULT_GAMIFICATION_STATE: GamificationState = {
   seasonXP: 0,
   lastSwapAt: null,
   lastSwapId: null,
+  creditedTxHashes: [],
 };
 
 // ── Derived helpers ───────────────────────────────────────────────────────────
@@ -243,6 +245,32 @@ export function unlockPremiumSkin(state: GamificationState, skinId: string): Gam
   const newSkins = state.unlockedSkins.includes(skinId) ? state.unlockedSkins : [...state.unlockedSkins, skinId];
   const newTitles = state.unlockedTitles.includes('collector') ? state.unlockedTitles : [...state.unlockedTitles, 'collector'];
   return { ...state, unlockedSkins: newSkins, unlockedTitles: newTitles };
+}
+
+/**
+ * Grant a premium skin after server-verified on-chain payment.
+ * This is the only function that should be called for premium skin unlocks —
+ * it is invoked by usePurchases after the edge function confirms the transaction.
+ */
+export function grantPurchasedSkin(state: GamificationState, skinId: string): GamificationState {
+  return unlockPremiumSkin(state, skinId);
+}
+
+/**
+ * Credit purchased XP after server-verified on-chain payment.
+ * Uses txHash for idempotency — the same txHash cannot credit XP twice.
+ */
+export function creditPurchasedXp(state: GamificationState, xpAmount: number, txHash: string): { state: GamificationState; credited: boolean } {
+  if (state.creditedTxHashes.includes(txHash)) {
+    return { state, credited: false };
+  }
+  const newState: GamificationState = {
+    ...state,
+    xp: state.xp + xpAmount,
+    seasonXP: state.seasonXP + xpAmount,
+    creditedTxHashes: [...state.creditedTxHashes, txHash],
+  };
+  return { state: checkUnlocks(newState), credited: true };
 }
 
 /** Equip a skin if unlocked. */

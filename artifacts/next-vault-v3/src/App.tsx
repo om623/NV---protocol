@@ -14,6 +14,8 @@ import {
 } from './lib/arc';
 import { type WalletInfo, getLegacyProvider } from './lib/walletDiscovery';
 import { useGamification } from './hooks/useGamification';
+import { usePurchases } from './hooks/usePurchases';
+import { SKINS, XP_PACKAGES } from './lib/gamification';
 import { WalletPickerModal } from './components/WalletPickerModal';
 import { ProfileView } from './components/ProfileView';
 import { SplashScreen } from './components/SplashScreen';
@@ -658,6 +660,11 @@ function Home() {
 
   // ── Gamification ───────────────────────────────────────────────────────────
   const gamification = useGamification();
+  const purchases = usePurchases({
+    walletAddress: connectedAddress,
+    onSkinUnlocked: (skinId) => gamification.grantSkin(skinId),
+    onXpGranted: (xpAmount, txHash) => gamification.grantXp(xpAmount, txHash),
+  });
   const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
   const [swapModalOpen,  setSwapModalOpen]  = useState(false);
   const [swapStep,       setSwapStep]       = useState(0);
@@ -1415,7 +1422,49 @@ function Home() {
                   onEquipSkin={gamification.setEquippedSkin}
                   onEquipTitle={gamification.setEquippedTitle}
                   onActivateBoost={gamification.startBoost}
-                  onPurchasePremiumSkin={gamification.purchasePremiumSkin}
+                  walletAddress={connectedAddress}
+                  purchaseState={purchases.purchaseState}
+                  entitlements={purchases.entitlements}
+                  isSkinOwned={purchases.isSkinOwned}
+                  getLimit={purchases.getLimit}
+                  limits={purchases.limits}
+                  onBuySkin={(skinId) => {
+                    const skin = SKINS.find(s => s.id === skinId);
+                    if (!skin || !skin.premium) return;
+                    const prov = provider ?? getLegacyProvider();
+                    if (!prov) {
+                      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
+                      return;
+                    }
+                    purchases.buyProduct({
+                      provider: prov,
+                      productId: skinId,
+                      productType: 'skin',
+                      amountUsd: skin.price ?? 0,
+                    }).then(({ success, error }) => {
+                      if (success) toast({ title: t('purchase.confirmed'), description: t('skin.' + skinId) });
+                      else if (error) toast({ title: t('purchase.failed'), description: error, variant: 'destructive' });
+                    });
+                  }}
+                  onBuyXp={(packageId) => {
+                    const pkg = XP_PACKAGES.find(p => p.id === packageId);
+                    if (!pkg) return;
+                    const prov = provider ?? getLegacyProvider();
+                    if (!prov) {
+                      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
+                      return;
+                    }
+                    purchases.buyProduct({
+                      provider: prov,
+                      productId: packageId,
+                      productType: 'xp',
+                      amountUsd: pkg.price,
+                      xpAmount: pkg.xp,
+                    }).then(({ success, error }) => {
+                      if (success) toast({ title: t('purchase.confirmed'), description: `+${pkg.xp} XP` });
+                      else if (error) toast({ title: t('purchase.failed'), description: error, variant: 'destructive' });
+                    });
+                  }}
                 />
               )}
 
