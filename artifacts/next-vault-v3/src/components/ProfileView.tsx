@@ -1,10 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight,
-  Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users,
-  Calendar, Shield, Sword, Eye, Loader2, AlertCircle, ExternalLink,
-} from 'lucide-react';
+import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
 import { useI18n, useFormat } from '../i18n';
 import {
   BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS, PAYMENT_WALLET,
