@@ -303,13 +303,12 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
   }
 
   // Step 3: Verify on-chain through the edge function
+  // Only txHash, walletAddress, and productId are sent — the server derives
+  // price, token, chain, and XP from its own authoritative product catalog.
   const verifyResult = await verifyTransaction({
     txHash,
     walletAddress,
     productId,
-    productType,
-    amountUsd,
-    xpAmount,
   });
 
   return {
@@ -326,9 +325,8 @@ export interface VerifyParams {
   txHash: string;
   walletAddress: string;
   productId: string;
-  productType: "skin" | "xp";
-  amountUsd: number;
-  xpAmount?: number;
+  // productType, amountUsd, xpAmount are NOT sent to the server.
+  // The server derives price, token, chain, and XP from its own product catalog.
 }
 
 export interface VerifyResult {
@@ -354,12 +352,6 @@ export async function verifyTransaction(params: VerifyParams): Promise<VerifyRes
         txHash: params.txHash,
         walletAddress: params.walletAddress,
         productId: params.productId,
-        productType: params.productType,
-        amountUsd: params.amountUsd,
-        tokenSymbol: PAYMENT_TOKEN_SYMBOL,
-        chainId: PAYMENT_CHAIN_ID,
-        expectedRecipient: PAYMENT_WALLET,
-        xpAmount: params.xpAmount,
       }),
     });
 
@@ -391,7 +383,5 @@ export async function retryVerification(record: PurchaseRecord): Promise<VerifyR
     txHash: record.tx_hash,
     walletAddress: record.wallet_address,
     productId: record.product_id,
-    productType: record.product_type,
-    amountUsd: record.amount_usd,
   });
 }
