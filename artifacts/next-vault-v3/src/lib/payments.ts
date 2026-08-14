@@ -69,6 +69,9 @@ export async function fetchServerPaymentConfig(): Promise<void> {
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/verify-purchase?config=1`, {
       method: "GET",
+      headers: {
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
