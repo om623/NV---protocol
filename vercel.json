@@ -4,6 +4,9 @@
   "outputDirectory": "artifacts/next-vault-v3/dist/public",
   "framework": "vite",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
