@@ -895,52 +895,179 @@ function Home() {
   };
 
   // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
-  const handleRealSwap = async () => {
-    const n = parseFloat(amount);
-    if (!n || n <= 0) return;
-    const prov = provider ?? getLegacyProvider();
-    if (!prov) {
-      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
+  // ── Real swap via Uniswap on Base Mainnet ───────────────────────────────
+const handleRealSwap = async () => {
+  const n = parseFloat(amount);
+  if (!n || n <= 0) return;
+
+  const prov = provider ?? getLegacyProvider();
+
+  if (!prov) {
+    toast({
+      title: t('wallet.notFound'),
+      description: t('wallet.installMetamask'),
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  try {
+    const accounts = await getAccounts(prov);
+    const from = accounts?.[0];
+
+    if (!from) {
+      toast({
+        title: t('wallet.accountNotAuth'),
+        variant: 'destructive',
+      });
       return;
     }
-    try {
-      const accounts = await getAccounts(prov);
-      const from = accounts?.[0];
-      if (!from) { toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' }); return; }
-      if (activeNetwork.type === 'testnet') {
-        await ensureNetwork(prov, networkChainParams(activeNetwork));
-      } else {
-        await ensureBaseNetwork(prov);
-      }
-      setWalletChainId(activeNetwork.chainId);
 
-      const fromTokenCfg = ARC_TOKENS[sourceToken];
-      let txHash: string;
-      if (fromTokenCfg && !fromTokenCfg.isNative) {
-        txHash = await transferErc20(prov, from, fromTokenCfg.address!, from, n, fromTokenCfg.decimals);
-      } else {
-        txHash = await transferNative(prov, from, from, n);
-      }
+    // ── Base Mainnet ────────────────────────────────────────────────────
+    await ensureBaseNetwork(prov);
+    setWalletChainId(8453);
 
-      setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-      setTransactions(prev => [{
-        id: txHash || Math.random().toString(),
-        fromToken: sourceToken, toToken: destToken,
-        fromAmount: n, toAmount: n * getRate(sourceToken, destToken),
-        time: 'Just now', status: 'Success',
-      }, ...prev]);
-      setAmount('');
-      await refreshBalances(prov, from);
-      const xpGained = gamification.recordSwap(txHash || undefined);
-      toast({ title: `${t('wallet.realSwapSent')} ${activeNetwork.name}!`, description: txHash ? `Tx: ${txHash.slice(0, 10)}…` : undefined });
-      toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
-    } catch (err) {
-      const code = (err as { code?: number })?.code;
-      if (code === 4001) toast({ title: t('wallet.txRefused'), description: t('wallet.walletRefused'), variant: 'destructive' });
-      else toast({ title: t('wallet.swapFailed'), description: (err as Error)?.message, variant: 'destructive' });
+    // ── Token configuration ─────────────────────────────────────────────
+    const tokenMap = getTokensForNetwork(DEFAULT_MAINNET);
+
+    const fromTokenCfg = tokenMap[sourceToken];
+    const toTokenCfg = tokenMap[destToken];
+
+    if (!fromTokenCfg || !toTokenCfg) {
+      throw new Error(
+        `Token não suportado na Base: ${sourceToken} → ${destToken}`,
+      );
     }
-  };
 
+    if (fromTokenCfg.isNative) {
+      throw new Error(
+        'A primeira versão do swap real utiliza tokens ERC-20. ETH → USDC será habilitado na próxima etapa.',
+      );
+    }
+
+    if (!fromTokenCfg.address || !toTokenCfg.address) {
+      throw new Error('Endereço do token não configurado na Base.');
+    }
+
+    // ── Convert amount to token base units ───────────────────────────────
+    const amountBase = BigInt(
+      Math.round(n * Math.pow(10, fromTokenCfg.decimals)),
+    ).toString();
+
+    // ── Ask Supabase/Uniswap for a REAL quote ────────────────────────────
+    const supabaseUrl =
+      import.meta.env.VITE_SUPABASE_URL as string | undefined;
+
+    if (!supabaseUrl) {
+      throw new Error('VITE_SUPABASE_URL não configurada.');
+    }
+
+    const functionUrl =
+      `${supabaseUrl}/functions/v1/swap-transaction`;
+
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        walletAddress: from,
+        tokenIn: fromTokenCfg.address,
+        tokenOut: toTokenCfg.address,
+        amount: amountBase,
+        tokenInChainId: 8453,
+        tokenOutChainId: 8453,
+        slippageTolerance: 0.5,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result?.success) {
+      throw new Error(
+        result?.error || 'Falha ao obter cotação do swap.',
+      );
+    }
+
+    const transaction = result.transaction;
+
+    if (!transaction) {
+      throw new Error('Uniswap não retornou os dados da transação.');
+    }
+
+    const outputBase = BigInt(
+      transaction.outputAmount || '0',
+    );
+
+    const minimumOutputBase = BigInt(
+      transaction.minimumOutputAmount || '0',
+    );
+
+    const outputAmount =
+      Number(outputBase) / Math.pow(10, toTokenCfg.decimals);
+
+    const minimumOutputAmount =
+      Number(minimumOutputBase) / Math.pow(10, toTokenCfg.decimals);
+
+    if (!Number.isFinite(outputAmount) || outputAmount <= 0) {
+      throw new Error('Valor de saída inválido retornado pela Uniswap.');
+    }
+
+    // ── Show real quote to user ──────────────────────────────────────────
+    setPendingSwap({
+      fromToken: sourceToken,
+      toToken: destToken,
+      fromAmount: n,
+      toAmount: outputAmount,
+    });
+
+    toast({
+      title: 'Cotação real encontrada',
+      description:
+        `${n} ${sourceToken} → ${outputAmount} ${destToken}`,
+    });
+
+    /*
+     * A cotação foi validada pela Uniswap, mas a Edge Function atual
+     * ainda não retorna calldata de execução.
+     *
+     * Portanto, NÃO enviamos uma transação falsa nem uma transferência
+     * direta. Interrompemos aqui até recebermos o calldata oficial.
+     */
+    console.log('Uniswap real quote:', {
+      quoteId: transaction.quoteId,
+      requestId: transaction.requestId,
+      amountIn: n,
+      amountOut: outputAmount,
+      minimumOutput: minimumOutputAmount,
+      gasFee: transaction.gasFee,
+    });
+
+    toast({
+      title: 'Cotação Base/Uniswap confirmada',
+      description:
+        'Pronto para a etapa de execução da transação.',
+    });
+
+  } catch (err) {
+    const code = (err as { code?: number })?.code;
+
+    if (code === 4001) {
+      toast({
+        title: t('wallet.txRefused'),
+        description: t('wallet.walletRefused'),
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: t('wallet.swapFailed'),
+        description:
+          (err as Error)?.message || 'Erro desconhecido.',
+        variant: 'destructive',
+      });
+    }
+  }
+};
   const handleSwap = () => {
     if (isConnected && isRealSwap) {
       handleRealSwap();
