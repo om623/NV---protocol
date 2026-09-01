@@ -201,9 +201,10 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
     tokens: [
-      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
-      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', isNative: false },
-    ],
+  { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+  { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', isNative: false },
+  { symbol: 'EURC', name: 'Euro Coin', decimals: 6, address: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42', isNative: false },
+],
   },
   {
     id: 'arbitrum',
