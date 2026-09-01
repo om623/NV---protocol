@@ -895,7 +895,7 @@ function Home() {
   };
 
   // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
-  // ── Real swap via Uniswap on Base Mainnet ───────────────────────────────
+
 const handleRealSwap = async () => {
   const n = parseFloat(amount);
   if (!n || n <= 0) return;
@@ -923,11 +923,17 @@ const handleRealSwap = async () => {
       return;
     }
 
-    // ── Base Mainnet ────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // BASE MAINNET
+    // ─────────────────────────────────────────────
+
     await ensureBaseNetwork(prov);
     setWalletChainId(8453);
 
-    // ── Token configuration ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // TOKEN CONFIGURATION
+    // ─────────────────────────────────────────────
+
     const tokenMap = getTokensForNetwork(DEFAULT_MAINNET);
 
     const fromTokenCfg = tokenMap[sourceToken];
@@ -941,79 +947,236 @@ const handleRealSwap = async () => {
 
     if (fromTokenCfg.isNative) {
       throw new Error(
-        'A primeira versão do swap real utiliza tokens ERC-20. ETH → USDC será habilitado na próxima etapa.',
+        'A primeira versão do swap real utiliza tokens ERC-20.',
       );
     }
 
     if (!fromTokenCfg.address || !toTokenCfg.address) {
-      throw new Error('Endereço do token não configurado na Base.');
+      throw new Error(
+        'Endereço do token não configurado na Base.',
+      );
     }
 
-    // ── Convert amount to token base units ───────────────────────────────
+    // ─────────────────────────────────────────────
+    // AMOUNT → BASE UNITS
+    // ─────────────────────────────────────────────
+
     const amountBase = BigInt(
-      Math.round(n * Math.pow(10, fromTokenCfg.decimals)),
+      Math.round(
+        n * Math.pow(10, fromTokenCfg.decimals),
+      ),
     ).toString();
 
-    // ── Ask Supabase/Uniswap for a REAL quote ────────────────────────────
     const supabaseUrl =
-      import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      import.meta.env.VITE_SUPABASE_URL as
+        | string
+        | undefined;
 
     if (!supabaseUrl) {
-      throw new Error('VITE_SUPABASE_URL não configurada.');
+      throw new Error(
+        'VITE_SUPABASE_URL não configurada.',
+      );
     }
 
     const functionUrl =
       `${supabaseUrl}/functions/v1/swap-transaction`;
 
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        walletAddress: from,
-        tokenIn: fromTokenCfg.address,
-        tokenOut: toTokenCfg.address,
-        amount: amountBase,
-        tokenInChainId: 8453,
-        tokenOutChainId: 8453,
-        slippageTolerance: 0.5,
-      }),
-    });
+    // ─────────────────────────────────────────────
+    // FUNCTION CALL
+    // ─────────────────────────────────────────────
 
-    const result = await response.json();
+    const requestSwap = async () => {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: from,
+          tokenIn: fromTokenCfg.address,
+          tokenOut: toTokenCfg.address,
+          amount: amountBase,
+          tokenInChainId: 8453,
+          tokenOutChainId: 8453,
+          slippageTolerance: 0.5,
+        }),
+      });
 
-    if (!response.ok || !result?.success) {
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error ||
+            'Falha ao processar o swap.',
+        );
+      }
+
+      return result;
+    };
+
+    // ═════════════════════════════════════════════
+    // 1. CHECK APPROVAL
+    // ═════════════════════════════════════════════
+
+    let result = await requestSwap();
+
+    if (
+      result.stage === 'APPROVAL_REQUIRED' &&
+      result.approvalRequired
+    ) {
+      const approval = result.approval;
+
+      if (!approval?.to || !approval?.data) {
+        throw new Error(
+          'Uniswap não retornou uma transação de aprovação válida.',
+        );
+      }
+
+      toast({
+        title: 'Aprovação necessária',
+        description:
+          `Autorize ${sourceToken} para realizar o swap.`,
+      });
+
+      // ───────────────────────────────────────────
+      // META MASK — APPROVE USDC
+      // ───────────────────────────────────────────
+
+      const approvalTxHash =
+        await prov.request({
+          method: 'eth_sendTransaction',
+          params: [
+            {
+              from,
+              to: approval.to,
+              data: approval.data,
+              value:
+                approval.value ?? '0x00',
+              chainId:
+                '0x' +
+                Number(8453).toString(16),
+            },
+          ],
+        });
+
+      if (!approvalTxHash) {
+        throw new Error(
+          'A carteira não retornou o hash da aprovação.',
+        );
+      }
+
+      toast({
+        title: 'Aprovação enviada',
+        description:
+          'Aguardando confirmação na Base...',
+      });
+
+      // ───────────────────────────────────────────
+      // WAIT FOR APPROVAL RECEIPT
+      // ───────────────────────────────────────────
+
+      let approvalReceipt: any = null;
+
+      for (let i = 0; i < 60; i++) {
+        approvalReceipt =
+          await prov.request({
+            method: 'eth_getTransactionReceipt',
+            params: [approvalTxHash],
+          });
+
+        if (approvalReceipt) break;
+
+        await new Promise(resolve =>
+          setTimeout(resolve, 2000),
+        );
+      }
+
+      if (!approvalReceipt) {
+        throw new Error(
+          'Tempo limite aguardando a confirmação da aprovação.',
+        );
+      }
+
+      if (
+        approvalReceipt.status !== '0x1'
+      ) {
+        throw new Error(
+          'A transação de aprovação foi revertida.',
+        );
+      }
+
+      toast({
+        title: 'USDC aprovado',
+        description:
+          'Aprovação confirmada. Obtendo a cotação final...',
+      });
+
+      // ───────────────────────────────────────────
+      // 2. REQUEST AGAIN
+      // ───────────────────────────────────────────
+
+      result = await requestSwap();
+    }
+
+    // ═════════════════════════════════════════════
+    // 3. SWAP READY
+    // ═════════════════════════════════════════════
+
+    if (result.stage !== 'SWAP_READY') {
       throw new Error(
-        result?.error || 'Falha ao obter cotação do swap.',
+        'A Uniswap não retornou uma transação de swap pronta.',
       );
     }
 
-    const transaction = result.transaction;
+    const transaction =
+      result.transaction;
 
-    if (!transaction) {
-      throw new Error('Uniswap não retornou os dados da transação.');
+    const swap =
+      transaction?.swap;
+
+    if (!swap?.to || !swap?.data) {
+      throw new Error(
+        'Uniswap não retornou os dados da transação de swap.',
+      );
     }
+
+    // ─────────────────────────────────────────────
+    // OUTPUT AMOUNT
+    // ─────────────────────────────────────────────
 
     const outputBase = BigInt(
       transaction.outputAmount || '0',
     );
 
-    const minimumOutputBase = BigInt(
-      transaction.minimumOutputAmount || '0',
-    );
+    const minimumOutputBase =
+      BigInt(
+        transaction.minimumOutputAmount ||
+          '0',
+      );
 
     const outputAmount =
-      Number(outputBase) / Math.pow(10, toTokenCfg.decimals);
+      Number(outputBase) /
+      Math.pow(
+        10,
+        toTokenCfg.decimals,
+      );
 
     const minimumOutputAmount =
-      Number(minimumOutputBase) / Math.pow(10, toTokenCfg.decimals);
+      Number(minimumOutputBase) /
+      Math.pow(
+        10,
+        toTokenCfg.decimals,
+      );
 
-    if (!Number.isFinite(outputAmount) || outputAmount <= 0) {
-      throw new Error('Valor de saída inválido retornado pela Uniswap.');
+    if (
+      !Number.isFinite(outputAmount) ||
+      outputAmount <= 0
+    ) {
+      throw new Error(
+        'Valor de saída inválido retornado pela Uniswap.',
+      );
     }
 
-    // ── Show real quote to user ──────────────────────────────────────────
     setPendingSwap({
       fromToken: sourceToken,
       toToken: destToken,
@@ -1022,52 +1185,153 @@ const handleRealSwap = async () => {
     });
 
     toast({
-      title: 'Cotação real encontrada',
+      title: 'Swap pronto',
       description:
         `${n} ${sourceToken} → ${outputAmount} ${destToken}`,
     });
 
-    /*
-     * A cotação foi validada pela Uniswap, mas a Edge Function atual
-     * ainda não retorna calldata de execução.
-     *
-     * Portanto, NÃO enviamos uma transação falsa nem uma transferência
-     * direta. Interrompemos aqui até recebermos o calldata oficial.
-     */
-    console.log('Uniswap real quote:', {
-      quoteId: transaction.quoteId,
-      requestId: transaction.requestId,
-      amountIn: n,
-      amountOut: outputAmount,
-      minimumOutput: minimumOutputAmount,
-      gasFee: transaction.gasFee,
-    });
+    // ═════════════════════════════════════════════
+    // 4. META MASK — REAL SWAP
+    // ═════════════════════════════════════════════
+
+    const swapTxHash =
+      await prov.request({
+        method: 'eth_sendTransaction',
+        params: [
+          {
+            from,
+            to: swap.to,
+            data: swap.data,
+            value:
+              swap.value ?? '0x00',
+            chainId:
+              '0x' +
+              Number(8453).toString(16),
+          },
+        ],
+      });
+
+    if (!swapTxHash) {
+      throw new Error(
+        'A carteira não retornou o hash do swap.',
+      );
+    }
 
     toast({
-      title: 'Cotação Base/Uniswap confirmada',
+      title: 'Swap enviado',
       description:
-        'Pronto para a etapa de execução da transação.',
+        'Aguardando confirmação na Base...',
     });
 
+    // ═════════════════════════════════════════════
+    // 5. WAIT FOR SWAP RECEIPT
+    // ═════════════════════════════════════════════
+
+    let swapReceipt: any = null;
+
+    for (let i = 0; i < 90; i++) {
+      swapReceipt =
+        await prov.request({
+          method:
+            'eth_getTransactionReceipt',
+          params: [swapTxHash],
+        });
+
+      if (swapReceipt) break;
+
+      await new Promise(resolve =>
+        setTimeout(resolve, 2000),
+      );
+    }
+
+    if (!swapReceipt) {
+      throw new Error(
+        'Tempo limite aguardando a confirmação do swap.',
+      );
+    }
+
+    if (
+      swapReceipt.status !== '0x1'
+    ) {
+      throw new Error(
+        'O swap foi revertido na Base.',
+      );
+    }
+
+    // ═════════════════════════════════════════════
+    // 6. SUCCESS
+    // ═════════════════════════════════════════════
+
+    const realTxId = String(
+      swapTxHash,
+    );
+
+    setTransactions(prev => [
+      {
+        id: realTxId,
+        fromToken: sourceToken,
+        toToken: destToken,
+        fromAmount: n,
+        toAmount: outputAmount,
+        time: 'Just now',
+        status: 'Success',
+      },
+      ...prev,
+    ]);
+
+    const xpGained =
+      gamification.recordSwap(
+        realTxId,
+      );
+
+    toast({
+      title: 'Swap concluído com sucesso!',
+      description:
+        `+${xpGained} XP • ${n} ${sourceToken} → ${outputAmount} ${destToken}`,
+    });
+
+    setAmount('');
+
+    console.log(
+      'REAL SWAP SUCCESS',
+      {
+        approvalTxHash,
+        swapTxHash,
+        amountIn: n,
+        amountOut: outputAmount,
+        minimumOutput:
+          minimumOutputAmount,
+      },
+    );
+
   } catch (err) {
-    const code = (err as { code?: number })?.code;
+    const code =
+      (err as { code?: number })?.code;
 
     if (code === 4001) {
       toast({
         title: t('wallet.txRefused'),
-        description: t('wallet.walletRefused'),
+        description:
+          t('wallet.walletRefused'),
         variant: 'destructive',
       });
     } else {
       toast({
         title: t('wallet.swapFailed'),
         description:
-          (err as Error)?.message || 'Erro desconhecido.',
+          (err as Error)?.message ||
+          'Erro desconhecido.',
         variant: 'destructive',
       });
     }
+
+    console.error(
+      'REAL SWAP ERROR:',
+      err,
+    );
   }
 };
+
   const handleSwap = () => {
     if (isConnected && isRealSwap) {
       handleRealSwap();
