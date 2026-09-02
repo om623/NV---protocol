@@ -122,54 +122,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
     ],
   },
-  {
-    id: 'polygon-amoy',
-    name: 'Polygon Amoy',
-    shortName: 'Amoy',
-    chainId: 80002,
-    type: 'testnet',
-    color: 'bg-purple-500',
-    icon: 'P',
-    rpcUrl: 'https://polygon-amoy.drpc.org',
-    explorerUrl: 'https://www.oklink.com/amoy',
-    nativeCurrency: { symbol: 'POL', decimals: 18 },
-    status: 'online',
-    tokens: [
-      { symbol: 'POL', name: 'Polygon', decimals: 18, address: null, isNative: true },
-    ],
-  },
-  {
-    id: 'bnb-testnet',
-    name: 'BNB Testnet',
-    shortName: 'BNB',
-    chainId: 97,
-    type: 'testnet',
-    color: 'bg-yellow-500',
-    icon: 'BN',
-    rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-    explorerUrl: 'https://testnet.bscscan.com',
-    nativeCurrency: { symbol: 'tBNB', decimals: 18 },
-    status: 'online',
-    tokens: [
-      { symbol: 'tBNB', name: 'BNB', decimals: 18, address: null, isNative: true },
-    ],
-  },
-  {
-    id: 'avalanche-fuji',
-    name: 'Avalanche Fuji',
-    shortName: 'Fuji',
-    chainId: 43113,
-    type: 'testnet',
-    color: 'bg-red-400',
-    icon: 'Av',
-    rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
-    explorerUrl: 'https://testnet.snowtrace.io',
-    nativeCurrency: { symbol: 'AVAX', decimals: 18 },
-    status: 'online',
-    tokens: [
-      { symbol: 'AVAX', name: 'Avalanche', decimals: 18, address: null, isNative: true },
-    ],
-  },
+  
 
   // ── Mainnets ───────────────────────────────────────────────────────────────
   {
