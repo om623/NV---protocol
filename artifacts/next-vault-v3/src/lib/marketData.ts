@@ -127,12 +127,20 @@ interface BaseAsset {
 
 const BASE_ASSETS: BaseAsset[] = [
   // FIAT
-  { symbol: 'USD', name: 'US Dollar',        category: 'fiat',        price: 1.0,        decimals: 4, change7d: 0 },
-  { symbol: 'EUR', name: 'Euro',             category: 'fiat',        price: 1.087,      decimals: 4, change7d: 0.8 },
-  { symbol: 'BRL', name: 'Brazilian Real',   category: 'fiat',        price: 5.42,       decimals: 4, change7d: -1.2 },
-  { symbol: 'GBP', name: 'British Pound',    category: 'fiat',        price: 1.273,      decimals: 4, change7d: 0.3 },
-  { symbol: 'JPY', name: 'Japanese Yen',     category: 'fiat',        price: 0.0063,     decimals: 6, change7d: -0.5 },
+  { symbol: 'USD', name: 'US Dollar',       category: 'fiat', price: 1.0,    decimals: 4, change7d: 0 },
+  { symbol: 'EUR', name: 'Euro',            category: 'fiat', price: 1.087,  decimals: 4, change7d: 0.8 },
+  { symbol: 'BRL', name: 'Brazilian Real',  category: 'fiat', price: 5.42,   decimals: 4, change7d: -1.2 },
+  { symbol: 'GBP', name: 'British Pound',   category: 'fiat', price: 1.273,  decimals: 4, change7d: 0.3 },
+  { symbol: 'JPY', name: 'Japanese Yen',    category: 'fiat', price: 0.0063, decimals: 6, change7d: -0.5 },
 
+  { symbol: 'CHF', name: 'Swiss Franc',     category: 'fiat', price: 1.11,   decimals: 4, change7d: 0.2 },
+  { symbol: 'CAD', name: 'Canadian Dollar',  category: 'fiat', price: 0.73,   decimals: 4, change7d: -0.4 },
+  { symbol: 'AUD', name: 'Australian Dollar',category: 'fiat', price: 0.66,   decimals: 4, change7d: 0.5 },
+  { symbol: 'CNY', name: 'Chinese Yuan',     category: 'fiat', price: 0.138,  decimals: 5, change7d: -0.2 },
+  { symbol: 'HKD', name: 'Hong Kong Dollar', category: 'fiat', price: 0.128,  decimals: 5, change7d: 0.1 },
+  { symbol: 'SGD', name: 'Singapore Dollar', category: 'fiat', price: 0.75,   decimals: 4, change7d: 0.3 },
+  { symbol: 'MXN', name: 'Mexican Peso',     category: 'fiat', price: 0.055,  decimals: 5, change7d: -0.7 },
+ 
   // COMMODITIES
   { symbol: 'XAU', name: 'Gold',             category: 'commodities', price: 2412.55,    decimals: 2, change7d: 2.1 },
   { symbol: 'XAG', name: 'Silver',           category: 'commodities', price: 29.84,      decimals: 2, change7d: 3.4 },
