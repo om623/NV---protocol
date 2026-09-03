@@ -196,17 +196,14 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'AAVE',   name: 'Aave',             category: 'crypto', price: 95.00,    decimals: 2, change7d: 5.8,  coinGeckoId: 'aave' },
   { symbol: 'MKR',    name: 'Maker',            category: 'crypto', price: 2800.00,  decimals: 2, change7d: 2.7,  coinGeckoId: 'maker' },
    
-  // STABLECOINS
-  { symbol: 'USDC',  name: 'USD Coin',          category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'usd-coin' },
-  { symbol: 'USDT',  name: 'Tether',            category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'tether' },
-  { symbol: 'EURC',  name: 'Euro Coin',         category: 'stablecoins', price: 1.087,  decimals: 4, change7d: 0.8, coinGeckoId: 'euro-coin' },
-  { symbol: 'DAI',   name: 'Dai',               category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'dai' },
-  { symbol: 'FDUSD', name: 'First Digital USD', category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'first-digital-usd' },
-  { symbol: 'USDS',  name: 'USDS',              category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'usds' },
-  { symbol: 'PYUSD', name: 'PayPal USD',        category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'paypal-usd' },
-  { symbol: 'USDE',  name: 'Ethena USDe',       category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'ethena-usde' },
-  { symbol: 'TUSD',  name: 'TrueUSD',           category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'true-usd' },
-  { symbol: 'FRAX',  name: 'Frax',              category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'frax' },
+     // STABLECOINS
+  { symbol: 'USDC',  name: 'USD Coin',        category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0,   coinGeckoId: 'usd-coin' },
+  { symbol: 'USDT',  name: 'Tether',          category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0,   coinGeckoId: 'tether' },
+  { symbol: 'EURC',  name: 'Euro Coin',       category: 'stablecoins', price: 1.087, decimals: 4, change7d: 0.8, coinGeckoId: 'eurocoin' },
+  { symbol: 'DAI',   name: 'Dai',             category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.1, coinGeckoId: 'dai' },
+  { symbol: 'USDe',  name: 'Ethena USDe',     category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.1, coinGeckoId: 'ethena-usde' },
+  { symbol: 'PYUSD', name: 'PayPal USD',      category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.0, coinGeckoId: 'paypal-usd' },
+  { symbol: 'USDS',  name: 'USDS',             category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.0, coinGeckoId: 'usds' },
 ];
 
 const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
