@@ -179,7 +179,17 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'ICP',  name: 'Internet Computer', category: 'crypto', price: 10.80, decimals: 2, change7d: 3.9, coinGeckoId: 'internet-computer' },
   { symbol: 'APT',  name: 'Aptos',           category: 'crypto', price: 7.90,     decimals: 2, change7d: 4.4,  coinGeckoId: 'aptos' },
   { symbol: 'ALGO', name: 'Algorand',        category: 'crypto', price: 0.19,     decimals: 4, change7d: 1.7,  coinGeckoId: 'algorand' },
-  
+
+  { symbol: 'MATIC', name: 'Polygon', category: 'crypto', price: 0.72, decimals: 4, change7d: 3.2, coinGeckoId: 'matic-network' },
+  { symbol: 'ETC',   name: 'Ethereum Classic', category: 'crypto', price: 28.40, decimals: 2, change7d: 2.1, coinGeckoId: 'ethereum-classic' },
+  { symbol: 'XLM',   name: 'Stellar', category: 'crypto', price: 0.11, decimals: 4, change7d: 2.8, coinGeckoId: 'stellar' },
+  { symbol: 'HBAR',  name: 'Hedera', category: 'crypto', price: 0.09, decimals: 4, change7d: 4.3, coinGeckoId: 'hedera-hashgraph' },
+  { symbol: 'VET',   name: 'VeChain', category: 'crypto', price: 0.03, decimals: 5, change7d: 1.9, coinGeckoId: 'vechain' },
+  { symbol: 'MKR',   name: 'Maker', category: 'crypto', price: 2500, decimals: 2, change7d: 3.7, coinGeckoId: 'maker' },
+  { symbol: 'RUNE',  name: 'THORChain', category: 'crypto', price: 4.80, decimals: 3, change7d: 5.2, coinGeckoId: 'thorchain' },
+  { symbol: 'CRV',   name: 'Curve DAO', category: 'crypto', price: 0.32, decimals: 4, change7d: 4.1, coinGeckoId: 'curve-dao-token' },
+  { symbol: 'LDO',   name: 'Lido DAO', category: 'crypto', price: 1.85, decimals: 4, change7d: 3.9, coinGeckoId: 'lido-dao' },
+  { symbol: 'GRT',   name: 'The Graph', category: 'crypto', price: 0.22, decimals: 4, change7d: 2.6, coinGeckoId: 'the-graph' },
    
   // STABLECOINS
   { symbol: 'USDC',  name: 'USD Coin',          category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'usd-coin' },
