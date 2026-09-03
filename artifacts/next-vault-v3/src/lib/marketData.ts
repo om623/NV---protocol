@@ -142,12 +142,18 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'MXN', name: 'Mexican Peso',     category: 'fiat', price: 0.055,  decimals: 5, change7d: -0.7 },
  
   // COMMODITIES
-  { symbol: 'XAU', name: 'Gold',             category: 'commodities', price: 2412.55,    decimals: 2, change7d: 2.1 },
-  { symbol: 'XAG', name: 'Silver',           category: 'commodities', price: 29.84,      decimals: 2, change7d: 3.4 },
-  { symbol: 'WTI', name: 'Oil (WTI)',        category: 'commodities', price: 78.92,      decimals: 2, change7d: -1.8 },
-  { symbol: 'NG',  name: 'Natural Gas',      category: 'commodities', price: 2.34,       decimals: 4, change7d: -3.2 },
-  { symbol: 'COP', name: 'Copper',           category: 'commodities', price: 4.52,       decimals: 3, change7d: 1.1 },
+  { symbol: 'XAU', name: 'Gold',          category: 'commodities', price: 2412.55, decimals: 2, change7d: 2.1 },
+  { symbol: 'XAG', name: 'Silver',        category: 'commodities', price: 29.84,   decimals: 2, change7d: 3.4 },
+  { symbol: 'WTI', name: 'Oil (WTI)',     category: 'commodities', price: 78.92,   decimals: 2, change7d: -1.8 },
+  { symbol: 'NG',  name: 'Natural Gas',   category: 'commodities', price: 2.34,    decimals: 4, change7d: -3.2 },
+  { symbol: 'COP', name: 'Copper',        category: 'commodities', price: 4.52,    decimals: 3, change7d: 1.1 },
 
+  { symbol: 'BRENT', name: 'Brent Crude', category: 'commodities', price: 82.15, decimals: 2, change7d: -1.2 },
+  { symbol: 'PL',    name: 'Platinum',    category: 'commodities', price: 985.40, decimals: 2, change7d: 1.8 },
+  { symbol: 'PA',    name: 'Palladium',   category: 'commodities', price: 925.60, decimals: 2, change7d: -0.9 },
+  { symbol: 'AL',    name: 'Aluminum',    category: 'commodities', price: 2.34,   decimals: 3, change7d: 0.6 },
+  { symbol: 'NI',    name: 'Nickel',      category: 'commodities', price: 16.85,  decimals: 2, change7d: -1.4 },
+ 
   // ÍNDICES
   { symbol: 'SPX', name: 'S&P 500',          category: 'indices',     price: 5464.32,    decimals: 2, change7d: 1.4 },
   { symbol: 'NDX', name: 'Nasdaq 100',       category: 'indices',     price: 19842.71,   decimals: 2, change7d: 2.6 },
