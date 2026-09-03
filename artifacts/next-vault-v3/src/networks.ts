@@ -124,79 +124,116 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
   },
   
 
-  // ── Mainnets ───────────────────────────────────────────────────────────────
-  {
-    id: 'ethereum',
-    name: 'Ethereum',
-    shortName: 'Ethereum',
-    chainId: 1,
-    type: 'mainnet',
-    color: 'bg-indigo-500',
-    icon: 'E',
-    rpcUrl: 'https://cloudflare-eth.com',
-    explorerUrl: 'https://etherscan.io',
-    nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    status: 'online',
-    comingSoon?: boolean;
-    tokens: [
-      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
-    ],
-  },
-  {
-    id: 'base',
-    name: 'Base',
-    shortName: 'Base',
-    chainId: 8453,
-    type: 'mainnet',
-    color: 'bg-blue-600',
-    icon: 'B',
-    rpcUrl: 'https://mainnet.base.org',
-    explorerUrl: 'https://basescan.org',
-    nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    status: 'online',
-    comingSoon?: boolean;
-    tokens: [
-  { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
-  { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', isNative: false },
-  { symbol: 'EURC', name: 'Euro Coin', decimals: 6, address: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42', isNative: false },
-],
-  },
-  {
-    id: 'arbitrum',
-    name: 'Arbitrum',
-    shortName: 'Arbitrum',
-    chainId: 42161,
-    type: 'mainnet',
-    color: 'bg-sky-600',
-    icon: 'Ar',
-    rpcUrl: 'https://arb1.arbitrum.io/rpc',
-    explorerUrl: 'https://arbiscan.io',
-    nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    status: 'online',
-    comingSoon?: boolean;
-    tokens: [
-      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
-    ],
-  },
-  {
-    id: 'optimism',
-    name: 'Optimism',
-    shortName: 'Optimism',
-    chainId: 10,
-    type: 'mainnet',
-    color: 'bg-red-600',
-    icon: 'O',
-    rpcUrl: 'https://mainnet.optimism.io',
-    explorerUrl: 'https://optimistic.etherscan.io',
-    nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    status: 'online',
-    comingSoon?: boolean;
-    tokens: [
-      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
-    ],
-  },
-];
+// ── Mainnets ───────────────────────────────────────────────────────────────
+{
+  id: 'ethereum',
+  name: 'Ethereum',
+  shortName: 'Ethereum',
+  chainId: 1,
+  type: 'mainnet',
+  color: 'bg-indigo-500',
+  icon: 'E',
+  rpcUrl: 'https://cloudflare-eth.com',
+  explorerUrl: 'https://etherscan.io',
+  nativeCurrency: { symbol: 'ETH', decimals: 18 },
+  status: 'offline',
+  comingSoon: true,
+  tokens: [
+    {
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      address: null,
+      isNative: true,
+    },
+  ],
+},
 
+{
+  id: 'base',
+  name: 'Base',
+  shortName: 'Base',
+  chainId: 8453,
+  type: 'mainnet',
+  color: 'bg-blue-600',
+  icon: 'B',
+  rpcUrl: 'https://mainnet.base.org',
+  explorerUrl: 'https://basescan.org',
+  nativeCurrency: { symbol: 'ETH', decimals: 18 },
+  status: 'offline',
+  comingSoon: true,
+  tokens: [
+    {
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      address: null,
+      isNative: true,
+    },
+    {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+      address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      isNative: false,
+    },
+    {
+      symbol: 'EURC',
+      name: 'Euro Coin',
+      decimals: 6,
+      address: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42',
+      isNative: false,
+    },
+  ],
+},
+
+{
+  id: 'arbitrum',
+  name: 'Arbitrum',
+  shortName: 'Arbitrum',
+  chainId: 42161,
+  type: 'mainnet',
+  color: 'bg-sky-600',
+  icon: 'Ar',
+  rpcUrl: 'https://arb1.arbitrum.io/rpc',
+  explorerUrl: 'https://arbiscan.io',
+  nativeCurrency: { symbol: 'ETH', decimals: 18 },
+  status: 'offline',
+  comingSoon: true,
+  tokens: [
+    {
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      address: null,
+      isNative: true,
+    },
+  ],
+},
+
+{
+  id: 'optimism',
+  name: 'Optimism',
+  shortName: 'Optimism',
+  chainId: 10,
+  type: 'mainnet',
+  color: 'bg-red-600',
+  icon: 'O',
+  rpcUrl: 'https://mainnet.optimism.io',
+  explorerUrl: 'https://optimistic.etherscan.io',
+  nativeCurrency: { symbol: 'ETH', decimals: 18 },
+  status: 'offline',
+  comingSoon: true,
+  tokens: [
+    {
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      address: null,
+      isNative: true,
+    },
+  ],
+},
 export const TESTNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'testnet');
 export const MAINNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'mainnet');
 
