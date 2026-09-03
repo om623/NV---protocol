@@ -137,6 +137,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://etherscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    comingSoon?: boolean;
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
     ],
@@ -153,6 +154,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://basescan.org',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    comingSoon?: boolean;
     tokens: [
   { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
   { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', isNative: false },
@@ -171,6 +173,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://arbiscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    comingSoon?: boolean;
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
     ],
@@ -187,6 +190,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     explorerUrl: 'https://optimistic.etherscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
+    comingSoon?: boolean;
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
     ],
