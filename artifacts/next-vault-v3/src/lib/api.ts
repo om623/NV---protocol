@@ -150,6 +150,10 @@ const COINGECKO_MAP: Record<string, string> = {
   USDT: 'tether',
   USDC: 'usd-coin',
   EURC: 'eurocoin',
+  DAI: 'dai',
+  USDe: 'ethena-usde',
+  PYUSD: 'paypal-usd',
+  USDS: 'usds',
 };
 
 const COINGECKO_REVERSE: Record<string, string> = Object.fromEntries(
