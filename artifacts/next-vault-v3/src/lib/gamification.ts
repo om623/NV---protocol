@@ -2,7 +2,7 @@
 // All definitions are data-driven so new badges/titles/skins can be added
 // by simply appending to the arrays below.
 
-export const BASE_LEVEL = 1000;
+export const BASE_LEVEL = 0;
 export const SWAP_XP_BASE = 0.5;
 export const BOOST_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 export const SWAP_COOLDOWN_MS = 2000; // dedup window for calls without a swap ID
