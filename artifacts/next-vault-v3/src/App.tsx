@@ -127,14 +127,15 @@ const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'perfil' | 'configuracoes' | 'ajuda';
+type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
   { key: 'nav.simulation',    Icon: Activity,        view: 'simulacao'      },
   { key: 'nav.history',       Icon: History,         view: 'historico',     comingSoon: true },
   { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
-  { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
+  { key: 'nav.pools',         Icon: Database,        view: 'pools'          comingSoon: true },
+  { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge',        comingSoon: true },
   { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes', comingSoon: true },
