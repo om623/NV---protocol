@@ -45,11 +45,12 @@ function formatPrice(a: MarketAsset): string {
 }
 
 const FILTERS: { key: FilterCategory; label: string }[] = [
-  { key: 'all',        label: 'Todos' },
-  { key: 'crypto',     label: 'Crypto' },
-  { key: 'commodities',label: 'Commodities' },
-  { key: 'indices',    label: 'Índices' },
-  { key: 'fiat',       label: 'Fiat' },
+  { key: 'all',          label: 'Todos' },
+  { key: 'crypto',       label: 'Crypto' },
+  { key: 'stablecoins',  label: 'Stablecoins' },
+  { key: 'commodities',  label: 'Commodities' },
+  { key: 'indices',      label: 'Índices' },
+  { key: 'fiat',         label: 'Fiat' },
 ];
 
 export function MarketGrid() {
