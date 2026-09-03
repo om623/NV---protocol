@@ -180,10 +180,18 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'APT',  name: 'Aptos',           category: 'crypto', price: 7.90,     decimals: 2, change7d: 4.4,  coinGeckoId: 'aptos' },
   { symbol: 'ALGO', name: 'Algorand',        category: 'crypto', price: 0.19,     decimals: 4, change7d: 1.7,  coinGeckoId: 'algorand' },
   
-   // STABLECOINS
-  { symbol: 'USDC', name: 'USD Coin',        category: 'stablecoins', price: 1.0,        decimals: 4, change7d: 0,    coinGeckoId: 'usd-coin' },
-  { symbol: 'USDT', name: 'Tether',          category: 'stablecoins', price: 1.0,        decimals: 4, change7d: 0,    coinGeckoId: 'tether' },
-  { symbol: 'EURC', name: 'Euro Coin',       category: 'stablecoins', price: 1.087,      decimals: 4, change7d: 0.8,  coinGeckoId: 'eurocoin' },
+   
+  // STABLECOINS
+  { symbol: 'USDC',  name: 'USD Coin',          category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'usd-coin' },
+  { symbol: 'USDT',  name: 'Tether',            category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'tether' },
+  { symbol: 'EURC',  name: 'Euro Coin',         category: 'stablecoins', price: 1.087,  decimals: 4, change7d: 0.8, coinGeckoId: 'euro-coin' },
+  { symbol: 'DAI',   name: 'Dai',               category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'dai' },
+  { symbol: 'FDUSD', name: 'First Digital USD', category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'first-digital-usd' },
+  { symbol: 'USDS',  name: 'USDS',              category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'usds' },
+  { symbol: 'PYUSD', name: 'PayPal USD',        category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'paypal-usd' },
+  { symbol: 'USDE',  name: 'Ethena USDe',       category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'ethena-usde' },
+  { symbol: 'TUSD',  name: 'TrueUSD',           category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'true-usd' },
+  { symbol: 'FRAX',  name: 'Frax',              category: 'stablecoins', price: 1.0,    decimals: 4, change7d: 0,   coinGeckoId: 'frax' },
 ];
 
 const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
