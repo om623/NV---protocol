@@ -34,6 +34,7 @@ export interface NetworkConfig {
   nativeCurrency: { symbol: string; decimals: number };
   /** Network status shown in the Central de Redes */
   status: 'online' | 'unstable' | 'offline';
+  comingSoon?: boolean;
   /** Tokens supported on this network for the Swap UI */
   tokens: TokenConfig[];
 }
@@ -235,6 +236,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
   ],
 },
 
+];  
   
 export const TESTNET_NETWORKS =
   NETWORKS_CONFIG.filter(n => n.type === 'testnet');
