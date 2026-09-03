@@ -115,6 +115,10 @@ const COINGECKO_IDS = [
   'tether',
   'usd-coin',
   'eurocoin',
+  'dai',
+  'ethena-usde',
+  'paypal-usd',
+  'usds',
 ];
 
 const COINGECKO_MAP: Record<string, string> = {
