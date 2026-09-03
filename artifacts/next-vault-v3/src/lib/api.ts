@@ -87,8 +87,34 @@ export interface CoinGeckoCoin {
 }
 
 const COINGECKO_IDS = [
-  'bitcoin', 'ethereum', 'solana', 'arbitrum', 'optimism',
-  'chainlink', 'tether', 'usd-coin', 'eurocoin',
+  'bitcoin',
+  'ethereum',
+  'solana',
+  'binancecoin',
+  'ripple',
+  'cardano',
+  'dogecoin',
+  'avalanche-2',
+  'polkadot',
+  'chainlink',
+  'polygon-ecosystem-token',
+  'uniswap',
+  'litecoin',
+  'near',
+  'internet-computer',
+  'aptos',
+  'cosmos',
+  'arbitrum',
+  'optimism',
+  'sui',
+  'pepe',
+  'render-token',
+  'injective-protocol',
+  'aave',
+  'maker',
+  'tether',
+  'usd-coin',
+  'eurocoin',
 ];
 
 const COINGECKO_MAP: Record<string, string> = {
