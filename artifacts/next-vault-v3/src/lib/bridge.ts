@@ -25,25 +25,25 @@ export interface BridgeTransfer {
 
 const BRIDGE_ROUTES: BridgeRoute[] = [
   {
-    id: 'arc-base-usdc',
-    fromNetwork: 'arc-testnet',
-    toNetwork: 'base',
-    token: 'USDC',
-    estimatedTime: '~2 min',
-    fee: 0,
-    status: 'available',
-  },
-  {
-    id: 'base-arc-usdc',
-    fromNetwork: 'base',
+    id: 'base-sepolia-arc-usdc',
+    fromNetwork: 'base-sepolia',
     toNetwork: 'arc-testnet',
     token: 'USDC',
     estimatedTime: '~2 min',
     fee: 0,
     status: 'available',
   },
+  {
+    id: 'arc-base-sepolia-usdc',
+    fromNetwork: 'arc-testnet',
+    toNetwork: 'base-sepolia',
+    token: 'USDC',
+    estimatedTime: '~2 min',
+    fee: 0,
+    status: 'available',
+  },
 
-  // Preparadas para as próximas integrações
+  // Próximas rotas
   {
     id: 'sepolia-arc-usdc',
     fromNetwork: 'sepolia',
