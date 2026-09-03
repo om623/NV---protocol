@@ -146,15 +146,41 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'DXY', name: 'Dollar Index',     category: 'indices',     price: 104.38,     decimals: 2, change7d: -0.4 },
   { symbol: 'VIX', name: 'Volatility Index', category: 'indices',     price: 14.27,      decimals: 2, change7d: -5.2 },
 
-  // CRYPTO
-  { symbol: 'BTC',  name: 'Bitcoin',         category: 'crypto',      price: 67432.18,   decimals: 2, change7d: 4.2,  coinGeckoId: 'bitcoin' },
-  { symbol: 'ETH',  name: 'Ethereum',        category: 'crypto',      price: 3215.84,    decimals: 2, change7d: 3.8,  coinGeckoId: 'ethereum' },
-  { symbol: 'SOL',  name: 'Solana',          category: 'crypto',      price: 168.43,     decimals: 2, change7d: 7.1,  coinGeckoId: 'solana' },
-  { symbol: 'ARB',  name: 'Arbitrum',        category: 'crypto',      price: 0.92,       decimals: 4, change7d: 5.3,  coinGeckoId: 'arbitrum' },
-  { symbol: 'OP',   name: 'Optimism',        category: 'crypto',      price: 1.78,       decimals: 4, change7d: 4.1,  coinGeckoId: 'optimism' },
-  { symbol: 'LINK', name: 'Chainlink',       category: 'crypto',      price: 14.27,      decimals: 2, change7d: 2.4,  coinGeckoId: 'chainlink' },
+   // CRYPTO
+  { symbol: 'BTC',  name: 'Bitcoin',         category: 'crypto', price: 67432.18, decimals: 2, change7d: 4.2,  coinGeckoId: 'bitcoin' },
+  { symbol: 'ETH',  name: 'Ethereum',        category: 'crypto', price: 3215.84,  decimals: 2, change7d: 3.8,  coinGeckoId: 'ethereum' },
+  { symbol: 'SOL',  name: 'Solana',          category: 'crypto', price: 168.43,   decimals: 2, change7d: 7.1,  coinGeckoId: 'solana' },
+  { symbol: 'ARB',  name: 'Arbitrum',        category: 'crypto', price: 0.92,     decimals: 4, change7d: 5.3,  coinGeckoId: 'arbitrum' },
+  { symbol: 'OP',   name: 'Optimism',        category: 'crypto', price: 1.78,     decimals: 4, change7d: 4.1,  coinGeckoId: 'optimism' },
+  { symbol: 'LINK', name: 'Chainlink',       category: 'crypto', price: 14.27,    decimals: 2, change7d: 2.4,  coinGeckoId: 'chainlink' },
 
-  // STABLECOINS
+  { symbol: 'XRP',  name: 'XRP',             category: 'crypto', price: 0.52,     decimals: 4, change7d: 3.2,  coinGeckoId: 'ripple' },
+  { symbol: 'ADA',  name: 'Cardano',         category: 'crypto', price: 0.45,     decimals: 4, change7d: 2.7,  coinGeckoId: 'cardano' },
+  { symbol: 'AVAX', name: 'Avalanche',       category: 'crypto', price: 35.20,    decimals: 2, change7d: 4.6,  coinGeckoId: 'avalanche-2' },
+  { symbol: 'DOGE', name: 'Dogecoin',        category: 'crypto', price: 0.14,     decimals: 4, change7d: 1.9,  coinGeckoId: 'dogecoin' },
+  { symbol: 'TON',  name: 'Toncoin',         category: 'crypto', price: 7.20,     decimals: 2, change7d: 5.0,  coinGeckoId: 'the-open-network' },
+  { symbol: 'SUI',  name: 'Sui',             category: 'crypto', price: 1.10,     decimals: 4, change7d: 6.2,  coinGeckoId: 'sui' },
+
+  { symbol: 'BNB',  name: 'BNB',             category: 'crypto', price: 590.00,   decimals: 2, change7d: 2.8,  coinGeckoId: 'binancecoin' },
+  { symbol: 'TRX',  name: 'TRON',            category: 'crypto', price: 0.12,     decimals: 4, change7d: 1.6,  coinGeckoId: 'tron' },
+  { symbol: 'DOT',  name: 'Polkadot',        category: 'crypto', price: 6.80,     decimals: 2, change7d: 3.1,  coinGeckoId: 'polkadot' },
+  { symbol: 'LTC',  name: 'Litecoin',        category: 'crypto', price: 72.40,    decimals: 2, change7d: 1.8,  coinGeckoId: 'litecoin' },
+  { symbol: 'BCH',  name: 'Bitcoin Cash',    category: 'crypto', price: 420.00,   decimals: 2, change7d: 2.4,  coinGeckoId: 'bitcoin-cash' },
+
+  { symbol: 'UNI',  name: 'Uniswap',         category: 'crypto', price: 10.20,    decimals: 2, change7d: 4.8,  coinGeckoId: 'uniswap' },
+  { symbol: 'AAVE', name: 'Aave',            category: 'crypto', price: 95.50,    decimals: 2, change7d: 6.3,  coinGeckoId: 'aave' },
+  { symbol: 'NEAR', name: 'NEAR Protocol',   category: 'crypto', price: 5.80,     decimals: 2, change7d: 5.7,  coinGeckoId: 'near' },
+  { symbol: 'ATOM', name: 'Cosmos',          category: 'crypto', price: 7.40,     decimals: 2, change7d: 2.9,  coinGeckoId: 'cosmos' },
+  { symbol: 'FIL',  name: 'Filecoin',        category: 'crypto', price: 4.80,     decimals: 2, change7d: 3.6,  coinGeckoId: 'filecoin' },
+  { symbol: 'INJ',  name: 'Injective',       category: 'crypto', price: 24.60,    decimals: 2, change7d: 7.4,  coinGeckoId: 'injective-protocol' },
+
+  { symbol: 'SEI',  name: 'Sei',             category: 'crypto', price: 0.42,     decimals: 4, change7d: 5.1,  coinGeckoId: 'sei-network' },
+  { symbol: 'PEPE', name: 'Pepe',            category: 'crypto', price: 0.000012, decimals: 8, change7d: 8.2,  coinGeckoId: 'pepe' },
+  { symbol: 'ICP',  name: 'Internet Computer', category: 'crypto', price: 10.80, decimals: 2, change7d: 3.9, coinGeckoId: 'internet-computer' },
+  { symbol: 'APT',  name: 'Aptos',           category: 'crypto', price: 7.90,     decimals: 2, change7d: 4.4,  coinGeckoId: 'aptos' },
+  { symbol: 'ALGO', name: 'Algorand',        category: 'crypto', price: 0.19,     decimals: 4, change7d: 1.7,  coinGeckoId: 'algorand' },
+  
+   // STABLECOINS
   { symbol: 'USDC', name: 'USD Coin',        category: 'stablecoins', price: 1.0,        decimals: 4, change7d: 0,    coinGeckoId: 'usd-coin' },
   { symbol: 'USDT', name: 'Tether',          category: 'stablecoins', price: 1.0,        decimals: 4, change7d: 0,    coinGeckoId: 'tether' },
   { symbol: 'EURC', name: 'Euro Coin',       category: 'stablecoins', price: 1.087,      decimals: 4, change7d: 0.8,  coinGeckoId: 'eurocoin' },
