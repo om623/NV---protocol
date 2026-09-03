@@ -234,12 +234,19 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     },
   ],
 },
-export const TESTNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'testnet');
-export const MAINNET_NETWORKS = NETWORKS_CONFIG.filter(n => n.type === 'mainnet');
 
-/** App always starts in Testnet mode on Arc Testnet */
-export const DEFAULT_TESTNET = NETWORKS_CONFIG.find(n => n.id === 'arc-testnet')!;
-export const DEFAULT_MAINNET = NETWORKS_CONFIG.find(n => n.id === 'base')!;
+  
+export const TESTNET_NETWORKS =
+  NETWORKS_CONFIG.filter(n => n.type === 'testnet');
+
+export const MAINNET_NETWORKS =
+  NETWORKS_CONFIG.filter(n => n.type === 'mainnet');
+
+export const DEFAULT_TESTNET =
+  NETWORKS_CONFIG.find(n => n.id === 'arc-testnet')!;
+
+export const DEFAULT_MAINNET =
+  NETWORKS_CONFIG.find(n => n.id === 'base')!;
 
 /**
  * Chain ID injected as the simulated wallet's current network when the user
