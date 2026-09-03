@@ -154,13 +154,22 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'AL',    name: 'Aluminum',    category: 'commodities', price: 2.34,   decimals: 3, change7d: 0.6 },
   { symbol: 'NI',    name: 'Nickel',      category: 'commodities', price: 16.85,  decimals: 2, change7d: -1.4 },
  
-  // ÍNDICES
-  { symbol: 'SPX', name: 'S&P 500',          category: 'indices',     price: 5464.32,    decimals: 2, change7d: 1.4 },
-  { symbol: 'NDX', name: 'Nasdaq 100',       category: 'indices',     price: 19842.71,   decimals: 2, change7d: 2.6 },
-  { symbol: 'DXY', name: 'Dollar Index',     category: 'indices',     price: 104.38,     decimals: 2, change7d: -0.4 },
-  { symbol: 'VIX', name: 'Volatility Index', category: 'indices',     price: 14.27,      decimals: 2, change7d: -5.2 },
+    // ÍNDICES
+  { symbol: 'SPX',  name: 'S&P 500',           category: 'indices', price: 5464.32,  decimals: 2, change7d: 1.4 },
+  { symbol: 'NDX',  name: 'Nasdaq 100',        category: 'indices', price: 19842.71, decimals: 2, change7d: 2.6 },
+  { symbol: 'DXY',  name: 'Dollar Index',      category: 'indices', price: 104.38,   decimals: 2, change7d: -0.4 },
+  { symbol: 'VIX',  name: 'Volatility Index',  category: 'indices', price: 14.27,    decimals: 2, change7d: -5.2 },
 
-   // CRYPTO
+  { symbol: 'DJI',  name: 'Dow Jones',         category: 'indices', price: 39150.20, decimals: 2, change7d: 1.1 },
+  { symbol: 'RUT',  name: 'Russell 2000',      category: 'indices', price: 2035.40,  decimals: 2, change7d: 0.8 },
+  { symbol: 'FTSE', name: 'FTSE 100',          category: 'indices', price: 8235.40,  decimals: 2, change7d: 0.9 },
+  { symbol: 'DAX',  name: 'DAX',               category: 'indices', price: 18450.30, decimals: 2, change7d: 1.7 },
+  { symbol: 'CAC',  name: 'CAC 40',            category: 'indices', price: 7580.20,  decimals: 2, change7d: 1.2 },
+  { symbol: 'N225', name: 'Nikkei 225',        category: 'indices', price: 38600.50, decimals: 2, change7d: 2.3 },
+  { symbol: 'HSI',  name: 'Hang Seng',         category: 'indices', price: 18120.40, decimals: 2, change7d: -0.6 },
+  { symbol: 'IBOV', name: 'Ibovespa',          category: 'indices', price: 127450.00,decimals: 2, change7d: 1.5 },
+ 
+  // CRYPTO
   { symbol: 'BTC',  name: 'Bitcoin',         category: 'crypto', price: 67432.18, decimals: 2, change7d: 4.2,  coinGeckoId: 'bitcoin' },
   { symbol: 'ETH',  name: 'Ethereum',        category: 'crypto', price: 3215.84,  decimals: 2, change7d: 3.8,  coinGeckoId: 'ethereum' },
   { symbol: 'SOL',  name: 'Solana',          category: 'crypto', price: 168.43,   decimals: 2, change7d: 7.1,  coinGeckoId: 'solana' },
