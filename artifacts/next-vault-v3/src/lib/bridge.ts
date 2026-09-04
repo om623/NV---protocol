@@ -1,4 +1,14 @@
-// ─── Bridge Configuration ───────────────────────────────────────────────────
+// ─── On-chain Bridge Configuration ──────────────────────────────────────────
+
+export interface BridgeNetwork {
+  id: string;
+  name: string;
+  chainId: number;
+  rpcUrl: string;
+  explorerUrl: string;
+  usdcAddress: string;
+  usdcDecimals: number;
+}
 
 export interface BridgeRoute {
   id: string;
@@ -19,9 +29,46 @@ export interface BridgeTransfer {
   fee: number;
   status: 'pending' | 'completed' | 'failed';
   createdAt: number;
+  txHash?: string;
+  explorerUrl?: string;
+  error?: string;
 }
 
-// ─── Supported bridge routes ────────────────────────────────────────────────
+// ─── Networks ───────────────────────────────────────────────────────────────
+
+export const BRIDGE_NETWORKS: Record<string, BridgeNetwork> = {
+  'arc-testnet': {
+    id: 'arc-testnet',
+    name: 'Arc Testnet',
+    chainId: 5042002,
+    rpcUrl: 'https://rpc.testnet.arc.network',
+    explorerUrl: 'https://testnet.arcscan.app',
+    usdcAddress: '',
+    usdcDecimals: 6,
+  },
+
+  'base-sepolia': {
+    id: 'base-sepolia',
+    name: 'Base Sepolia',
+    chainId: 84532,
+    rpcUrl: 'https://sepolia.base.org',
+    explorerUrl: 'https://sepolia.basescan.org',
+    usdcAddress: '',
+    usdcDecimals: 6,
+  },
+
+  'sepolia': {
+    id: 'sepolia',
+    name: 'Ethereum Sepolia',
+    chainId: 11155111,
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+    explorerUrl: 'https://sepolia.etherscan.io',
+    usdcAddress: '',
+    usdcDecimals: 6,
+  },
+};
+
+// ─── Supported routes ───────────────────────────────────────────────────────
 
 const BRIDGE_ROUTES: BridgeRoute[] = [
   {
@@ -33,6 +80,7 @@ const BRIDGE_ROUTES: BridgeRoute[] = [
     fee: 0,
     status: 'available',
   },
+
   {
     id: 'arc-base-sepolia-usdc',
     fromNetwork: 'arc-testnet',
@@ -43,7 +91,6 @@ const BRIDGE_ROUTES: BridgeRoute[] = [
     status: 'available',
   },
 
-  // Próximas rotas
   {
     id: 'sepolia-arc-usdc',
     fromNetwork: 'sepolia',
@@ -53,6 +100,7 @@ const BRIDGE_ROUTES: BridgeRoute[] = [
     fee: 0,
     status: 'coming-soon',
   },
+
   {
     id: 'arc-sepolia-usdc',
     fromNetwork: 'arc-testnet',
@@ -83,6 +131,12 @@ export function getBridgeRoute(
   );
 }
 
+export function getBridgeNetwork(
+  networkId: string,
+): BridgeNetwork | undefined {
+  return BRIDGE_NETWORKS[networkId];
+}
+
 export function calculateBridgeFee(
   fromNetwork: string,
   toNetwork: string,
@@ -95,28 +149,4 @@ export function calculateBridgeFee(
   }
 
   return route.fee;
-}
-
-export function createBridgeTransfer(
-  fromNetwork: string,
-  toNetwork: string,
-  token: string,
-  amount: number,
-): BridgeTransfer | null {
-  const route = getBridgeRoute(fromNetwork, toNetwork, token);
-
-  if (!route || route.status !== 'available') {
-    return null;
-  }
-
-  return {
-    id: `bridge-${Date.now()}`,
-    fromNetwork,
-    toNetwork,
-    token,
-    amount,
-    fee: route.fee,
-    status: 'pending',
-    createdAt: Date.now(),
-  };
 }
