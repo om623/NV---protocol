@@ -68,6 +68,16 @@ export const BRIDGE_NETWORKS: Record<string, BridgeNetwork> = {
   },
 };
 
+export const CCTP_V2 = {
+  tokenMessenger: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
+  messageTransmitter: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+
+  domains: {
+    sepolia: 0,
+    'base-sepolia': 6,
+    'arc-testnet': 26,
+  },
+} as const;
 // ─── Supported routes ───────────────────────────────────────────────────────
 
 const BRIDGE_ROUTES: BridgeRoute[] = [
