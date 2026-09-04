@@ -1,91 +1,174 @@
-import { encodeFunctionData } from 'viem';
-import type { Eip1193Provider } from './arc';
+import {
+  encodeFunctionData,
+  pad,
+  parseUnits,
+} from 'viem';
 
-// ─── Circle CCTP V2 ─────────────────────────────────────────────────────────
+import {
+  type Eip1193Provider,
+  getChainId,
+  ensureNetwork,
+  networkChainParams,
+} from './arc';
 
-const CCTP_TOKEN_MESSENGER_V2 =
-  '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA';
+import type { NetworkConfig } from '../networks';
 
-const CCTP_MESSAGE_TRANSMITTER_V2 =
-  '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275';
+// ─── CCTP V2 Configuration ──────────────────────────────────────────────────
 
-const CCTP_ATTESTATION_API =
-  'https://iris-api-sandbox.circle.com/v2/messages';
-
-// ─── Supported CCTP networks ────────────────────────────────────────────────
-
-export interface CctpNetwork {
-  id: string;
-  name: string;
-  chainId: number;
+export interface CctpNetworkConfig {
+  networkId: string;
   domain: number;
-  usdc: string;
-  rpcUrl: string;
-  explorerUrl: string;
+  usdc: `0x${string}`;
+  tokenMessengerV2: `0x${string}`;
+  messageTransmitterV2: `0x${string}`;
 }
 
-export const CCTP_NETWORKS: Record<string, CctpNetwork> = {
-  'arc-testnet': {
-    id: 'arc-testnet',
-    name: 'Arc Testnet',
-    chainId: 5042002,
-    domain: 26,
-    usdc: '0x3600000000000000000000000000000000000000',
-    rpcUrl: 'https://rpc.testnet.arc.network',
-    explorerUrl: 'https://testnet.arcscan.app',
-  },
+// Circle CCTP V2 contracts.
+// TokenMessengerV2 and MessageTransmitterV2 use the same addresses
+// across the supported EVM testnets.
 
+export const CCTP_NETWORKS: Record<string, CctpNetworkConfig> = {
   'base-sepolia': {
-    id: 'base-sepolia',
-    name: 'Base Sepolia',
-    chainId: 84532,
+    networkId: 'base-sepolia',
     domain: 6,
     usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    rpcUrl: 'https://sepolia.base.org',
-    explorerUrl: 'https://sepolia-explorer.base.org',
+    tokenMessengerV2: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
+    messageTransmitterV2: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+  },
+
+  'arc-testnet': {
+    networkId: 'arc-testnet',
+    domain: 26,
+    usdc: '0x3600000000000000000000000000000000000000',
+    tokenMessengerV2: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
+    messageTransmitterV2: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
   },
 };
 
+// ─── ABI ─────────────────────────────────────────────────────────────────────
+
+const ERC20_APPROVE_ABI = [
+  {
+    type: 'function',
+    name: 'approve',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'spender',
+        type: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'bool',
+      },
+    ],
+  },
+] as const;
+
+const DEPOSIT_FOR_BURN_ABI = [
+  {
+    type: 'function',
+    name: 'depositForBurn',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        name: 'destinationDomain',
+        type: 'uint32',
+      },
+      {
+        name: 'mintRecipient',
+        type: 'bytes32',
+      },
+      {
+        name: 'burnToken',
+        type: 'address',
+      },
+      {
+        name: 'destinationCaller',
+        type: 'bytes32',
+      },
+      {
+        name: 'maxFee',
+        type: 'uint256',
+      },
+      {
+        name: 'minFinalityThreshold',
+        type: 'uint32',
+      },
+    ],
+    outputs: [],
+  },
+] as const;
+
+const RECEIVE_MESSAGE_ABI = [
+  {
+    type: 'function',
+    name: 'receiveMessage',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'message',
+        type: 'bytes',
+      },
+      {
+        name: 'attestation',
+        type: 'bytes',
+      },
+    ],
+    outputs: [],
+  },
+] as const;
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type CctpTransferStatus =
-  | 'preparing'
-  | 'approving'
-  | 'burning'
-  | 'waiting-attestation'
-  | 'minting'
-  | 'completed'
-  | 'failed';
-
 export interface CctpTransferResult {
-  status: CctpTransferStatus;
-  sourceTxHash?: string;
-  destinationTxHash?: string;
-  error?: string;
+  transferId: string;
+  sourceNetwork: string;
+  destinationNetwork: string;
+  amount: number;
+  sourceTxHash: string;
+  destinationTxHash: string;
+  status: 'completed';
 }
 
-interface AttestationResponse {
-  messages?: Array<{
-    message: string;
-    attestation: string;
-    status: string;
-  }>;
+export interface CctpAttestationMessage {
+  message: string;
+  attestation: string;
+  status: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function addressToBytes32(address: string): `0x${string}` {
-  return `0x${address.slice(2).padStart(64, '0')}` as `0x${string}`;
+function getCctpConfig(networkId: string): CctpNetworkConfig {
+  const config = CCTP_NETWORKS[networkId];
+
+  if (!config) {
+    throw new Error(
+      `CCTP não está configurado para a rede "${networkId}".`,
+    );
+  }
+
+  return config;
 }
 
-function uint256(value: bigint): `0x${string}` {
-  return `0x${value.toString(16).padStart(64, '0')}` as `0x${string}`;
+function addressToBytes32(address: string): `0x${string}` {
+  return pad(address as `0x${string}`, { size: 32 });
 }
 
 async function waitForReceipt(
   provider: Eip1193Provider,
   txHash: string,
-  timeoutMs = 120_000,
+  timeoutMs = 180_000,
 ): Promise<void> {
   const started = Date.now();
 
@@ -97,12 +180,14 @@ async function waitForReceipt(
 
     if (receipt) {
       const status =
-        typeof receipt === 'object' && receipt !== null
+        typeof receipt === 'object' &&
+        receipt !== null &&
+        'status' in receipt
           ? (receipt as { status?: string }).status
           : undefined;
 
       if (status === '0x0') {
-        throw new Error('Transaction reverted on-chain.');
+        throw new Error(`A transação ${txHash} foi revertida.`);
       }
 
       return;
@@ -111,132 +196,41 @@ async function waitForReceipt(
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
-  throw new Error('Timed out waiting for transaction confirmation.');
+  throw new Error(
+    `Timeout aguardando confirmação da transação ${txHash}.`,
+  );
 }
 
-// ─── ERC-20 approve ──────────────────────────────────────────────────────────
-
-async function approveUSDC(
-  provider: Eip1193Provider,
-  owner: string,
-  amount: bigint,
-  usdcAddress: string,
-): Promise<string> {
-  const data = encodeFunctionData({
-    abi: [
-      {
-        type: 'function',
-        name: 'approve',
-        stateMutability: 'nonpayable',
-        inputs: [
-          { name: 'spender', type: 'address' },
-          { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ name: '', type: 'bool' }],
-      },
-    ],
-    functionName: 'approve',
-    args: [
-      CCTP_TOKEN_MESSENGER_V2 as `0x${string}`,
-      amount,
-    ],
-  });
-
-  return (await provider.request({
-    method: 'eth_sendTransaction',
-    params: [
-      {
-        from: owner,
-        to: usdcAddress,
-        data,
-      },
-    ],
-  })) as string;
-}
-
-// ─── CCTP V2 burn ───────────────────────────────────────────────────────────
-
-async function depositForBurn(
-  provider: Eip1193Provider,
-  owner: string,
-  amount: bigint,
-  destination: CctpNetwork,
-  source: CctpNetwork,
-): Promise<string> {
-  const data = encodeFunctionData({
-    abi: [
-      {
-        type: 'function',
-        name: 'depositForBurn',
-        stateMutability: 'nonpayable',
-        inputs: [
-          { name: 'amount', type: 'uint256' },
-          { name: 'destinationDomain', type: 'uint32' },
-          { name: 'mintRecipient', type: 'bytes32' },
-          { name: 'burnToken', type: 'address' },
-          { name: 'destinationCaller', type: 'bytes32' },
-          { name: 'maxFee', type: 'uint256' },
-          { name: 'minFinalityThreshold', type: 'uint32' },
-        ],
-        outputs: [],
-      },
-    ],
-    functionName: 'depositForBurn',
-    args: [
-      amount,
-      destination.domain,
-      addressToBytes32(owner),
-      source.usdc as `0x${string}`,
-      '0x0000000000000000000000000000000000000000000000000000000000000000',
-      0n,
-      2000,
-    ],
-  });
-
-  return (await provider.request({
-    method: 'eth_sendTransaction',
-    params: [
-      {
-        from: owner,
-        to: CCTP_TOKEN_MESSENGER_V2,
-        data,
-      },
-    ],
-  })) as string;
-}
-
-// ─── Circle attestation ──────────────────────────────────────────────────────
+// ─── Circle Attestation API ──────────────────────────────────────────────────
 
 async function waitForAttestation(
   sourceDomain: number,
-  burnTxHash: string,
-  timeoutMs = 1_500_000,
-): Promise<{ message: string; attestation: string }> {
+  transactionHash: string,
+  timeoutMs = 600_000,
+): Promise<CctpAttestationMessage> {
+  const url =
+    `https://iris-api-sandbox.circle.com/v2/messages/` +
+    `${sourceDomain}?transactionHash=${transactionHash}`;
+
   const started = Date.now();
 
   while (Date.now() - started < timeoutMs) {
-    const url =
-      `${CCTP_ATTESTATION_API}/${sourceDomain}` +
-      `?transactionHash=${burnTxHash}`;
-
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
 
     if (response.ok) {
-      const data =
-        (await response.json()) as AttestationResponse;
+      const data = (await response.json()) as {
+        messages?: CctpAttestationMessage[];
+      };
 
       const message = data.messages?.[0];
 
-      if (
-        message &&
-        message.status === 'complete' &&
-        message.attestation &&
-        message.message
-      ) {
-        return {
-          message: message.message,
-          attestation: message.attestation,
-        };
+      if (message?.status === 'complete') {
+        return message;
       }
     }
 
@@ -244,180 +238,308 @@ async function waitForAttestation(
   }
 
   throw new Error(
-    'Circle attestation was not available within the expected time.',
+    'A attestation da Circle não ficou disponível dentro do tempo esperado.',
   );
 }
 
-// ─── Mint on destination ─────────────────────────────────────────────────────
+// ─── Optional fee lookup ─────────────────────────────────────────────────────
 
-async function receiveMessage(
-  provider: Eip1193Provider,
-  message: string,
-  attestation: string,
-  destination: CctpNetwork,
-  owner: string,
-): Promise<string> {
-  const data = encodeFunctionData({
-    abi: [
-      {
-        type: 'function',
-        name: 'receiveMessage',
-        stateMutability: 'nonpayable',
-        inputs: [
-          { name: 'message', type: 'bytes' },
-          { name: 'attestation', type: 'bytes' },
-        ],
-        outputs: [],
+async function getCctpFee(
+  sourceDomain: number,
+  destinationDomain: number,
+): Promise<bigint> {
+  const url =
+    `https://iris-api-sandbox.circle.com/v2/burn/USDC/fees/` +
+    `${sourceDomain}/${destinationDomain}?forward=false`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
       },
-    ],
-    functionName: 'receiveMessage',
+    });
+
+    if (!response.ok) {
+      return 0n;
+    }
+
+    const fees = (await response.json()) as Array<{
+      finalityThreshold: number;
+      minimumFee?: number;
+    }>;
+
+    // Prefer the Fast Transfer quote.
+    const fast = fees.find(
+      fee => fee.finalityThreshold === 1000,
+    );
+
+    if (!fast?.minimumFee) {
+      return 0n;
+    }
+
+    // minimumFee is expressed in basis points.
+    return BigInt(
+      Math.ceil(fast.minimumFee * 100),
+    );
+  } catch {
+    return 0n;
+  }
+}
+
+// ─── Approve USDC ────────────────────────────────────────────────────────────
+
+export async function approveCctpUsdc(
+  provider: Eip1193Provider,
+  sourceNetwork: NetworkConfig,
+  amount: number,
+): Promise<string> {
+  const config = getCctpConfig(sourceNetwork.id);
+
+  if (!sourceNetwork.chainId) {
+    throw new Error('Rede de origem sem chainId.');
+  }
+
+  const amountRaw = parseUnits(
+    amount.toString(),
+    6,
+  );
+
+  const data = encodeFunctionData({
+    abi: ERC20_APPROVE_ABI,
+    functionName: 'approve',
     args: [
-      message as `0x${string}`,
-      attestation as `0x${string}`,
+      config.tokenMessengerV2,
+      amountRaw,
     ],
   });
 
-  return (await provider.request({
+  const txHash = (await provider.request({
     method: 'eth_sendTransaction',
     params: [
       {
-        from: owner,
-        to: CCTP_MESSAGE_TRANSMITTER_V2,
+        from: await getWalletAddress(provider),
+        to: config.usdc,
         data,
       },
     ],
   })) as string;
+
+  await waitForReceipt(provider, txHash);
+
+  return txHash;
 }
 
-// ─── Main bridge operation ───────────────────────────────────────────────────
+// ─── Burn USDC on source chain ───────────────────────────────────────────────
 
-export async function executeCctpBridge(
+export async function depositForBurn(
   provider: Eip1193Provider,
-  owner: string,
-  fromNetworkId: string,
-  toNetworkId: string,
+  sourceNetwork: NetworkConfig,
+  destinationNetwork: NetworkConfig,
   amount: number,
-  onStatus?: (status: CctpTransferStatus) => void,
+): Promise<string> {
+  const source = getCctpConfig(sourceNetwork.id);
+  const destination = getCctpConfig(destinationNetwork.id);
+
+  if (sourceNetwork.id === destinationNetwork.id) {
+    throw new Error(
+      'A rede de origem e destino precisam ser diferentes.',
+    );
+  }
+
+  const walletAddress = await getWalletAddress(provider);
+
+  const amountRaw = parseUnits(
+    amount.toString(),
+    6,
+  );
+
+  // Query Circle for the current protocol fee.
+  const fee = await getCctpFee(
+    source.domain,
+    destination.domain,
+  );
+
+  const maxFee = fee;
+
+  const mintRecipient = addressToBytes32(
+    walletAddress,
+  );
+
+  const destinationCaller =
+    '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+
+  const data = encodeFunctionData({
+    abi: DEPOSIT_FOR_BURN_ABI,
+    functionName: 'depositForBurn',
+    args: [
+      amountRaw,
+      destination.domain,
+      mintRecipient,
+      source.usdc,
+      destinationCaller,
+      maxFee,
+      1000,
+    ],
+  });
+
+  const txHash = (await provider.request({
+    method: 'eth_sendTransaction',
+    params: [
+      {
+        from: walletAddress,
+        to: source.tokenMessengerV2,
+        data,
+      },
+    ],
+  })) as string;
+
+  await waitForReceipt(provider, txHash);
+
+  return txHash;
+}
+
+// ─── Mint USDC on destination chain ─────────────────────────────────────────
+
+export async function receiveCctpMessage(
+  provider: Eip1193Provider,
+  destinationNetwork: NetworkConfig,
+  attestation: CctpAttestationMessage,
+): Promise<string> {
+  const destination = getCctpConfig(
+    destinationNetwork.id,
+  );
+
+  const data = encodeFunctionData({
+    abi: RECEIVE_MESSAGE_ABI,
+    functionName: 'receiveMessage',
+    args: [
+      attestation.message as `0x${string}`,
+      attestation.attestation as `0x${string}`,
+    ],
+  });
+
+  const walletAddress = await getWalletAddress(provider);
+
+  const txHash = (await provider.request({
+    method: 'eth_sendTransaction',
+    params: [
+      {
+        from: walletAddress,
+        to: destination.messageTransmitterV2,
+        data,
+      },
+    ],
+  })) as string;
+
+  await waitForReceipt(provider, txHash);
+
+  return txHash;
+}
+
+// ─── Full browser bridge flow ────────────────────────────────────────────────
+
+export async function executeCctpTransfer(
+  provider: Eip1193Provider,
+  sourceNetwork: NetworkConfig,
+  destinationNetwork: NetworkConfig,
+  amount: number,
 ): Promise<CctpTransferResult> {
-  try {
-    const source = CCTP_NETWORKS[fromNetworkId];
-    const destination = CCTP_NETWORKS[toNetworkId];
+  if (!provider) {
+    throw new Error(
+      'Carteira não conectada.',
+    );
+  }
 
-    if (!source || !destination) {
-      throw new Error('CCTP route is not supported.');
-    }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(
+      'Informe um valor de USDC maior que zero.',
+    );
+  }
 
-    if (source.id === destination.id) {
-      throw new Error('Source and destination networks must be different.');
-    }
+  getCctpConfig(sourceNetwork.id);
+  getCctpConfig(destinationNetwork.id);
 
-    if (amount <= 0) {
-      throw new Error('Bridge amount must be greater than zero.');
-    }
+  const currentChainId = await getChainId(provider);
 
-    const amountUnits = BigInt(
-      Math.round(amount * 1_000_000),
+  if (currentChainId !== sourceNetwork.chainId) {
+    await ensureNetwork(
+      provider,
+      networkChainParams(sourceNetwork),
+    );
+  }
+
+  const walletAddress = await getWalletAddress(provider);
+
+  // 1. Approve
+  await approveCctpUsdc(
+    provider,
+    sourceNetwork,
+    amount,
+  );
+
+  // 2. Burn
+  const sourceTxHash = await depositForBurn(
+    provider,
+    sourceNetwork,
+    destinationNetwork,
+    amount,
+  );
+
+  // 3. Wait for Circle attestation
+  const attestation = await waitForAttestation(
+    getCctpConfig(sourceNetwork.id).domain,
+    sourceTxHash,
+  );
+
+  // 4. Switch to destination
+  await ensureNetwork(
+    provider,
+    networkChainParams(destinationNetwork),
+  );
+
+  // 5. Mint
+  const destinationTxHash =
+    await receiveCctpMessage(
+      provider,
+      destinationNetwork,
+      attestation,
     );
 
-    // ── 1. Ensure source network ────────────────────────────────────────────
+  return {
+    transferId:
+      `cctp-${Date.now()}-${sourceTxHash.slice(2, 10)}`,
+    sourceNetwork: sourceNetwork.id,
+    destinationNetwork: destinationNetwork.id,
+    amount,
+    sourceTxHash,
+    destinationTxHash,
+    status: 'completed',
+  };
+}
 
-    onStatus?.('preparing');
+// ─── Wallet helper ───────────────────────────────────────────────────────────
 
-    const currentChain = await provider.request({
-      method: 'eth_chainId',
-    });
+async function getWalletAddress(
+  provider: Eip1193Provider,
+): Promise<string> {
+  const accounts = (await provider.request({
+    method: 'eth_accounts',
+  })) as string[];
 
-    const currentChainId =
-      typeof currentChain === 'string'
-        ? parseInt(currentChain, 16)
-        : Number(currentChain);
+  if (!accounts?.[0]) {
+    const requested = (await provider.request({
+      method: 'eth_requestAccounts',
+    })) as string[];
 
-    if (currentChainId !== source.chainId) {
+    if (!requested?.[0]) {
       throw new Error(
-        `Wallet is not connected to ${source.name}.`,
+        'Nenhuma conta encontrada na carteira.',
       );
     }
 
-    // ── 2. Approve ───────────────────────────────────────────────────────────
-
-    onStatus?.('approving');
-
-    const approvalTx = await approveUSDC(
-      provider,
-      owner,
-      amountUnits,
-      source.usdc,
-    );
-
-    await waitForReceipt(provider, approvalTx);
-
-    // ── 3. Burn ──────────────────────────────────────────────────────────────
-
-    onStatus?.('burning');
-
-    const burnTx = await depositForBurn(
-      provider,
-      owner,
-      amountUnits,
-      destination,
-      source,
-    );
-
-    await waitForReceipt(provider, burnTx);
-
-    // ── 4. Wait for Circle attestation ──────────────────────────────────────
-
-    onStatus?.('waiting-attestation');
-
-    const attestation = await waitForAttestation(
-      source.domain,
-      burnTx,
-    );
-
-    // ── 5. Destination network must be active ───────────────────────────────
-
-    onStatus?.('minting');
-
-    const destinationChainHex =
-      '0x' + destination.chainId.toString(16);
-
-    await provider.request({
-      method: 'wallet_switchEthereumChain',
-      params: [
-        {
-          chainId: destinationChainHex,
-        },
-      ],
-    });
-
-    const mintTx = await receiveMessage(
-      provider,
-      attestation.message,
-      attestation.attestation,
-      destination,
-      owner,
-    );
-
-    await waitForReceipt(provider, mintTx);
-
-    onStatus?.('completed');
-
-    return {
-      status: 'completed',
-      sourceTxHash: burnTx,
-      destinationTxHash: mintTx,
-    };
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : String(error);
-
-    onStatus?.('failed');
-
-    return {
-      status: 'failed',
-      error: message,
-    };
+    return requested[0];
   }
+
+  return accounts[0];
 }
