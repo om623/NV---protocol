@@ -135,7 +135,7 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.history',       Icon: History,         view: 'historico',     comingSoon: true },
   { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
   { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
-  { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge',        comingSoon: true },
+  { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge'         },
   { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes', comingSoon: true },
