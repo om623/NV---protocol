@@ -195,3 +195,351 @@ export const MOCK_POOLS: PoolInfo[] = [
 export async function getPools(_prov: Eip1193Provider | null, _address: string | null): Promise<PoolInfo[]> {
   return MOCK_POOLS;
 }
+
+// ─── Circle CCTP V2 Bridge ──────────────────────────────────────────────────
+
+export interface CctpBridgeConfig {
+  networkId: string;
+  domainId: number;
+  usdcAddress: string;
+  tokenMessenger: string;
+  explorerUrl: string;
+}
+
+export interface CctpBridgeResult {
+  burnTxHash: string;
+  mintTxHash?: string;
+  status: 'pending' | 'completed' | 'failed';
+  error?: string;
+}
+
+// Circle CCTP V2
+const CCTP_TOKEN_MESSENGER =
+  '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA';
+
+const CCTP_FORWARDING_HOOK =
+  '0x636374702d666f72776172640000000000000000000000000000000000000000';
+
+const CCTP_NETWORKS: Record<string, CctpBridgeConfig> = {
+  'arc-testnet': {
+    networkId: 'arc-testnet',
+    domainId: 26,
+    usdcAddress: '0x3600000000000000000000000000000000000000',
+    tokenMessenger: CCTP_TOKEN_MESSENGER,
+    explorerUrl: 'https://testnet.arcscan.app',
+  },
+
+  'base-sepolia': {
+    networkId: 'base-sepolia',
+    domainId: 6,
+    usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    tokenMessenger: CCTP_TOKEN_MESSENGER,
+    explorerUrl: 'https://sepolia.basescan.org',
+  },
+};
+
+export function getCctpConfig(
+  networkId: string,
+): CctpBridgeConfig | undefined {
+  return CCTP_NETWORKS[networkId];
+}
+
+function numberToUint256Hex(
+  amount: number,
+  decimals: number,
+): string {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Invalid bridge amount');
+  }
+
+  const scaled = BigInt(
+    Math.round(amount * Math.pow(10, decimals)),
+  );
+
+  return scaled.toString(16).padStart(64, '0');
+}
+
+function addressToBytes32(address: string): string {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    throw new Error('Invalid EVM address');
+  }
+
+  return address.slice(2).padStart(64, '0');
+}
+
+function encodeUint32(value: number): string {
+  return value.toString(16).padStart(64, '0');
+}
+
+function encodeAddress(address: string): string {
+  return addressToBytes32(address);
+}
+
+function encodeBytes32(value: string): string {
+  return value.replace(/^0x/, '').padStart(64, '0');
+}
+
+// ─── ERC-20 approve ─────────────────────────────────────────────────────────
+
+export async function approveUsdcForBridge(
+  prov: Eip1193Provider,
+  from: string,
+  sourceNetworkId: string,
+  amount: number,
+): Promise<string> {
+  const config = getCctpConfig(sourceNetworkId);
+
+  if (!config) {
+    throw new Error(`Unsupported bridge source: ${sourceNetworkId}`);
+  }
+
+  const amountHex = numberToUint256Hex(amount, 6);
+
+  // approve(address,uint256)
+  const selector = '095ea7b3';
+
+  const data =
+    '0x' +
+    selector +
+    encodeAddress(config.tokenMessenger) +
+    amountHex;
+
+  return (await prov.request({
+    method: 'eth_sendTransaction',
+    params: [{
+      from,
+      to: config.usdcAddress,
+      data,
+    }],
+  })) as string;
+}
+
+// ─── CCTP depositForBurnWithHook ────────────────────────────────────────────
+
+export async function depositForBurnWithForwarding(
+  prov: Eip1193Provider,
+  from: string,
+  sourceNetworkId: string,
+  destinationNetworkId: string,
+  amount: number,
+  maxFee: bigint,
+): Promise<string> {
+  const source = getCctpConfig(sourceNetworkId);
+  const destination = getCctpConfig(destinationNetworkId);
+
+  if (!source || !destination) {
+    throw new Error('Unsupported CCTP network');
+  }
+
+  if (sourceNetworkId === destinationNetworkId) {
+    throw new Error('Source and destination networks must differ');
+  }
+
+  const amountHex = numberToUint256Hex(amount, 6);
+
+  // mintRecipient = connected wallet on destination
+  const mintRecipient = addressToBytes32(from);
+
+  // destinationCaller = bytes32(0)
+  const destinationCaller =
+    '0'.repeat(64);
+
+  // maxFee
+  const feeHex = maxFee.toString(16).padStart(64, '0');
+
+  // Fast Transfer
+  const finalityThreshold =
+    encodeUint32(1000);
+
+  // depositForBurnWithHook(
+  //   uint256 amount,
+  //   uint32 destinationDomain,
+  //   bytes32 mintRecipient,
+  //   address burnToken,
+  //   bytes32 destinationCaller,
+  //   uint256 maxFee,
+  //   uint32 minFinalityThreshold,
+  //   bytes hookData
+  // )
+
+  const selector =
+    '0x' +
+    'e4b5d7f0';
+
+  const hookDataHex =
+    CCTP_FORWARDING_HOOK.slice(2);
+
+  const hookOffset =
+    (8 * 32)
+      .toString(16)
+      .padStart(64, '0');
+
+  const hookLength =
+    (hookDataHex.length / 2)
+      .toString(16)
+      .padStart(64, '0');
+
+  const data =
+    selector +
+    amountHex +
+    encodeUint32(destination.domainId) +
+    mintRecipient +
+    encodeAddress(source.usdcAddress) +
+    destinationCaller +
+    feeHex +
+    finalityThreshold +
+    hookOffset +
+    hookLength +
+    hookDataHex.padEnd(64, '0');
+
+  return (await prov.request({
+    method: 'eth_sendTransaction',
+    params: [{
+      from,
+      to: source.tokenMessenger,
+      data,
+    }],
+  })) as string;
+}
+
+// ─── Circle Forwarding Service status ───────────────────────────────────────
+
+export async function waitForBridgeCompletion(
+  sourceNetworkId: string,
+  burnTxHash: string,
+  timeoutMs = 20 * 60 * 1000,
+): Promise<string> {
+  const source = getCctpConfig(sourceNetworkId);
+
+  if (!source) {
+    throw new Error('Unsupported CCTP source network');
+  }
+
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const response = await fetch(
+        `https://iris-api-sandbox.circle.com/v2/messages/${source.domainId}?transactionHash=${burnTxHash}`,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json() as {
+          messages?: Array<{
+            status?: string;
+            forwardTxHash?: string;
+          }>;
+        };
+
+        const message = data.messages?.[0];
+
+        if (message?.forwardTxHash) {
+          return message.forwardTxHash;
+        }
+      }
+    } catch {
+      // Keep polling
+    }
+
+    await new Promise(resolve =>
+      setTimeout(resolve, 5000),
+    );
+  }
+
+  throw new Error(
+    'Bridge confirmation timeout. The burn transaction was submitted, but the destination mint was not confirmed yet.',
+  );
+}
+
+// ─── Complete forwarding bridge ─────────────────────────────────────────────
+
+export async function executeCctpBridge(
+  prov: Eip1193Provider,
+  from: string,
+  sourceNetworkId: string,
+  destinationNetworkId: string,
+  amount: number,
+  maxFee: bigint,
+): Promise<CctpBridgeResult> {
+  try {
+    const approvalTx = await approveUsdcForBridge(
+      prov,
+      from,
+      sourceNetworkId,
+      amount + Number(maxFee) / 1_000_000,
+    );
+
+    await waitForTransaction(
+      prov,
+      approvalTx,
+    );
+
+    const burnTx = await depositForBurnWithForwarding(
+      prov,
+      from,
+      sourceNetworkId,
+      destinationNetworkId,
+      amount,
+      maxFee,
+    );
+
+    const mintTx = await waitForBridgeCompletion(
+      sourceNetworkId,
+      burnTx,
+    );
+
+    return {
+      burnTxHash: burnTx,
+      mintTxHash: mintTx,
+      status: 'completed',
+    };
+  } catch (error) {
+    return {
+      burnTxHash: '',
+      status: 'failed',
+      error: error instanceof Error
+        ? error.message
+        : 'Bridge failed',
+    };
+  }
+}
+
+// ─── Wait for an EVM transaction ────────────────────────────────────────────
+
+async function waitForTransaction(
+  prov: Eip1193Provider,
+  txHash: string,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const receipt = await prov.request({
+      method: 'eth_getTransactionReceipt',
+      params: [txHash],
+    });
+
+    if (receipt) {
+      const status = (receipt as { status?: string }).status;
+
+      if (status === '0x0') {
+        throw new Error('Transaction reverted');
+      }
+
+      return;
+    }
+
+    await new Promise(resolve =>
+      setTimeout(resolve, 3000),
+    );
+  }
+
+  throw new Error(
+    'Transaction confirmation timeout',
+  );
+}
