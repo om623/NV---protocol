@@ -53,7 +53,7 @@ export const BRIDGE_NETWORKS: Record<string, BridgeNetwork> = {
     chainId: 84532,
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
-    usdcAddress: '',
+    usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     usdcDecimals: 6,
   },
 
