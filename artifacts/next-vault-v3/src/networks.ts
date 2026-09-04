@@ -88,7 +88,20 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
     tokens: [
-      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+  {
+    symbol: 'ETH',
+    name: 'Ethereum',
+    decimals: 18,
+    address: null,
+    isNative: true,
+  },
+  {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    decimals: 6,
+    address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    isNative: false,
+  },
     ],
   },
   {
