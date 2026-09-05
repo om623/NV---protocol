@@ -29,7 +29,12 @@ export function BridgeView({
   connectedAddress,
 }: BridgeViewProps) {
   const routes = getBridgeRoutes();
-
+  
+    const [bridgeAmount, setBridgeAmount] = useState('');
+  const [bridgeStatus, setBridgeStatus] = useState('');
+  const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
+  const [bridgeLoading, setBridgeLoading] = useState(false);
+  
   const availableRoutes = useMemo(
     () =>
       routes.filter(
