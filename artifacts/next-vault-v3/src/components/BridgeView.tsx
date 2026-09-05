@@ -38,6 +38,8 @@ export function BridgeView({
   const [bridgeStatus, setBridgeStatus] = useState('');
   const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
   const [bridgeLoading, setBridgeLoading] = useState(false);
+    const [fromNetwork, setFromNetwork] = useState('base-sepolia');
+  const [toNetwork, setToNetwork] = useState('arc-testnet');
   
   const availableRoutes = useMemo(
     () =>
