@@ -2342,6 +2342,202 @@ const handleRealSwap = async () => {
   );
 }
 
+// ─── Bridge View ──────────────────────────────────────────────────────────────
+
+function BridgeView() {
+  const [fromNetwork, setFromNetwork] = useState('base-sepolia');
+  const [toNetwork, setToNetwork] = useState('arc-testnet');
+  const [amount, setAmount] = useState('');
+
+  const swapNetworks = () => {
+    setFromNetwork(toNetwork);
+    setToNetwork(fromNetwork);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="space-y-6"
+    >
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <ArrowRight className="text-primary" size={20} />
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">
+              Bridge
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Transfira USDC entre redes compatíveis com Circle CCTP.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bridge Card */}
+      <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] p-6">
+
+        {/* From */}
+        <div className="space-y-2">
+          <label className="text-xs uppercase tracking-widest text-muted-foreground/60 font-mono">
+            De
+          </label>
+
+          <div className="rounded-xl border border-border/40 bg-secondary/30 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-muted-foreground">
+                Rede de origem
+              </span>
+
+              <span className="text-xs font-mono text-primary">
+                USDC
+              </span>
+            </div>
+
+            <select
+              value={fromNetwork}
+              onChange={(e) => setFromNetwork(e.target.value)}
+              className="w-full bg-transparent text-foreground outline-none cursor-pointer"
+            >
+              <option value="base-sepolia">Base Sepolia</option>
+              <option value="arc-testnet">Arc Testnet</option>
+              <option value="sepolia">Ethereum Sepolia</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Swap networks */}
+        <div className="flex justify-center -my-2 relative z-10">
+          <button
+            onClick={swapNetworks}
+            className="w-10 h-10 rounded-full bg-card border border-border/60 flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all"
+            title="Inverter redes"
+          >
+            <ArrowRight size={16} />
+          </button>
+        </div>
+
+        {/* To */}
+        <div className="space-y-2">
+          <label className="text-xs uppercase tracking-widest text-muted-foreground/60 font-mono">
+            Para
+          </label>
+
+          <div className="rounded-xl border border-border/40 bg-secondary/30 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-muted-foreground">
+                Rede de destino
+              </span>
+
+              <span className="text-xs font-mono text-primary">
+                USDC
+              </span>
+            </div>
+
+            <select
+              value={toNetwork}
+              onChange={(e) => setToNetwork(e.target.value)}
+              className="w-full bg-transparent text-foreground outline-none cursor-pointer"
+            >
+              <option value="arc-testnet">Arc Testnet</option>
+              <option value="base-sepolia">Base Sepolia</option>
+              <option value="sepolia">Ethereum Sepolia</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Amount */}
+        <div className="mt-5 space-y-2">
+          <label className="text-xs uppercase tracking-widest text-muted-foreground/60 font-mono">
+            Quantidade
+          </label>
+
+          <div className="rounded-xl border border-border/40 bg-secondary/30 p-4">
+            <div className="flex items-center justify-between">
+              <input
+                type="number"
+                min="0"
+                step="0.000001"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full bg-transparent text-2xl font-mono text-foreground outline-none placeholder:text-muted-foreground/30"
+              />
+
+              <span className="text-sm font-semibold text-primary">
+                USDC
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Route information */}
+        <div className="mt-5 rounded-xl border border-border/30 bg-secondary/20 p-4 space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">
+              Rota
+            </span>
+
+            <span className="font-mono text-foreground">
+              {fromNetwork} → {toNetwork}
+            </span>
+          </div>
+
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">
+              Ativo
+            </span>
+
+            <span className="font-mono text-foreground">
+              USDC
+            </span>
+          </div>
+
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">
+              Protocolo
+            </span>
+
+            <span className="font-mono text-primary">
+              Circle CCTP V2
+            </span>
+          </div>
+
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">
+              Taxa
+            </span>
+
+            <span className="font-mono text-emerald-400">
+              0 USDC
+            </span>
+          </div>
+        </div>
+
+        {/* Action */}
+        <button
+          disabled={
+            !amount ||
+            Number(amount) <= 0 ||
+            fromNetwork === toNetwork
+          }
+          className="w-full mt-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Iniciar Bridge
+        </button>
+
+        <p className="text-[10px] text-center text-muted-foreground/40 mt-3 font-mono">
+          A confirmação da transferência ocorrerá através do Circle CCTP V2.
+        </p>
+      </div>
+    </motion.div>
+  );
+}
 // ─── Router & App ─────────────────────────────────────────────────────────────
 
 function Router() {
