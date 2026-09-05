@@ -1856,6 +1856,11 @@ const handleRealSwap = async () => {
                 />
               )}
 
+              {/* ── Bridge View ─────────────────────────────────────────────── */}
+              {activeView === 'bridge' && (
+               <BridgeView />
+              )}
+              
               {/* ── Dashboard / Simulation View (default) ──────────────────── */}
               {activeView === 'dashboard' && (
                 <>
