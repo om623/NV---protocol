@@ -43,6 +43,10 @@ import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
 import type { DashboardContext } from './lib/news';
+import {
+  approveCctpUsdc,
+  startCctpBridge,
+} from './cctpbridge';
 
 const queryClient = new QueryClient();
 
