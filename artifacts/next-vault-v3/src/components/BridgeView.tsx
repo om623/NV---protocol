@@ -4,6 +4,10 @@ import { ArrowDown, ArrowRight, Loader2, Wallet } from 'lucide-react';
 import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
+import {
+  approveCctpUsdc,
+  startCctpBridge,
+} from './cctpbridge';
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
