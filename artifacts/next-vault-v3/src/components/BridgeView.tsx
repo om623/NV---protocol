@@ -61,7 +61,7 @@ export function BridgeView({
       item.toNetwork === toNetwork,
   );
 
-  const canBridge =
+  const canBridge = status !== 'processing';
     Boolean(provider) &&
     Boolean(connectedAddress) &&
     Boolean(route) &&
