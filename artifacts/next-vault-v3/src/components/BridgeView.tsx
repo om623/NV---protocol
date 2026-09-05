@@ -40,6 +40,79 @@ export function BridgeView({
   const [bridgeLoading, setBridgeLoading] = useState(false);
     const [fromNetwork, setFromNetwork] = useState('base-sepolia');
   const [toNetwork, setToNetwork] = useState('arc-testnet');
+    
+  const handleStartBridge = async () => {
+    if (!provider) {
+      setBridgeStatus('Conecte sua carteira primeiro.');
+      return;
+    }
+
+    if (!connectedAddress) {
+      setBridgeStatus('Endereço da carteira não encontrado.');
+      return;
+    }
+
+    const numericAmount = Number(bridgeAmount);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setBridgeStatus('Informe uma quantidade válida de USDC.');
+      return;
+    }
+
+    if (fromNetwork === toNetwork) {
+      setBridgeStatus('As redes de origem e destino devem ser diferentes.');
+      return;
+    }
+
+    const route = routes.find(
+      (item) =>
+        item.fromNetwork === fromNetwork &&
+        item.toNetwork === toNetwork &&
+        item.token === 'USDC',
+    );
+
+    if (!route || route.status !== 'available') {
+      setBridgeStatus('Esta rota ainda não está disponível.');
+      return;
+    }
+
+    try {
+      setBridgeLoading(true);
+      setBridgeStatus('Aprovando USDC para a Circle CCTP V2...');
+      setBridgeTxHash(null);
+
+      await approveCctpUsdc(
+        provider,
+        connectedAddress,
+        fromNetwork,
+        numericAmount,
+      );
+
+      setBridgeStatus('Iniciando transferência através da Circle CCTP V2...');
+
+      const txHash = await startCctpBridge(
+        provider,
+        connectedAddress,
+        fromNetwork,
+        toNetwork,
+        numericAmount,
+      );
+
+      setBridgeTxHash(txHash);
+      setBridgeStatus(
+        'Bridge iniciada. Aguardando confirmação da rede...',
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível iniciar a Bridge.';
+
+      setBridgeStatus(message);
+    } finally {
+      setBridgeLoading(false);
+    }
+  };
   
   const availableRoutes = useMemo(
     () =>
