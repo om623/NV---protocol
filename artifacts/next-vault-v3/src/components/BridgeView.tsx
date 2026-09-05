@@ -77,13 +77,83 @@ export function BridgeView({
     setMessage('');
   }
 
-  async function handleBridge() {
-    if (!provider || !connectedAddress) {
+async function handleBridge() {
+  try {
+    setStatus('processing');
+    setMessage('Preparando transferência CCTP V2...');
+
+    if (!provider) {
       setStatus('error');
       setMessage('Conecte sua carteira primeiro.');
       return;
     }
 
+    if (!connectedAddress) {
+      setStatus('error');
+      setMessage('Endereço da carteira não encontrado.');
+      return;
+    }
+
+    if (!route) {
+      setStatus('error');
+      setMessage(
+        `Rota indisponível: ${NETWORKS[fromNetwork].name} → ${NETWORKS[toNetwork].name}`,
+      );
+      return;
+    }
+
+    const numericAmount = Number(amount);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setStatus('error');
+      setMessage('Informe uma quantidade válida de USDC.');
+      return;
+    }
+
+    setMessage(
+      `Iniciando Bridge: ${numericAmount} USDC — ${NETWORKS[fromNetwork].name} → ${NETWORKS[toNetwork].name}`,
+    );
+
+    const result = await executeBridge({
+      provider,
+      fromNetwork,
+      toNetwork,
+      walletAddress: connectedAddress,
+      amount: numericAmount,
+    });
+
+    if (!result.success) {
+      setStatus('error');
+      setMessage(
+        result.error ?? 'A transferência CCTP V2 falhou.',
+      );
+      return;
+    }
+
+    setStatus('success');
+
+    setMessage(
+      `Bridge concluída. Burn: ${
+        result.burnTxHash ?? '—'
+      } | Mint: ${
+        result.mintTxHash ?? '—'
+      }`,
+    );
+
+    setAmount('');
+  } catch (error) {
+    console.error('NV Protocol — Bridge error:', error);
+
+    setStatus('error');
+
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : 'Erro inesperado ao executar a Bridge.',
+    );
+  }
+}
+  
     if (!route) {
       setStatus('error');
       setMessage(
