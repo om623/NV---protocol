@@ -1,4 +1,4 @@
-// ─── On-chain Bridge Configuration ──────────────────────────────────────────
+// ─── NV Protocol — On-chain Bridge Configuration ────────────────────────────
 
 export interface BridgeNetwork {
   id: string;
@@ -6,7 +6,7 @@ export interface BridgeNetwork {
   chainId: number;
   rpcUrl: string;
   explorerUrl: string;
-  usdcAddress: string;
+  usdcAddress: `0x${string}`;
   usdcDecimals: number;
 }
 
@@ -43,7 +43,8 @@ export const BRIDGE_NETWORKS: Record<string, BridgeNetwork> = {
     chainId: 5042002,
     rpcUrl: 'https://rpc.testnet.arc.network',
     explorerUrl: 'https://testnet.arcscan.app',
-    usdcAddress: '',
+    usdcAddress:
+      '0x3600000000000000000000000000000000000000',
     usdcDecimals: 6,
   },
 
@@ -53,24 +54,31 @@ export const BRIDGE_NETWORKS: Record<string, BridgeNetwork> = {
     chainId: 84532,
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
-    usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    usdcAddress:
+      '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     usdcDecimals: 6,
   },
 
-  'sepolia': {
+  sepolia: {
     id: 'sepolia',
     name: 'Ethereum Sepolia',
     chainId: 11155111,
     rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     explorerUrl: 'https://sepolia.etherscan.io',
-    usdcAddress: '',
+    usdcAddress:
+      '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
     usdcDecimals: 6,
   },
 };
 
+// ─── Circle CCTP V2 ─────────────────────────────────────────────────────────
+
 export const CCTP_V2 = {
-  tokenMessenger: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
-  messageTransmitter: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+  tokenMessenger:
+    '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
+
+  messageTransmitter:
+    '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
 
   domains: {
     sepolia: 0,
@@ -78,6 +86,7 @@ export const CCTP_V2 = {
     'arc-testnet': 26,
   },
 } as const;
+
 // ─── Supported routes ───────────────────────────────────────────────────────
 
 const BRIDGE_ROUTES: BridgeRoute[] = [
@@ -152,7 +161,11 @@ export function calculateBridgeFee(
   toNetwork: string,
   token: string,
 ): number | null {
-  const route = getBridgeRoute(fromNetwork, toNetwork, token);
+  const route = getBridgeRoute(
+    fromNetwork,
+    toNetwork,
+    token,
+  );
 
   if (!route || route.status !== 'available') {
     return null;
