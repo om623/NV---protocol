@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowRight, Loader2, Wallet } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowRight,
+  Loader2,
+  Wallet,
+} from 'lucide-react';
 
 import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
-
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
@@ -30,7 +34,11 @@ export function BridgeView({
   connectedAddress,
 }: BridgeViewProps) {
   const routes = getBridgeRoutes();
-  
+
+  // ─────────────────────────────────────────────────────────────
+  // ROTAS DISPONÍVEIS
+  // ─────────────────────────────────────────────────────────────
+
   const availableRoutes = useMemo(
     () =>
       routes.filter(
@@ -40,6 +48,10 @@ export function BridgeView({
       ),
     [routes],
   );
+
+  // ─────────────────────────────────────────────────────────────
+  // ESTADO DA BRIDGE
+  // ─────────────────────────────────────────────────────────────
 
   const [fromNetwork, setFromNetwork] =
     useState<NetworkId>('base-sepolia');
@@ -55,47 +67,65 @@ export function BridgeView({
 
   const [message, setMessage] = useState('');
 
+  // ─────────────────────────────────────────────────────────────
+  // ROTA ATUAL
+  // ─────────────────────────────────────────────────────────────
+
   const route = availableRoutes.find(
     item =>
       item.fromNetwork === fromNetwork &&
       item.toNetwork === toNetwork,
   );
 
-  const canBridge = status !== 'processing';
+  // ─────────────────────────────────────────────────────────────
+  // VALIDAÇÃO DO BOTÃO
+  // ─────────────────────────────────────────────────────────────
+
+  const canBridge =
     Boolean(provider) &&
     Boolean(connectedAddress) &&
     Boolean(route) &&
     Number(amount) > 0 &&
     status !== 'processing';
 
+  // ─────────────────────────────────────────────────────────────
+  // TROCAR REDES
+  // ─────────────────────────────────────────────────────────────
+
   function switchNetworks() {
     const oldFrom = fromNetwork;
 
     setFromNetwork(toNetwork);
     setToNetwork(oldFrom);
+
     setStatus('idle');
     setMessage('');
   }
 
-async function handleBridge() {
-console.log('NV Bridge: handleBridge acionado');
-  
-  try {
-    setStatus('processing');
-    setMessage('Preparando transferência CCTP V2...');
+  // ─────────────────────────────────────────────────────────────
+  // EXECUTAR BRIDGE
+  // ─────────────────────────────────────────────────────────────
 
+  async function handleBridge() {
+    console.log('NV Bridge: botão Iniciar Bridge acionado');
+
+    // Carteira
     if (!provider) {
       setStatus('error');
       setMessage('Conecte sua carteira primeiro.');
       return;
     }
 
+    // Endereço
     if (!connectedAddress) {
       setStatus('error');
-      setMessage('Endereço da carteira não encontrado.');
+      setMessage(
+        'Endereço da carteira não encontrado.',
+      );
       return;
     }
 
+    // Rota
     if (!route) {
       setStatus('error');
       setMessage(
@@ -104,106 +134,111 @@ console.log('NV Bridge: handleBridge acionado');
       return;
     }
 
+    // Quantidade
     const numericAmount = Number(amount);
 
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setStatus('error');
-      setMessage('Informe uma quantidade válida de USDC.');
-      return;
-    }
-
-    setMessage(
-      `Iniciando Bridge: ${numericAmount} USDC — ${NETWORKS[fromNetwork].name} → ${NETWORKS[toNetwork].name}`,
-    );
-
-    const result = await executeBridge({
-      provider,
-      fromNetwork,
-      toNetwork,
-      walletAddress: connectedAddress,
-      amount: numericAmount,
-    });
-
-    if (!result.success) {
+    if (
+      !Number.isFinite(numericAmount) ||
+      numericAmount <= 0
+    ) {
       setStatus('error');
       setMessage(
-        result.error ?? 'A transferência CCTP V2 falhou.',
+        'Informe uma quantidade válida de USDC.',
       );
       return;
     }
 
-    setStatus('success');
+    try {
+      setStatus('processing');
 
-    setMessage(
-      `Bridge concluída. Burn: ${
-        result.burnTxHash ?? '—'
-      } | Mint: ${
-        result.mintTxHash ?? '—'
-      }`,
-    );
-
-    setAmount('');
-  } catch (error) {
-    console.error('NV Protocol — Bridge error:', error);
-
-    setStatus('error');
-
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : 'Erro inesperado ao executar a Bridge.',
-    );
-  }
-}
-  
-    if (!route) {
-      setStatus('error');
       setMessage(
-        'Esta rota ainda não está disponível.',
+        `Preparando Bridge de ${numericAmount} USDC...`,
       );
-      return;
-    }
 
-    const numericAmount = Number(amount);
+      console.log('NV Bridge:', {
+        fromNetwork,
+        toNetwork,
+        amount: numericAmount,
+        walletAddress: connectedAddress,
+      });
 
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      // ─────────────────────────────────────────────
+      // EXECUTOR CCTP V2
+      // ─────────────────────────────────────────────
+
+      const result = await executeBridge({
+        provider,
+        fromNetwork,
+        toNetwork,
+        walletAddress: connectedAddress,
+        amount: numericAmount,
+      });
+
+      console.log(
+        'NV Bridge: resultado do executor',
+        result,
+      );
+
+      // ─────────────────────────────────────────────
+      // ERRO
+      // ─────────────────────────────────────────────
+
+      if (!result.success) {
+        setStatus('error');
+
+        setMessage(
+          result.error ??
+            'A transferência CCTP V2 falhou.',
+        );
+
+        return;
+      }
+
+      // ─────────────────────────────────────────────
+      // SUCESSO
+      // ─────────────────────────────────────────────
+
+      setStatus('success');
+
+      setMessage(
+        `Bridge concluída. Burn: ${
+          result.burnTxHash ?? '—'
+        } | Mint: ${
+          result.mintTxHash ?? '—'
+        }`,
+      );
+
+      setAmount('');
+    } catch (error) {
+      console.error(
+        'NV Protocol — Bridge error:',
+        error,
+      );
+
       setStatus('error');
-      setMessage('Informe uma quantidade válida de USDC.');
-      return;
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro inesperado ao executar a Bridge.',
+      );
     }
-
-    setStatus('processing');
-    setMessage('Iniciando transferência on-chain...');
-
-    const result = await executeBridge({
-      provider,
-      fromNetwork,
-      toNetwork,
-      walletAddress: connectedAddress,
-      amount: numericAmount,
-    });
-
-    if (!result.success) {
-      setStatus('error');
-      setMessage(result.error ?? 'A transferência falhou.');
-      return;
-    }
-
-    setStatus('success');
-
-    setMessage(
-      `Bridge concluída. Burn: ${result.burnTxHash ?? '—'} | Mint: ${result.mintTxHash ?? '—'}`,
-    );
-
-    setAmount('');
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // INTERFACE
+  // ─────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-5">
 
-      {/* Header */}
+      {/* ─────────────────────────────────────────────
+          HEADER
+      ───────────────────────────────────────────── */}
+
       <div>
         <div className="flex items-center gap-3">
+
           <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <ArrowRight
               size={20}
@@ -220,16 +255,24 @@ console.log('NV Bridge: handleBridge acionado');
               Transferência cross-chain de USDC
             </p>
           </div>
+
         </div>
       </div>
 
-      {/* Main card */}
+      {/* ─────────────────────────────────────────────
+          MAIN CARD
+      ───────────────────────────────────────────── */}
+
       <div className="rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
 
-        {/* FROM */}
+        {/* ─────────────────────────────────────────
+            FROM
+        ───────────────────────────────────────── */}
+
         <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
 
           <div className="flex items-center justify-between mb-3">
+
             <span className="text-xs uppercase tracking-widest text-muted-foreground/60">
               From
             </span>
@@ -237,14 +280,16 @@ console.log('NV Bridge: handleBridge acionado');
             <span className="text-xs text-muted-foreground">
               Rede de origem
             </span>
+
           </div>
 
           <select
             value={fromNetwork}
-            onChange={e => {
+            onChange={event => {
               setFromNetwork(
-                e.target.value as NetworkId,
+                event.target.value as NetworkId,
               );
+
               setStatus('idle');
               setMessage('');
             }}
@@ -252,29 +297,44 @@ console.log('NV Bridge: handleBridge acionado');
           >
             {Object.entries(NETWORKS).map(
               ([id, network]) => (
-                <option key={id} value={id}>
+                <option
+                  key={id}
+                  value={id}
+                >
                   {network.name}
                 </option>
               ),
             )}
           </select>
+
         </div>
 
-        {/* Switch */}
+        {/* ─────────────────────────────────────────
+            SWITCH
+        ───────────────────────────────────────── */}
+
         <div className="flex justify-center -my-3 relative z-10">
+
           <button
+            type="button"
             onClick={switchNetworks}
-            className="w-10 h-10 rounded-full bg-card border border-border/50 flex items-center justify-center hover:border-primary/50 hover:text-primary transition-all"
+            disabled={status === 'processing'}
+            className="w-10 h-10 rounded-full bg-card border border-border/50 flex items-center justify-center hover:border-primary/50 hover:text-primary transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             title="Inverter redes"
           >
             <ArrowDown size={16} />
           </button>
+
         </div>
 
-        {/* TO */}
+        {/* ─────────────────────────────────────────
+            TO
+        ───────────────────────────────────────── */}
+
         <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
 
           <div className="flex items-center justify-between mb-3">
+
             <span className="text-xs uppercase tracking-widest text-muted-foreground/60">
               To
             </span>
@@ -282,14 +342,16 @@ console.log('NV Bridge: handleBridge acionado');
             <span className="text-xs text-muted-foreground">
               Rede de destino
             </span>
+
           </div>
 
           <select
             value={toNetwork}
-            onChange={e => {
+            onChange={event => {
               setToNetwork(
-                e.target.value as NetworkId,
+                event.target.value as NetworkId,
               );
+
               setStatus('idle');
               setMessage('');
             }}
@@ -297,18 +359,26 @@ console.log('NV Bridge: handleBridge acionado');
           >
             {Object.entries(NETWORKS).map(
               ([id, network]) => (
-                <option key={id} value={id}>
+                <option
+                  key={id}
+                  value={id}
+                >
                   {network.name}
                 </option>
               ),
             )}
           </select>
+
         </div>
 
-        {/* Amount */}
+        {/* ─────────────────────────────────────────
+            AMOUNT
+        ───────────────────────────────────────── */}
+
         <div className="mt-5 rounded-xl border border-border/40 bg-secondary/20 p-4">
 
           <div className="flex items-center justify-between mb-3">
+
             <span className="text-xs uppercase tracking-widest text-muted-foreground/60">
               Amount
             </span>
@@ -317,33 +387,56 @@ console.log('NV Bridge: handleBridge acionado');
               <Wallet size={13} />
               USDC
             </div>
+
           </div>
 
           <div className="flex items-center gap-3">
+
             <input
               type="number"
               min="0"
               step="0.000001"
               value={amount}
-              onChange={e => {
-                setAmount(e.target.value);
+              onChange={event => {
+                setAmount(event.target.value);
                 setStatus('idle');
                 setMessage('');
               }}
               placeholder="0.00"
-              className="w-full bg-transparent text-2xl font-mono text-foreground outline-none"
+              disabled={status === 'processing'}
+              className="w-full bg-transparent text-2xl font-mono text-foreground outline-none disabled:opacity-50"
             />
 
             <span className="text-sm font-semibold text-primary">
               USDC
             </span>
+
           </div>
+
         </div>
 
-        {/* Route information */}
-        <div className="mt-5 space-y-2">
+        {/* ─────────────────────────────────────────
+            ROUTE INFORMATION
+        ───────────────────────────────────────── */}
+
+        <div className="mt-5 rounded-xl border border-border/40 bg-secondary/10 p-4 space-y-3">
 
           <div className="flex justify-between text-sm">
+
+            <span className="text-muted-foreground">
+              Rota
+            </span>
+
+            <span className="font-mono text-foreground text-right">
+              {NETWORKS[fromNetwork].name}
+              {' → '}
+              {NETWORKS[toNetwork].name}
+            </span>
+
+          </div>
+
+          <div className="flex justify-between text-sm">
+
             <span className="text-muted-foreground">
               Ativo
             </span>
@@ -351,19 +444,37 @@ console.log('NV Bridge: handleBridge acionado');
             <span className="font-mono text-foreground">
               USDC
             </span>
+
           </div>
 
           <div className="flex justify-between text-sm">
+
+            <span className="text-muted-foreground">
+              Protocolo
+            </span>
+
+            <span className="font-mono text-primary">
+              Circle CCTP V2
+            </span>
+
+          </div>
+
+          <div className="flex justify-between text-sm">
+
             <span className="text-muted-foreground">
               Taxa da Bridge
             </span>
 
             <span className="font-mono text-foreground">
-              {route ? `${route.fee} USDC` : '—'}
+              {route
+                ? `${route.fee} USDC`
+                : '—'}
             </span>
+
           </div>
 
           <div className="flex justify-between text-sm">
+
             <span className="text-muted-foreground">
               Tempo estimado
             </span>
@@ -371,11 +482,15 @@ console.log('NV Bridge: handleBridge acionado');
             <span className="font-mono text-foreground">
               {route?.estimatedTime ?? '—'}
             </span>
+
           </div>
 
         </div>
 
-        {/* Status */}
+        {/* ─────────────────────────────────────────
+            STATUS
+        ───────────────────────────────────────── */}
+
         {message && (
           <div
             className={`mt-5 rounded-xl border p-3 text-xs font-mono break-all ${
@@ -390,31 +505,42 @@ console.log('NV Bridge: handleBridge acionado');
           </div>
         )}
 
-        {/* Action */}
+        {/* ─────────────────────────────────────────
+            ACTION
+        ───────────────────────────────────────── */}
+
         <button
+          type="button"
           onClick={handleBridge}
           disabled={!canBridge}
           className="w-full mt-5 rounded-xl py-3.5 bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
         >
+
           {status === 'processing' ? (
             <>
               <Loader2
                 size={16}
                 className="animate-spin"
               />
+
               Processando Bridge...
             </>
           ) : (
             <>
               <ArrowRight size={16} />
-              Transferir USDC
+
+              Iniciar Bridge
             </>
           )}
+
         </button>
 
       </div>
 
-      {/* Wallet warning */}
+      {/* ─────────────────────────────────────────────
+          WALLET WARNING
+      ───────────────────────────────────────────── */}
+
       {!connectedAddress && (
         <div className="text-center text-xs text-muted-foreground/60">
           Conecte sua carteira para realizar uma
@@ -422,6 +548,17 @@ console.log('NV Bridge: handleBridge acionado');
         </div>
       )}
 
+      {/* ─────────────────────────────────────────────
+          ROUTE WARNING
+      ───────────────────────────────────────────── */}
+
+      {connectedAddress && !route && (
+        <div className="text-center text-xs text-amber-400/70">
+          Esta combinação de redes ainda não está
+          disponível no CCTP configurado.
+        </div>
+      )}
+
     </div>
   );
-}
+        }
