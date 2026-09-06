@@ -26,21 +26,36 @@ export interface BridgeExecutionResult {
   error?: string;
 }
 
+// ─── Transaction receipt ─────────────────────────────────────────────────────
+
+interface TransactionReceipt {
+  status?: string;
+  [key: string]: unknown;
+}
+
 async function waitForTransaction(
   provider: Eip1193Provider,
   hash: string,
-) {
-  const maxWaitMs = 5 * 60 * 1000;
-  const started = Date.now();
+): Promise<TransactionReceipt> {
+  const maxWaitMs =
+    5 * 60 * 1000;
 
-  while (Date.now() - started < maxWaitMs) {
-    const receipt = await provider.request({
-      method: 'eth_getTransactionReceipt',
-      params: [hash],
-    });
+  const started =
+    Date.now();
+
+  while (
+    Date.now() - started <
+    maxWaitMs
+  ) {
+    const receipt =
+      await provider.request({
+        method:
+          'eth_getTransactionReceipt',
+        params: [hash],
+      });
 
     if (receipt) {
-      return receipt;
+      return receipt as TransactionReceipt;
     }
 
     await new Promise(resolve =>
@@ -53,20 +68,27 @@ async function waitForTransaction(
   );
 }
 
+// ─── Switch network ─────────────────────────────────────────────────────────
+
 async function switchNetwork(
   provider: Eip1193Provider,
   chainId: number,
 ) {
+  const hexChainId =
+    `0x${chainId.toString(16)}`;
+
   await provider.request({
-    method: 'wallet_switchEthereumChain',
+    method:
+      'wallet_switchEthereumChain',
     params: [
       {
-        chainId:
-          `0x${chainId.toString(16)}`,
+        chainId: hexChainId,
       },
     ],
   });
 }
+
+// ─── Execute bridge ─────────────────────────────────────────────────────────
 
 export async function executeBridge(
   params: BridgeExecutionParams,
@@ -80,6 +102,14 @@ export async function executeBridge(
   } = params;
 
   try {
+    console.log(
+      '[NV Protocol] Starting CCTP V2 bridge',
+    );
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 1. Basic validation
+    // ─────────────────────────────────────────────────────────────────────
+
     if (!provider) {
       throw new Error(
         'Carteira não conectada.',
@@ -92,17 +122,26 @@ export async function executeBridge(
       );
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       throw new Error(
         'Informe uma quantidade válida de USDC.',
       );
     }
 
-    if (fromNetwork === toNetwork) {
+    if (
+      fromNetwork === toNetwork
+    ) {
       throw new Error(
         'As redes de origem e destino devem ser diferentes.',
       );
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 2. Resolve networks
+    // ─────────────────────────────────────────────────────────────────────
 
     const source =
       getCctpNetwork(fromNetwork);
@@ -122,18 +161,34 @@ export async function executeBridge(
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. Switch to source network
-    // ─────────────────────────────────────────────────────────────────────
+    console.log(
+      `[NV Protocol] Source: ${source.name}`,
+    );
 
-    await switchNetwork(
-      provider,
-      source.chain.id,
+    console.log(
+      `[NV Protocol] Destination: ${destination.name}`,
     );
 
     // ─────────────────────────────────────────────────────────────────────
-    // 2. Approve USDC
+    // 3. Switch wallet to source
     // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      `[NV Protocol] Switching to source chain ${source.chainId}`,
+    );
+
+    await switchNetwork(
+      provider,
+      source.chainId,
+    );
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 4. Approve USDC
+    // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      '[NV Protocol] Approving USDC...',
+    );
 
     const approveTx =
       await approveCctpUsdc(
@@ -143,14 +198,33 @@ export async function executeBridge(
         amount,
       );
 
-    await waitForTransaction(
-      provider,
+    console.log(
+      '[NV Protocol] Approve TX:',
       approveTx,
     );
 
+    const approveReceipt =
+      await waitForTransaction(
+        provider,
+        approveTx,
+      );
+
+    if (
+      approveReceipt.status ===
+      '0x0'
+    ) {
+      throw new Error(
+        'A aprovação do USDC falhou.',
+      );
+    }
+
     // ─────────────────────────────────────────────────────────────────────
-    // 3. Burn USDC
+    // 5. Burn USDC
     // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      '[NV Protocol] Starting CCTP burn...',
+    );
 
     const burnTx =
       await startCctpBridge(
@@ -161,6 +235,11 @@ export async function executeBridge(
         amount,
       );
 
+    console.log(
+      '[NV Protocol] Burn TX:',
+      burnTx,
+    );
+
     const burnReceipt =
       await waitForTransaction(
         provider,
@@ -168,10 +247,8 @@ export async function executeBridge(
       );
 
     if (
-      burnReceipt &&
-      typeof burnReceipt === 'object' &&
-      'status' in burnReceipt &&
-      burnReceipt.status === '0x0'
+      burnReceipt.status ===
+      '0x0'
     ) {
       throw new Error(
         'A transação de burn falhou.',
@@ -179,8 +256,12 @@ export async function executeBridge(
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // 4. Wait Circle attestation
+    // 6. Wait Circle attestation
     // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      '[NV Protocol] Waiting for Circle attestation...',
+    );
 
     const attestation =
       await waitForCctpAttestation(
@@ -188,18 +269,30 @@ export async function executeBridge(
         burnTx,
       );
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. Switch to destination
-    // ─────────────────────────────────────────────────────────────────────
-
-    await switchNetwork(
-      provider,
-      destination.chain.id,
+    console.log(
+      '[NV Protocol] CCTP attestation ready.',
     );
 
     // ─────────────────────────────────────────────────────────────────────
-    // 6. Receive message / mint
+    // 7. Switch to destination
     // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      `[NV Protocol] Switching to destination chain ${destination.chainId}`,
+    );
+
+    await switchNetwork(
+      provider,
+      destination.chainId,
+    );
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 8. Receive message / mint
+    // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      '[NV Protocol] Executing destination mint...',
+    );
 
     const mintTx =
       await completeCctpBridge(
@@ -209,9 +302,32 @@ export async function executeBridge(
         attestation,
       );
 
-    await waitForTransaction(
-      provider,
+    console.log(
+      '[NV Protocol] Mint TX:',
       mintTx,
+    );
+
+    const mintReceipt =
+      await waitForTransaction(
+        provider,
+        mintTx,
+      );
+
+    if (
+      mintReceipt.status ===
+      '0x0'
+    ) {
+      throw new Error(
+        'A transação de mint falhou.',
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 9. Success
+    // ─────────────────────────────────────────────────────────────────────
+
+    console.log(
+      '[NV Protocol] CCTP bridge completed successfully.',
     );
 
     return {
