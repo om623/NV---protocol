@@ -78,6 +78,8 @@ export function BridgeView({
   }
 
 async function handleBridge() {
+console.log('NV Bridge: handleBridge acionado');
+  
   try {
     setStatus('processing');
     setMessage('Preparando transferência CCTP V2...');
