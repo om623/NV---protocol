@@ -8,32 +8,16 @@ import {
   parseUnits,
   type Address,
   type EIP1193Provider,
+  type Chain,
+  type Hex,
 } from 'viem';
-import { defineChain, sepolia, baseSepolia } from 'viem/chains';
 
-// ─── Arc Testnet ────────────────────────────────────────────────────────────
-
-export const arcTestnet = defineChain({
-  id: 5042002,
-  name: 'Arc Testnet',
-  nativeCurrency: {
-    name: 'USDC',
-    symbol: 'USDC',
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: {
-      http: ['https://rpc.testnet.arc.network'],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'ArcScan',
-      url: 'https://testnet.arcscan.app',
-    },
-  },
-  testnet: true,
-});
+import {
+  mainnet,
+  sepolia,
+  baseSepolia,
+  arcTestnet,
+} from 'viem/chains';
 
 // ─── CCTP V2 contracts ──────────────────────────────────────────────────────
 
@@ -53,25 +37,31 @@ export const CCTP_DOMAINS = {
   arcTestnet: 26,
 } as const;
 
-// ─── Network metadata ───────────────────────────────────────────────────────
+// ─── Network metadata ────────────────────────────────────────────────────────
 
 export interface CctpNetwork {
   id: string;
   name: string;
+  chainId: number;
   domain: number;
-  chain: typeof arcTestnet | typeof sepolia | typeof baseSepolia;
+  chain: Chain;
   rpcUrl: string;
   usdc: Address;
   usdcDecimals: number;
+  explorerUrl: string;
 }
+
+// ─── CCTP V2 networks ────────────────────────────────────────────────────────
 
 export const CCTP_NETWORKS: Record<string, CctpNetwork> = {
   'arc-testnet': {
     id: 'arc-testnet',
     name: 'Arc Testnet',
+    chainId: 5042002,
     domain: CCTP_DOMAINS.arcTestnet,
     chain: arcTestnet,
     rpcUrl: 'https://rpc.testnet.arc.network',
+    explorerUrl: 'https://testnet.arcscan.app',
     usdc:
       '0x3600000000000000000000000000000000000000',
     usdcDecimals: 6,
@@ -80,9 +70,11 @@ export const CCTP_NETWORKS: Record<string, CctpNetwork> = {
   'base-sepolia': {
     id: 'base-sepolia',
     name: 'Base Sepolia',
+    chainId: 84532,
     domain: CCTP_DOMAINS.baseSepolia,
     chain: baseSepolia,
     rpcUrl: 'https://sepolia.base.org',
+    explorerUrl: 'https://sepolia.basescan.org',
     usdc:
       '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     usdcDecimals: 6,
@@ -91,46 +83,30 @@ export const CCTP_NETWORKS: Record<string, CctpNetwork> = {
   sepolia: {
     id: 'sepolia',
     name: 'Ethereum Sepolia',
+    chainId: 11155111,
     domain: CCTP_DOMAINS.ethereumSepolia,
     chain: sepolia,
     rpcUrl:
       'https://ethereum-sepolia-rpc.publicnode.com',
+    explorerUrl: 'https://sepolia.etherscan.io',
     usdc:
       '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
     usdcDecimals: 6,
   },
 };
 
-// ─── CCTP V2 parameters ────────────────────────────────────────────────────
+// ─── CCTP parameters ────────────────────────────────────────────────────────
 
 export const CCTP_STANDARD_FINALITY = 2000;
+
+// Standard Transfer has no protocol fee on the current
+// supported testnet routes.
 export const CCTP_MAX_FEE = 0n;
 
-// ─── ABIs ───────────────────────────────────────────────────────────────────
+// ─── ABIs ────────────────────────────────────────────────────────────────────
 
-const ERC20_ABI = [
-  {
-    type: 'function',
-    name: 'approve',
-    stateMutability: 'nonpayable',
-    inputs: [
-      {
-        name: 'spender',
-        type: 'address',
-      },
-      {
-        name: 'amount',
-        type: 'uint256',
-      },
-    ],
-    outputs: [
-      {
-        name: '',
-        type: 'bool',
-      },
-    ],
-  },
-] as const;
+// Normal CCTP V2 depositForBurn has 7 parameters.
+// depositForBurnWithHook has 8 parameters and is NOT used here.
 
 const TOKEN_MESSENGER_V2_ABI = [
   {
@@ -166,10 +142,6 @@ const TOKEN_MESSENGER_V2_ABI = [
         name: 'minFinalityThreshold',
         type: 'uint32',
       },
-      {
-        name: 'hookData',
-        type: 'bytes',
-      },
     ],
     outputs: [],
   },
@@ -190,40 +162,64 @@ const MESSAGE_TRANSMITTER_V2_ABI = [
         type: 'bytes',
       },
     ],
-    outputs: [],
+    outputs: [
+      {
+        name: 'success',
+        type: 'bool',
+      },
+    ],
   },
 ] as const;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function asAddress(
+  address: string,
+): Address {
+  return address as Address;
+}
 
 function addressToBytes32(
   address: Address,
-): `0x${string}` {
-  return `0x${address.slice(2).padStart(64, '0')}`;
+): Hex {
+  return `0x${address
+    .slice(2)
+    .padStart(64, '0')}` as Hex;
 }
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve =>
+    setTimeout(resolve, ms),
+  );
+}
+
+// ─── Network lookup ─────────────────────────────────────────────────────────
 
 export function getCctpNetwork(
   networkId: string,
-): CctpNetwork | null {
-  return CCTP_NETWORKS[networkId] ?? null;
+): CctpNetwork | undefined {
+  return CCTP_NETWORKS[networkId];
 }
 
 export function getCctpDomain(
   networkId: string,
 ): number | null {
-  return CCTP_NETWORKS[networkId]?.domain ?? null;
+  return (
+    CCTP_NETWORKS[networkId]?.domain ?? null
+  );
 }
 
 export function getCctpContracts() {
   return CCTP_CONTRACTS;
 }
 
-// ─── Public client ──────────────────────────────────────────────────────────
+// ─── Public client ───────────────────────────────────────────────────────────
 
 export function createCctpPublicClient(
   networkId: string,
 ) {
-  const network = getCctpNetwork(networkId);
+  const network =
+    getCctpNetwork(networkId);
 
   if (!network) {
     throw new Error(
@@ -237,15 +233,15 @@ export function createCctpPublicClient(
   });
 }
 
-// ─── Prepare CCTP V2 burn ───────────────────────────────────────────────────
+// ─── Prepare CCTP V2 burn ────────────────────────────────────────────────────
 
 export interface PrepareBurnParams {
   fromNetwork: string;
   toNetwork: string;
   amount: number;
-  decimals?: number;
+  decimals: number;
   recipient: Address;
-  burnToken?: Address;
+  burnToken: Address;
   destinationCaller?: Address;
   maxFee?: number;
   minFinalityThreshold?: number;
@@ -254,8 +250,11 @@ export interface PrepareBurnParams {
 export function prepareCctpBurn(
   params: PrepareBurnParams,
 ) {
-  const source = getCctpNetwork(params.fromNetwork);
-  const destination = getCctpNetwork(params.toNetwork);
+  const source =
+    getCctpNetwork(params.fromNetwork);
+
+  const destination =
+    getCctpNetwork(params.toNetwork);
 
   if (!source) {
     throw new Error(
@@ -269,24 +268,26 @@ export function prepareCctpBurn(
     );
   }
 
-  if (source.domain === destination.domain) {
+  if (
+    source.domain === destination.domain
+  ) {
     throw new Error(
       'Source and destination networks must be different.',
     );
   }
 
-  if (params.amount <= 0) {
+  if (
+    !Number.isFinite(params.amount) ||
+    params.amount <= 0
+  ) {
     throw new Error(
       'Bridge amount must be greater than zero.',
     );
   }
 
-  const decimals =
-    params.decimals ?? source.usdcDecimals;
-
   const amount = parseUnits(
     params.amount.toString(),
-    decimals,
+    params.decimals,
   );
 
   const mintRecipient =
@@ -294,122 +295,89 @@ export function prepareCctpBurn(
 
   const destinationCaller =
     params.destinationCaller
-      ? addressToBytes32(params.destinationCaller)
-      : ('0x' + '00'.repeat(32)) as `0x${string}`;
+      ? addressToBytes32(
+          params.destinationCaller,
+        )
+      : ('0x' +
+          '00'.repeat(32)) as Hex;
+
+  const maxFee =
+    params.maxFee !== undefined
+      ? parseUnits(
+          params.maxFee.toString(),
+          params.decimals,
+        )
+      : CCTP_MAX_FEE;
+
+  const minFinalityThreshold =
+    params.minFinalityThreshold ??
+    CCTP_STANDARD_FINALITY;
 
   return {
-    address: CCTP_CONTRACTS.tokenMessengerV2,
+    address:
+      CCTP_CONTRACTS.tokenMessengerV2,
+
     abi: TOKEN_MESSENGER_V2_ABI,
-    functionName: 'depositForBurn' as const,
+
+    functionName:
+      'depositForBurn' as const,
+
     args: [
       amount,
       destination.domain,
       mintRecipient,
-      params.burnToken ?? source.usdc,
+      params.burnToken,
       destinationCaller,
-      BigInt(
-        params.maxFee ?? 0,
-      ),
-      params.minFinalityThreshold ??
-        CCTP_STANDARD_FINALITY,
-      '0x' as `0x${string}`,
+      maxFee,
+      minFinalityThreshold,
     ],
   };
 }
 
-// ─── Approve USDC ───────────────────────────────────────────────────────────
+// ─── Send CCTP V2 burn ──────────────────────────────────────────────────────
 
-export async function approveCctpUsdc(
+export async function sendCctpBurn(
   provider: EIP1193Provider,
-  walletAddress: string,
-  sourceNetwork: string,
-  amount: number,
-): Promise<`0x${string}`> {
-  const network = getCctpNetwork(sourceNetwork);
-
-  if (!network) {
-    throw new Error(
-      `Unsupported source network: ${sourceNetwork}`,
-    );
-  }
-
-  if (amount <= 0) {
-    throw new Error(
-      'Amount must be greater than zero.',
-    );
-  }
-
-  const walletClient = createWalletClient({
-    account: walletAddress as Address,
-    chain: network.chain,
-    transport: custom(provider),
-  });
-
-  const amountUnits = parseUnits(
-    amount.toString(),
-    network.usdcDecimals,
-  );
-
-  const hash =
-    await walletClient.writeContract({
-      account: walletAddress as Address,
-      address: network.usdc,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [
-        CCTP_CONTRACTS.tokenMessengerV2,
-        amountUnits,
-      ],
-    });
-
-  return hash;
-}
-
-// ─── Start CCTP V2 burn ─────────────────────────────────────────────────────
-
-export async function startCctpBridge(
-  provider: EIP1193Provider,
-  walletAddress: string,
-  fromNetwork: string,
-  toNetwork: string,
-  amount: number,
-): Promise<`0x${string}`> {
-  const source = getCctpNetwork(fromNetwork);
-  const destination = getCctpNetwork(toNetwork);
+  params: PrepareBurnParams,
+): Promise<Hex> {
+  const source =
+    getCctpNetwork(params.fromNetwork);
 
   if (!source) {
     throw new Error(
-      `Unsupported source network: ${fromNetwork}`,
+      `Unsupported source network: ${params.fromNetwork}`,
     );
   }
 
-  if (!destination) {
+  const walletClient =
+    createWalletClient({
+      chain: source.chain,
+      transport: custom(provider),
+    });
+
+  const [account] =
+    await walletClient.getAddresses();
+
+  if (!account) {
     throw new Error(
-      `Unsupported destination network: ${toNetwork}`,
+      'No connected wallet account.',
     );
   }
 
-  const walletClient = createWalletClient({
-    account: walletAddress as Address,
-    chain: source.chain,
-    transport: custom(provider),
-  });
-
-  const request = prepareCctpBurn({
-    fromNetwork,
-    toNetwork,
-    amount,
-    recipient: walletAddress as Address,
-    burnToken: source.usdc,
-    destinationCaller: undefined,
-  });
+  const request =
+    prepareCctpBurn({
+      ...params,
+      recipient:
+        params.recipient ?? account,
+    });
 
   const hash =
     await walletClient.writeContract({
-      account: walletAddress as Address,
+      account,
       address: request.address,
       abi: request.abi,
-      functionName: request.functionName,
+      functionName:
+        request.functionName,
       args: request.args,
     });
 
@@ -428,7 +396,8 @@ export async function getCctpAttestation(
   sourceNetwork: string,
   transactionHash: string,
 ): Promise<CctpAttestation | null> {
-  const source = getCctpNetwork(sourceNetwork);
+  const source =
+    getCctpNetwork(sourceNetwork);
 
   if (!source) {
     throw new Error(
@@ -438,21 +407,35 @@ export async function getCctpAttestation(
 
   const url =
     `https://iris-api-sandbox.circle.com/v2/messages/` +
-    `${source.domain}?transactionHash=${transactionHash}`;
+    `${source.domain}` +
+    `?transactionHash=${transactionHash}`;
 
   const response = await fetch(url, {
+    method: 'GET',
     headers: {
       Accept: 'application/json',
     },
   });
+
+  // IMPORTANT:
+  // Circle returns 404 while Iris has not observed
+  // or processed the burn yet.
+  // This is expected and must NOT abort the bridge.
 
   if (response.status === 404) {
     return null;
   }
 
   if (!response.ok) {
+    const body =
+      await response.text().catch(
+        () => '',
+      );
+
     throw new Error(
-      `Circle attestation API returned HTTP ${response.status}`,
+      `Circle attestation API returned HTTP ` +
+        `${response.status}` +
+        `${body ? `: ${body}` : ''}`,
     );
   }
 
@@ -461,15 +444,20 @@ export async function getCctpAttestation(
       messages?: CctpAttestation[];
     };
 
-  if (!data.messages?.length) {
+  if (
+    !data.messages ||
+    data.messages.length === 0
+  ) {
     return null;
   }
 
-  const message = data.messages[0];
+  const message =
+    data.messages[0];
 
   if (
     !message.message ||
     message.message === '0x' ||
+    !message.attestation ||
     message.attestation === 'PENDING'
   ) {
     return {
@@ -484,7 +472,7 @@ export async function getCctpAttestation(
   };
 }
 
-// ─── Wait for attestation ───────────────────────────────────────────────────
+// ─── Wait for CCTP attestation ──────────────────────────────────────────────
 
 export async function waitForCctpAttestation(
   sourceNetwork: string,
@@ -492,31 +480,44 @@ export async function waitForCctpAttestation(
   timeoutMs = 20 * 60 * 1000,
   intervalMs = 5000,
 ): Promise<CctpAttestation> {
-  const started = Date.now();
+  const started =
+    Date.now();
 
-  while (Date.now() - started < timeoutMs) {
-    const result =
-      await getCctpAttestation(
-        sourceNetwork,
-        transactionHash,
+  while (
+    Date.now() - started <
+    timeoutMs
+  ) {
+    try {
+      const result =
+        await getCctpAttestation(
+          sourceNetwork,
+          transactionHash,
+        );
+
+      if (
+        result &&
+        result.status === 'complete' &&
+        result.message !== '0x' &&
+        result.attestation !== 'PENDING'
+      ) {
+        return result;
+      }
+
+      console.log(
+        '[NV Protocol] CCTP attestation pending...',
       );
-
-    if (
-      result &&
-      result.status === 'complete' &&
-      result.message !== '0x' &&
-      result.attestation !== 'PENDING'
-    ) {
-      return result;
+    } catch (error) {
+      console.warn(
+        '[NV Protocol] CCTP attestation polling error:',
+        error,
+      );
     }
 
-    await new Promise(resolve =>
-      setTimeout(resolve, intervalMs),
-    );
+    await sleep(intervalMs);
   }
 
   throw new Error(
-    'CCTP attestation timed out.',
+    'Tempo limite aguardando a attestation da Circle.',
   );
 }
 
@@ -527,7 +528,7 @@ export async function completeCctpBridge(
   walletAddress: string,
   destinationNetwork: string,
   attestation: CctpAttestation,
-): Promise<`0x${string}`> {
+): Promise<Hex> {
   const destination =
     getCctpNetwork(destinationNetwork);
 
@@ -555,22 +556,27 @@ export async function completeCctpBridge(
     );
   }
 
-  const walletClient = createWalletClient({
-    account: walletAddress as Address,
-    chain: destination.chain,
-    transport: custom(provider),
-  });
+  const walletClient =
+    createWalletClient({
+      chain: destination.chain,
+      transport: custom(provider),
+    });
+
+  const account =
+    asAddress(walletAddress);
 
   const hash =
     await walletClient.writeContract({
-      account: walletAddress as Address,
+      account,
       address:
-        CCTP_CONTRACTS.messageTransmitterV2,
+        CCTP_CONTRACTS
+          .messageTransmitterV2,
       abi: MESSAGE_TRANSMITTER_V2_ABI,
-      functionName: 'receiveMessage',
+      functionName:
+        'receiveMessage',
       args: [
-        attestation.message as `0x${string}`,
-        attestation.attestation as `0x${string}`,
+        attestation.message as Hex,
+        attestation.attestation as Hex,
       ],
     });
 
