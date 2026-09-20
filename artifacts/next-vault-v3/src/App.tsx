@@ -20,6 +20,7 @@ import { WalletPickerModal } from './components/WalletPickerModal';
 import { ProfileView } from './components/ProfileView';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
+import { BridgeView } from './components/BridgeView';
 import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
 import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
@@ -43,10 +44,7 @@ import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
 import type { DashboardContext } from './lib/news';
-import {
-  approveCctpUsdc,
-  startCctpBridge,
-} from './cctpbridge';
+
 
 const queryClient = new QueryClient();
 
@@ -1862,7 +1860,10 @@ const handleRealSwap = async () => {
 
               {/* ── Bridge View ─────────────────────────────────────────────── */}
               {activeView === 'bridge' && (
-               <BridgeView />
+               <BridgeView
+                  provider={provider}
+                  connectedAddress={connectedAddress}
+                />
               )}
               
               {/* ── Dashboard / Simulation View (default) ──────────────────── */}
