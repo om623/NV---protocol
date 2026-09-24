@@ -10,6 +10,8 @@ import {
   completeCctpBridge,
   getCctpNetwork,
 } from '../components/cctp';
+import { ensureNetwork } from './arc';
+import { BRIDGE_NETWORKS } from './bridge';
 
 type ViemEip1193Provider = ViemProvider;
 
@@ -65,13 +67,18 @@ async function waitForTransaction(
 
 async function switchNetwork(
   provider: Eip1193Provider,
-  chainId: number,
+  networkId: string,
 ) {
-  const hexChainId = `0x${chainId.toString(16)}`;
-
-  await provider.request({
-    method: 'wallet_switchEthereumChain',
-    params: [{ chainId: hexChainId }],
+  const net = BRIDGE_NETWORKS[networkId];
+  if (!net) {
+    throw new Error(`Unknown network: ${networkId}`);
+  }
+  await ensureNetwork(provider, {
+    chainId: '0x' + net.chainId.toString(16),
+    chainName: net.name,
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: [net.rpcUrl],
+    blockExplorerUrls: [net.explorerUrl],
   });
 }
 
@@ -121,7 +128,7 @@ export async function executeBridge(
     console.log(
       `[NV Protocol] Switching to source chain ${source.chainId}`,
     );
-    await switchNetwork(provider, source.chainId);
+    await switchNetwork(provider, fromNetwork);
 
     // Approve USDC
     console.log('[NV Protocol] Approving USDC...');
@@ -171,7 +178,7 @@ export async function executeBridge(
     console.log(
       `[NV Protocol] Switching to destination chain ${destination.chainId}`,
     );
-    await switchNetwork(provider, destination.chainId);
+    await switchNetwork(provider, toNetwork);
 
     // Receive message / mint
     console.log('[NV Protocol] Executing destination mint...');

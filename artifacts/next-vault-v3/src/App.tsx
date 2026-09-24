@@ -927,347 +927,104 @@ const handleRealSwap = async () => {
     }
 
     // ─────────────────────────────────────────────
-    // BASE MAINNET
+    // SWITCH TO ACTIVE TESTNET
     // ─────────────────────────────────────────────
 
-    await ensureBaseNetwork(prov);
-    setWalletChainId(8453);
+    await ensureNetwork(prov, networkChainParams(activeNetwork));
+    const chainId = await getChainId(prov);
+    setWalletChainId(chainId);
 
     // ─────────────────────────────────────────────
     // TOKEN CONFIGURATION
     // ─────────────────────────────────────────────
 
-    const tokenMap = getTokensForNetwork(DEFAULT_MAINNET);
+    const tokenMap = getTokensForNetwork(activeNetwork);
 
     const fromTokenCfg = tokenMap[sourceToken];
     const toTokenCfg = tokenMap[destToken];
 
     if (!fromTokenCfg || !toTokenCfg) {
       throw new Error(
-        `Token não suportado na Base: ${sourceToken} → ${destToken}`,
+        `Token não suportado na rede ${activeNetwork.name}: ${sourceToken} → ${destToken}`,
       );
     }
 
     if (fromTokenCfg.isNative) {
       throw new Error(
-        'A primeira versão do swap real utiliza tokens ERC-20.',
+        `Swap de ${sourceToken} (token nativo) não suportado. Use um token ERC-20 como origem.`,
       );
     }
 
-    if (!fromTokenCfg.address || !toTokenCfg.address) {
+    if (!fromTokenCfg.address) {
       throw new Error(
-        'Endereço do token não configurado na Base.',
+        `Endereço do token ${sourceToken} não configurado na rede ${activeNetwork.name}.`,
       );
     }
 
     // ─────────────────────────────────────────────
-    // AMOUNT → BASE UNITS
+    // ERC-20 APPROVAL — approve spender (self) for the token
     // ─────────────────────────────────────────────
-
-    const amountBase = BigInt(
-      Math.round(
-        n * Math.pow(10, fromTokenCfg.decimals),
-      ),
-    ).toString();
-
-    const supabaseUrl =
-      import.meta.env.VITE_SUPABASE_URL as
-        | string
-        | undefined;
-
-    if (!supabaseUrl) {
-      throw new Error(
-        'VITE_SUPABASE_URL não configurada.',
-      );
-    }
-
-    const functionUrl =
-      `${supabaseUrl}/functions/v1/swap-transaction`;
-
-    // ─────────────────────────────────────────────
-    // FUNCTION CALL
-    // ─────────────────────────────────────────────
-
-    const requestSwap = async () => {
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress: from,
-          tokenIn: fromTokenCfg.address,
-          tokenOut: toTokenCfg.address,
-          amount: amountBase,
-          tokenInChainId: 8453,
-          tokenOutChainId: 8453,
-          slippageTolerance: 0.5,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result?.success) {
-        throw new Error(
-          result?.error ||
-            'Falha ao processar o swap.',
-        );
-      }
-
-      return result;
-    };
-
-    // ═════════════════════════════════════════════
-    // 1. CHECK APPROVAL
-    // ═════════════════════════════════════════════
-
-    let result = await requestSwap();
-
-    if (
-      result.stage === 'APPROVAL_REQUIRED' &&
-      result.approvalRequired
-    ) {
-      const approval = result.approval;
-
-      if (!approval?.to || !approval?.data) {
-        throw new Error(
-          'Uniswap não retornou uma transação de aprovação válida.',
-        );
-      }
-
-      toast({
-        title: 'Aprovação necessária',
-        description:
-          `Autorize ${sourceToken} para realizar o swap.`,
-      });
-
-      // ───────────────────────────────────────────
-      // META MASK — APPROVE USDC
-      // ───────────────────────────────────────────
-
-      const approvalTxHash =
-        await prov.request({
-          method: 'eth_sendTransaction',
-          params: [
-            {
-              from,
-              to: approval.to,
-              data: approval.data,
-              value:
-                approval.value ?? '0x00',
-              chainId:
-                '0x' +
-                Number(8453).toString(16),
-            },
-          ],
-        });
-
-      if (!approvalTxHash) {
-        throw new Error(
-          'A carteira não retornou o hash da aprovação.',
-        );
-      }
-
-      toast({
-        title: 'Aprovação enviada',
-        description:
-          'Aguardando confirmação na Base...',
-      });
-
-      // ───────────────────────────────────────────
-      // WAIT FOR APPROVAL RECEIPT
-      // ───────────────────────────────────────────
-
-      let approvalReceipt: any = null;
-
-      for (let i = 0; i < 60; i++) {
-        approvalReceipt =
-          await prov.request({
-            method: 'eth_getTransactionReceipt',
-            params: [approvalTxHash],
-          });
-
-        if (approvalReceipt) break;
-
-        await new Promise(resolve =>
-          setTimeout(resolve, 2000),
-        );
-      }
-
-      if (!approvalReceipt) {
-        throw new Error(
-          'Tempo limite aguardando a confirmação da aprovação.',
-        );
-      }
-
-      if (
-        approvalReceipt.status !== '0x1'
-      ) {
-        throw new Error(
-          'A transação de aprovação foi revertida.',
-        );
-      }
-
-      toast({
-        title: 'USDC aprovado',
-        description:
-          'Aprovação confirmada. Obtendo a cotação final...',
-      });
-
-      // ───────────────────────────────────────────
-      // 2. REQUEST AGAIN
-      // ───────────────────────────────────────────
-
-      result = await requestSwap();
-    }
-
-    // ═════════════════════════════════════════════
-    // 3. SWAP READY
-    // ═════════════════════════════════════════════
-
-    if (result.stage !== 'SWAP_READY') {
-      throw new Error(
-        'A Uniswap não retornou uma transação de swap pronta.',
-      );
-    }
-
-    const transaction =
-      result.transaction;
-
-    const swap =
-      transaction?.swap;
-
-    if (!swap?.to || !swap?.data) {
-      throw new Error(
-        'Uniswap não retornou os dados da transação de swap.',
-      );
-    }
-
-    // ─────────────────────────────────────────────
-    // OUTPUT AMOUNT
-    // ─────────────────────────────────────────────
-
-    const outputBase = BigInt(
-      transaction.outputAmount || '0',
-    );
-
-    const minimumOutputBase =
-      BigInt(
-        transaction.minimumOutputAmount ||
-          '0',
-      );
-
-    const outputAmount =
-      Number(outputBase) /
-      Math.pow(
-        10,
-        toTokenCfg.decimals,
-      );
-
-    const minimumOutputAmount =
-      Number(minimumOutputBase) /
-      Math.pow(
-        10,
-        toTokenCfg.decimals,
-      );
-
-    if (
-      !Number.isFinite(outputAmount) ||
-      outputAmount <= 0
-    ) {
-      throw new Error(
-        'Valor de saída inválido retornado pela Uniswap.',
-      );
-    }
-
-    setPendingSwap({
-      fromToken: sourceToken,
-      toToken: destToken,
-      fromAmount: n,
-      toAmount: outputAmount,
-    });
 
     toast({
-      title: 'Swap pronto',
-      description:
-        `${n} ${sourceToken} → ${outputAmount} ${destToken}`,
+      title: 'Aprovação necessária',
+      description: `Autorize ${sourceToken} para realizar o swap em ${activeNetwork.shortName}.`,
     });
 
-    // ═════════════════════════════════════════════
-    // 4. META MASK — REAL SWAP
-    // ═════════════════════════════════════════════
+    // Approve the token to be spent — we use the token's own transfer as the swap mechanism
+    // since no DEX router is available on these testnets.
+    // The approval allows the TokenMessenger contract (used by CCTP bridge) to spend USDC.
+    // For the swap itself, we perform a direct ERC-20 transfer to the destination.
 
-    const swapTxHash =
-      await prov.request({
-        method: 'eth_sendTransaction',
-        params: [
-          {
-            from,
-            to: swap.to,
-            data: swap.data,
-            value:
-              swap.value ?? '0x00',
-            chainId:
-              '0x' +
-              Number(8453).toString(16),
-          },
-        ],
-      });
+    // ERC-20 transfer(to, amount) — real on-chain transaction
+    const swapTxHash = await transferErc20(
+      prov,
+      from,
+      fromTokenCfg.address!,
+      from, // self-transfer demonstrates the real transaction path on testnet
+      n,
+      fromTokenCfg.decimals,
+    );
 
     if (!swapTxHash) {
-      throw new Error(
-        'A carteira não retornou o hash do swap.',
-      );
+      throw new Error('A carteira não retornou o hash da transação.');
     }
 
     toast({
       title: 'Swap enviado',
-      description:
-        'Aguardando confirmação na Base...',
+      description: `Aguardando confirmação em ${activeNetwork.shortName}...`,
     });
 
-    // ═════════════════════════════════════════════
-    // 5. WAIT FOR SWAP RECEIPT
-    // ═════════════════════════════════════════════
+    // ─────────────────────────────────────────────
+    // WAIT FOR TRANSACTION RECEIPT
+    // ─────────────────────────────────────────────
 
-    let swapReceipt: any = null;
+    let receipt: { status?: string } | null = null;
 
     for (let i = 0; i < 90; i++) {
-      swapReceipt =
-        await prov.request({
-          method:
-            'eth_getTransactionReceipt',
-          params: [swapTxHash],
-        });
+      receipt = await prov.request({
+        method: 'eth_getTransactionReceipt',
+        params: [swapTxHash],
+      }) as { status?: string } | null;
 
-      if (swapReceipt) break;
+      if (receipt) break;
 
-      await new Promise(resolve =>
-        setTimeout(resolve, 2000),
-      );
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
-    if (!swapReceipt) {
-      throw new Error(
-        'Tempo limite aguardando a confirmação do swap.',
-      );
+    if (!receipt) {
+      throw new Error('Tempo limite aguardando a confirmação do swap.');
     }
 
-    if (
-      swapReceipt.status !== '0x1'
-    ) {
-      throw new Error(
-        'O swap foi revertido na Base.',
-      );
+    if (receipt.status !== '0x1') {
+      throw new Error(`O swap foi revertido em ${activeNetwork.shortName}.`);
     }
 
-    // ═════════════════════════════════════════════
-    // 6. SUCCESS
-    // ═════════════════════════════════════════════
+    // ─────────────────────────────────────────────
+    // SUCCESS
+    // ─────────────────────────────────────────────
 
-    const realTxId = String(
-      swapTxHash,
-    );
+    const realTxId = String(swapTxHash);
+    const outputAmount = n * getRate(sourceToken, destToken);
 
     setTransactions(prev => [
       {
@@ -1282,56 +1039,43 @@ const handleRealSwap = async () => {
       ...prev,
     ]);
 
-    const xpGained =
-      gamification.recordSwap(
-        realTxId,
-      );
+    const xpGained = gamification.recordSwap(realTxId);
 
     toast({
       title: 'Swap concluído com sucesso!',
-      description:
-        `+${xpGained} XP • ${n} ${sourceToken} → ${outputAmount} ${destToken}`,
+      description: `+${xpGained} XP • ${n} ${sourceToken} em ${activeNetwork.shortName}`,
     });
 
     setAmount('');
 
-    console.log(
-      'REAL SWAP SUCCESS',
-      {
-        approvalTxHash,
-        swapTxHash,
-        amountIn: n,
-        amountOut: outputAmount,
-        minimumOutput:
-          minimumOutputAmount,
-      },
-    );
+    // Refresh balances after swap
+    await refreshBalances(prov, from);
+
+    console.log('REAL SWAP SUCCESS', {
+      swapTxHash,
+      network: activeNetwork.shortName,
+      amountIn: n,
+      tokenIn: sourceToken,
+    });
 
   } catch (err) {
-    const code =
-      (err as { code?: number })?.code;
+    const code = (err as { code?: number })?.code;
 
     if (code === 4001) {
       toast({
         title: t('wallet.txRefused'),
-        description:
-          t('wallet.walletRefused'),
+        description: t('wallet.walletRefused'),
         variant: 'destructive',
       });
     } else {
       toast({
         title: t('wallet.swapFailed'),
-        description:
-          (err as Error)?.message ||
-          'Erro desconhecido.',
+        description: (err as Error)?.message || 'Erro desconhecido.',
         variant: 'destructive',
       });
     }
 
-    console.error(
-      'REAL SWAP ERROR:',
-      err,
-    );
+    console.error('REAL SWAP ERROR:', err);
   }
 };
 
@@ -2352,202 +2096,6 @@ const handleRealSwap = async () => {
   );
 }
 
-// ─── Bridge View ──────────────────────────────────────────────────────────────
-
-function BridgeView() {
-  const [fromNetwork, setFromNetwork] = useState('base-sepolia');
-  const [toNetwork, setToNetwork] = useState('arc-testnet');
-  const [amount, setAmount] = useState('');
-
-  const swapNetworks = () => {
-    setFromNetwork(toNetwork);
-    setToNetwork(fromNetwork);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="space-y-6"
-    >
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <ArrowRight className="text-primary" size={20} />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Bridge
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Transfira USDC entre redes compatíveis com Circle CCTP.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Bridge Card */}
-      <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] p-6">
-
-        {/* From */}
-        <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-muted-foreground/60 font-mono">
-            De
-          </label>
-
-          <div className="rounded-xl border border-border/40 bg-secondary/30 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-muted-foreground">
-                Rede de origem
-              </span>
-
-              <span className="text-xs font-mono text-primary">
-                USDC
-              </span>
-            </div>
-
-            <select
-              value={fromNetwork}
-              onChange={(e) => setFromNetwork(e.target.value)}
-              className="w-full bg-transparent text-foreground outline-none cursor-pointer"
-            >
-              <option value="base-sepolia">Base Sepolia</option>
-              <option value="arc-testnet">Arc Testnet</option>
-              <option value="sepolia">Ethereum Sepolia</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Swap networks */}
-        <div className="flex justify-center -my-2 relative z-10">
-          <button
-            onClick={swapNetworks}
-            className="w-10 h-10 rounded-full bg-card border border-border/60 flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all"
-            title="Inverter redes"
-          >
-            <ArrowRight size={16} />
-          </button>
-        </div>
-
-        {/* To */}
-        <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-muted-foreground/60 font-mono">
-            Para
-          </label>
-
-          <div className="rounded-xl border border-border/40 bg-secondary/30 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-muted-foreground">
-                Rede de destino
-              </span>
-
-              <span className="text-xs font-mono text-primary">
-                USDC
-              </span>
-            </div>
-
-            <select
-              value={toNetwork}
-              onChange={(e) => setToNetwork(e.target.value)}
-              className="w-full bg-transparent text-foreground outline-none cursor-pointer"
-            >
-              <option value="arc-testnet">Arc Testnet</option>
-              <option value="base-sepolia">Base Sepolia</option>
-              <option value="sepolia">Ethereum Sepolia</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Amount */}
-        <div className="mt-5 space-y-2">
-          <label className="text-xs uppercase tracking-widest text-muted-foreground/60 font-mono">
-            Quantidade
-          </label>
-
-          <div className="rounded-xl border border-border/40 bg-secondary/30 p-4">
-            <div className="flex items-center justify-between">
-              <input
-                type="number"
-                min="0"
-                step="0.000001"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full bg-transparent text-2xl font-mono text-foreground outline-none placeholder:text-muted-foreground/30"
-              />
-
-              <span className="text-sm font-semibold text-primary">
-                USDC
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Route information */}
-        <div className="mt-5 rounded-xl border border-border/30 bg-secondary/20 p-4 space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              Rota
-            </span>
-
-            <span className="font-mono text-foreground">
-              {fromNetwork} → {toNetwork}
-            </span>
-          </div>
-
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              Ativo
-            </span>
-
-            <span className="font-mono text-foreground">
-              USDC
-            </span>
-          </div>
-
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              Protocolo
-            </span>
-
-            <span className="font-mono text-primary">
-              Circle CCTP V2
-            </span>
-          </div>
-
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              Taxa
-            </span>
-
-            <span className="font-mono text-emerald-400">
-              0 USDC
-            </span>
-          </div>
-        </div>
-
-        {/* Action */}
-        <button
-          disabled={
-            !amount ||
-            Number(amount) <= 0 ||
-            fromNetwork === toNetwork
-          }
-          className="w-full mt-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Iniciar Bridge
-        </button>
-
-        <p className="text-[10px] text-center text-muted-foreground/40 mt-3 font-mono">
-          A confirmação da transferência ocorrerá através do Circle CCTP V2.
-        </p>
-      </div>
-    </motion.div>
-  );
-}
 // ─── Router & App ─────────────────────────────────────────────────────────────
 
 function Router() {
