@@ -9,7 +9,7 @@ import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Load
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
-  transferNative, transferErc20, getAllBalances, shortAddress,
+  getAllBalances, shortAddress,
   getTokensForNetwork, ARC_TOKENS,
 } from './lib/arc';
 import { type WalletInfo, getLegacyProvider } from './lib/walletDiscovery';
@@ -39,7 +39,7 @@ import {
   getNetworkTokens,
 } from './networks';
 import { getAsset, refreshFromApis, getMarketSentiment, getAllAssets } from './lib/marketData';
-import { isValidNum } from './lib/utils';
+import { isValidNum, safeBalance, safeBalanceFmt, dedupTokens } from './lib/utils';
 import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
@@ -80,7 +80,8 @@ const MOCK_BALANCES: Record<string, number> = { USDC: 5420.18, EURC: 3200.50, ET
 const FALLBACK_PRICES: Record<string, number> = { USDC: 1, EURC: 1.087, ETH: 3215.84 };
 function livePrice(symbol: string): number {
   const a = getAsset(symbol);
-  return a ? a.price : (FALLBACK_PRICES[symbol] ?? 1);
+  const p = a ? a.price : (FALLBACK_PRICES[symbol] ?? 1);
+  return Number.isFinite(p) ? p : (FALLBACK_PRICES[symbol] ?? 1);
 }
 
 const INITIAL_TRANSACTIONS = [
@@ -150,11 +151,14 @@ const getRate = (from: string, to: string) => {
   if (from === to) return 1.0;
   const fromPrice = livePrice(from);
   const toPrice = livePrice(to);
-  if (toPrice === 0) return 0;
+  if (!Number.isFinite(fromPrice) || !Number.isFinite(toPrice) || toPrice === 0) return 0;
   return fromPrice / toPrice;
 };
 const getUsdRate = (token: string) => livePrice(token);
-const formatRate = (rate: number) => rate < 0.01 ? rate.toFixed(6) : rate < 1 ? rate.toFixed(4) : rate.toFixed(2);
+const formatRate = (rate: number) => {
+  if (!Number.isFinite(rate)) return '—';
+  return rate < 0.01 ? rate.toFixed(6) : rate < 1 ? rate.toFixed(4) : rate.toFixed(2);
+};
 
 function getNextSimId(): string {
   try {
@@ -962,101 +966,16 @@ const handleRealSwap = async () => {
     }
 
     // ─────────────────────────────────────────────
-    // ERC-20 APPROVAL — approve spender (self) for the token
+    // No DEX router integration exists for any testnet.
+    // The codebase has ERC-20 transfer and CCTP bridge
+    // functions only — no Uniswap, 1inch, or any other
+    // swap protocol. We do NOT fake a swap.
     // ─────────────────────────────────────────────
 
-    toast({
-      title: 'Aprovação necessária',
-      description: `Autorize ${sourceToken} para realizar o swap em ${activeNetwork.shortName}.`,
-    });
-
-    // Approve the token to be spent — we use the token's own transfer as the swap mechanism
-    // since no DEX router is available on these testnets.
-    // The approval allows the TokenMessenger contract (used by CCTP bridge) to spend USDC.
-    // For the swap itself, we perform a direct ERC-20 transfer to the destination.
-
-    // ERC-20 transfer(to, amount) — real on-chain transaction
-    const swapTxHash = await transferErc20(
-      prov,
-      from,
-      fromTokenCfg.address!,
-      from, // self-transfer demonstrates the real transaction path on testnet
-      n,
-      fromTokenCfg.decimals,
+    throw new Error(
+      `Nenhum router de swap (DEX) está configurado para ${activeNetwork.name}. ` +
+      `A Bridge CCTP V2 está disponível para transferências cross-chain de USDC.`,
     );
-
-    if (!swapTxHash) {
-      throw new Error('A carteira não retornou o hash da transação.');
-    }
-
-    toast({
-      title: 'Swap enviado',
-      description: `Aguardando confirmação em ${activeNetwork.shortName}...`,
-    });
-
-    // ─────────────────────────────────────────────
-    // WAIT FOR TRANSACTION RECEIPT
-    // ─────────────────────────────────────────────
-
-    let receipt: { status?: string } | null = null;
-
-    for (let i = 0; i < 90; i++) {
-      receipt = await prov.request({
-        method: 'eth_getTransactionReceipt',
-        params: [swapTxHash],
-      }) as { status?: string } | null;
-
-      if (receipt) break;
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
-    if (!receipt) {
-      throw new Error('Tempo limite aguardando a confirmação do swap.');
-    }
-
-    if (receipt.status !== '0x1') {
-      throw new Error(`O swap foi revertido em ${activeNetwork.shortName}.`);
-    }
-
-    // ─────────────────────────────────────────────
-    // SUCCESS
-    // ─────────────────────────────────────────────
-
-    const realTxId = String(swapTxHash);
-    const outputAmount = n * getRate(sourceToken, destToken);
-
-    setTransactions(prev => [
-      {
-        id: realTxId,
-        fromToken: sourceToken,
-        toToken: destToken,
-        fromAmount: n,
-        toAmount: outputAmount,
-        time: 'Just now',
-        status: 'Success',
-      },
-      ...prev,
-    ]);
-
-    const xpGained = gamification.recordSwap(realTxId);
-
-    toast({
-      title: 'Swap concluído com sucesso!',
-      description: `+${xpGained} XP • ${n} ${sourceToken} em ${activeNetwork.shortName}`,
-    });
-
-    setAmount('');
-
-    // Refresh balances after swap
-    await refreshBalances(prov, from);
-
-    console.log('REAL SWAP SUCCESS', {
-      swapTxHash,
-      network: activeNetwork.shortName,
-      amountIn: n,
-      tokenIn: sourceToken,
-    });
 
   } catch (err) {
     const code = (err as { code?: number })?.code;
@@ -1145,9 +1064,10 @@ const handleRealSwap = async () => {
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
   const handleMax = () => {
-    const bal = realBalances
+    const raw = realBalances
       ? (realBalances[sourceToken] ?? 0)
       : MOCK_BALANCES[sourceToken];
+    const bal = safeBalance(raw);
     setAmount(bal.toString());
   };
 
@@ -1183,7 +1103,11 @@ const handleRealSwap = async () => {
   // ── Derived values ───────────────────────────────────────────────────────────
 
   const networkTokenOptions = useMemo(
-    () => getNetworkTokens(activeNetwork).map(t => ({ symbol: t.symbol, name: t.name })),
+    () => {
+      const raw = getNetworkTokens(activeNetwork);
+      const deduped = dedupTokens(raw, activeNetwork.chainId);
+      return deduped.map(t => ({ symbol: t.symbol, name: t.name }));
+    },
     [activeNetwork],
   );
 
@@ -1654,7 +1578,7 @@ const handleRealSwap = async () => {
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${isValidNum(sourceUsd) ? sourceUsd.toFixed(2) : '—'}</span>
                         <span className="flex items-center gap-2">
-                          {t('swap.balance')}: {realBalances ? (realBalances[sourceToken] ?? 0).toFixed(4) : MOCK_BALANCES[sourceToken].toFixed(4)}
+                          {t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[sourceToken]) : safeBalanceFmt(MOCK_BALANCES[sourceToken])}
                           <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">{t('action.max')}</button>
                         </span>
                       </div>
@@ -1669,13 +1593,13 @@ const handleRealSwap = async () => {
                       <div className="text-xs text-muted-foreground/60 font-mono mb-3">{t('swap.tokenDest')}</div>
                       <div className="flex justify-between items-center gap-4">
                         <input type="number" placeholder="0.0" disabled
-                          value={amount && sourceAmountNum > 0 ? destAmountNum.toFixed(4) : ''}
+                          value={amount && sourceAmountNum > 0 && Number.isFinite(destAmountNum) ? destAmountNum.toFixed(4) : ''}
                           className="bg-transparent text-4xl font-mono outline-none w-full text-muted-foreground/40 cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                         <TokenSelect value={destToken} onChange={setDestToken} tokens={networkTokenOptions} />
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${isValidNum(destUsd) ? destUsd.toFixed(2) : '—'}</span>
-                        <span>{t('swap.balance')}: {realBalances ? (realBalances[destToken] ?? 0).toFixed(4) : MOCK_BALANCES[destToken].toFixed(4)}</span>
+                        <span>{t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[destToken]) : safeBalanceFmt(MOCK_BALANCES[destToken])}</span>
                       </div>
                     </div>
                   </div>
@@ -1747,7 +1671,7 @@ const handleRealSwap = async () => {
                               <div className="flex items-center gap-2 text-sm font-mono">
                                 <span className="text-foreground/90">{tx.fromAmount} {tx.fromToken}</span>
                                 <ArrowRight size={11} className="text-muted-foreground/40" />
-                                <span className="text-foreground/90">{tx.toAmount.toFixed(4)} {tx.toToken}</span>
+                                <span className="text-foreground/90">{safeBalanceFmt(tx.toAmount)} {tx.toToken}</span>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
@@ -2036,7 +1960,7 @@ const handleRealSwap = async () => {
                         <div className="flex items-center justify-center gap-5 bg-background/40 rounded-xl p-3">
                           <div className="flex flex-col items-center gap-1.5">
                             <TokenCryptoIcon symbol={pendingSwap.fromToken} />
-                            <span className="font-mono text-sm text-foreground">{pendingSwap.fromAmount?.toFixed(4)}</span>
+                            <span className="font-mono text-sm text-foreground">{safeBalanceFmt(pendingSwap.fromAmount)}</span>
                             <span className="text-[10px] text-muted-foreground/50">{pendingSwap.fromToken}</span>
                           </div>
                           <div className="flex flex-col items-center gap-1">
@@ -2045,7 +1969,7 @@ const handleRealSwap = async () => {
                           </div>
                           <div className="flex flex-col items-center gap-1.5">
                             <TokenCryptoIcon symbol={pendingSwap.toToken} />
-                            <span className="font-mono text-sm text-primary">{pendingSwap.toAmount?.toFixed(4)}</span>
+                            <span className="font-mono text-sm text-primary">{safeBalanceFmt(pendingSwap.toAmount)}</span>
                             <span className="text-[10px] text-muted-foreground/50">{pendingSwap.toToken}</span>
                           </div>
                         </div>

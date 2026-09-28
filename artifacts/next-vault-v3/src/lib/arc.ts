@@ -71,7 +71,13 @@ export async function ensureBaseNetwork(prov: Eip1193Provider): Promise<void> {
 }
 
 /** Switch the injected wallet to any registered network (used by all testnets). */
-export async function ensureNetwork(prov: Eip1193Provider, params: { chainId: string }): Promise<void> {
+export async function ensureNetwork(prov: Eip1193Provider, params: {
+  chainId: string;
+  chainName?: string;
+  nativeCurrency?: { name: string; symbol: string; decimals: number };
+  rpcUrls?: string[];
+  blockExplorerUrls?: string[];
+}): Promise<void> {
   try {
     await prov.request({
       method: 'wallet_switchEthereumChain',

@@ -32,3 +32,41 @@ export function safePct(v: number | undefined | null, fallback = '—'): string 
   if (!isValidNum(v)) return fallback;
   return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
 }
+
+/** Return a finite balance number, or 0 if the value is missing/invalid. */
+export function safeBalance(v: number | undefined | null): number {
+  return isValidNum(v) ? v : 0;
+}
+
+/** Format a token balance with fixed decimals, or fallback if invalid. */
+export function safeBalanceFmt(v: number | undefined | null, decimals = 4, fallback = '—'): string {
+  if (!isValidNum(v)) return fallback;
+  return v.toFixed(decimals);
+}
+
+interface TokenIdentity {
+  symbol: string;
+  address?: string | null;
+  isNative?: boolean;
+}
+
+/**
+ * Deduplicate a list of tokens by deterministic identity.
+ * For ERC-20 tokens: chainId + contract address.
+ * For native tokens: chainId + symbol + isNative.
+ * Preserves the order of first occurrence.
+ */
+export function dedupTokens<T extends TokenIdentity>(tokens: T[], chainId: number): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const t of tokens) {
+    const key = t.isNative
+      ? `${chainId}:native:${t.symbol}`
+      : `${chainId}:${t.address ?? t.symbol}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(t);
+    }
+  }
+  return result;
+}

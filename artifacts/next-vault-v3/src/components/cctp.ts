@@ -439,7 +439,7 @@ export async function sendCctpBurn(
       request.functionName,
 
     args:
-      request.args,
+      request.args as unknown as readonly [bigint, number, `0x${string}`, `0x${string}`, `0x${string}`, bigint, number],
   });
 }
 
@@ -576,7 +576,7 @@ export async function startCctpBridge(
       request.functionName,
 
     args:
-      request.args,
+      request.args as unknown as readonly [bigint, number, `0x${string}`, `0x${string}`, `0x${string}`, bigint, number],
   });
 }
 
