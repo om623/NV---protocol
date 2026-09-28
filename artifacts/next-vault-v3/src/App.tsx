@@ -811,16 +811,22 @@ function Home() {
 
   const handleEnvChange = (mode: EnvMode) => {
     setEnvMode(mode);
-    setActiveNetwork(mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET);
+    const net = mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET;
+    setActiveNetwork(net);
+    const netTokens = dedupTokens(getNetworkTokens(net), net.chainId);
+    if (netTokens.length > 0) {
+      setSourceToken(netTokens[0].symbol);
+      setDestToken((netTokens[1] ?? netTokens[0]).symbol);
+      setAmount('');
+      setRealBalances(null);
+    }
   };
   const handleNetworkChange = (network: NetworkConfig) => {
     setActiveNetwork(network);
-    const netTokens = getNetworkTokens(network).map(t => ({ symbol: t.symbol, name: t.name }));
+    const netTokens = dedupTokens(getNetworkTokens(network), network.chainId);
     if (netTokens.length > 0) {
-      const first = netTokens[0];
-      const second = netTokens[1] ?? netTokens[0];
-      setSourceToken(first.symbol);
-      setDestToken(second.symbol);
+      setSourceToken(netTokens[0].symbol);
+      setDestToken((netTokens[1] ?? netTokens[0]).symbol);
       setAmount('');
       setRealBalances(null);
     }
@@ -1122,9 +1128,9 @@ const handleRealSwap = async () => {
 
   const statCards = [
     { label: t('swap.balance'),   value: fmt.currency(simStats.balance, 'USD', 0), Icon: BarChart2,    color: 'text-cyan-400',    glow: 'hover:shadow-[0_0_14px_rgba(34,211,238,0.2)]'  },
-    { label: t('sim.estimatedRoi'),value: `+${simStats.roi.toFixed(2)}%`,  Icon: TrendingUp,   color: 'text-emerald-400', glow: 'hover:shadow-[0_0_14px_rgba(52,211,153,0.2)]'  },
-    { label: t('dash.risk'),   value: `${simStats.risk.toFixed(1)}%`,  Icon: AlertTriangle,color: 'text-yellow-400',  glow: 'hover:shadow-[0_0_14px_rgba(250,204,21,0.15)]' },
-    { label: t('sim.totalTime'),   value: `${simStats.execTime.toFixed(1)}s`, Icon: Clock,     color: 'text-primary',     glow: 'hover:shadow-[0_0_14px_rgba(0,229,188,0.2)]'   },
+    { label: t('sim.estimatedRoi'),value: isValidNum(simStats.roi) ? `+${simStats.roi.toFixed(2)}%` : '—',  Icon: TrendingUp,   color: 'text-emerald-400', glow: 'hover:shadow-[0_0_14px_rgba(52,211,153,0.2)]'  },
+    { label: t('dash.risk'),   value: isValidNum(simStats.risk) ? `${simStats.risk.toFixed(1)}%` : '—',  Icon: AlertTriangle,color: 'text-yellow-400',  glow: 'hover:shadow-[0_0_14px_rgba(250,204,21,0.15)]' },
+    { label: t('sim.totalTime'),   value: isValidNum(simStats.execTime) ? `${simStats.execTime.toFixed(1)}s` : '—', Icon: Clock,     color: 'text-primary',     glow: 'hover:shadow-[0_0_14px_rgba(0,229,188,0.2)]'   },
     { label: t('intel.pools'),   value: `${simStats.poolsAnalyzed}`,     Icon: Database,     color: 'text-violet-400',  glow: 'hover:shadow-[0_0_14px_rgba(167,139,250,0.2)]' },
     { label: t('intel.opportunities'),  value: `${simStats.opportunities}`,     Icon: Target,       color: 'text-orange-400',  glow: 'hover:shadow-[0_0_14px_rgba(251,146,60,0.2)]'  },
   ];
