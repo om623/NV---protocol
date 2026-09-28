@@ -112,29 +112,18 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
       <div className="p-5">
         <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-5 -mt-1" />
 
-        {/* Top row: patrimony + sparkline */}
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono">{t('dash.executiveSummary')}</span>
-            <div className="text-3xl font-mono font-semibold text-foreground mt-1" translate="no">
-              {totalPatrimony !== null ? `${totalPatrimony.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}` : '—'}
-            </div>
-            <div className="flex items-center gap-1.5 text-sm mt-1">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <TrendingUp size={13} /> +2.8% {t('dash.today')}
-              </span>
-              <span className="text-muted-foreground/40 font-mono text-[10px]">{dailyPnl !== null ? `≈ +${dailyPnl.toFixed(0)}` : ''}</span>
-            </div>
-          </div>
-          <svg viewBox={`0 0 ${sparkW} ${sparkH}`} className="w-[200px] shrink-0" style={{ height: sparkH }} preserveAspectRatio="none">
+        {/* Top row: BTC visual chart */}
+        <div className="flex items-center gap-4 mb-5">
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono shrink-0">{t('dash.executiveSummary')}</span>
+          <svg viewBox={`0 0 ${sparkW} ${sparkH}`} className="flex-1" style={{ height: sparkH }} preserveAspectRatio="none">
             <defs>
-              <linearGradient id="execSpark" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(0,229,188)" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="rgb(0,229,188)" stopOpacity={0} />
+              <linearGradient id="execBtcSpark" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(34,211,238)" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="rgb(34,211,238)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <polygon points={`0,${sparkH} ${pts.join(' ')} ${sparkW},${sparkH}`} fill="url(#execSpark)" />
-            <polyline points={pts.join(' ')} fill="none" stroke="rgb(0,229,188)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+            <polygon points={`0,${sparkH} ${pts.join(' ')} ${sparkW},${sparkH}`} fill="url(#execBtcSpark)" />
+            <polyline points={pts.join(' ')} fill="none" stroke="rgb(34,211,238)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
