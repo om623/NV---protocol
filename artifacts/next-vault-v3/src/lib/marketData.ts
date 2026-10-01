@@ -4,6 +4,7 @@ import {
   type CoinGeckoCoin, type GlobalMarketData, type FearGreedData,
   fetchCryptoPrices, fetchGlobalMarket, fetchFearGreed, fetchTotalTvl,
 } from './api';
+import { fetchCommodityPrices } from './commodities';
 
 export type MarketCategory = 'fiat' | 'commodities' | 'indices' | 'crypto' | 'stablecoins';
 
@@ -153,7 +154,19 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'PA',    name: 'Palladium',   category: 'commodities', price: 925.60, decimals: 2, change7d: -0.9 },
   { symbol: 'AL',    name: 'Aluminum',    category: 'commodities', price: 2.34,   decimals: 3, change7d: 0.6 },
   { symbol: 'NI',    name: 'Nickel',      category: 'commodities', price: 16.85,  decimals: 2, change7d: -1.4 },
- 
+
+  // AGRICULTURAL COMMODITIES
+  { symbol: 'ZC', name: 'Corn',          category: 'commodities', price: 522.25, decimals: 2, change7d: 0.05 },
+  { symbol: 'ZW', name: 'Wheat',         category: 'commodities', price: 695.25, decimals: 2, change7d: 0.36 },
+  { symbol: 'ZS', name: 'Soybeans',      category: 'commodities', price: 1300.50,decimals: 2, change7d: 0.21 },
+  { symbol: 'KC', name: 'Coffee',        category: 'commodities', price: 292.70, decimals: 2, change7d: 1.12 },
+  { symbol: 'SB', name: 'Sugar',         category: 'commodities', price: 18.84,  decimals: 2, change7d: 0.0  },
+  { symbol: 'CT', name: 'Cotton',        category: 'commodities', price: 78.86,  decimals: 2, change7d: -4.83 },
+  { symbol: 'CC', name: 'Cocoa',         category: 'commodities', price: 5354.0, decimals: 0, change7d: -1.0 },
+  { symbol: 'OJ', name: 'Orange Juice',  category: 'commodities', price: 153.55, decimals: 2, change7d: -0.03 },
+  { symbol: 'LE', name: 'Live Cattle',   category: 'commodities', price: 220.90, decimals: 2, change7d: 0.05 },
+  { symbol: 'HE', name: 'Lean Hogs',     category: 'commodities', price: 69.68,  decimals: 2, change7d: 1.86 },
+
     // ÍNDICES
   { symbol: 'SPX',  name: 'S&P 500',           category: 'indices', price: 5464.32,  decimals: 2, change7d: 1.4 },
   { symbol: 'NDX',  name: 'Nasdaq 100',        category: 'indices', price: 19842.71, decimals: 2, change7d: 2.6 },
@@ -256,12 +269,18 @@ export async function refreshFromApis(): Promise<void> {
   if (Date.now() - lastApiRefresh < API_REFRESH_INTERVAL) return;
   lastApiRefresh = Date.now();
 
+  // Collect commodity symbols that have Yahoo Finance mappings
+  const commoditySymbols = CURRENT_ASSETS
+    .filter(a => a.category === 'commodities')
+    .map(a => a.symbol);
+
   try {
-    const [priceMap, global, fng, tvl] = await Promise.all([
+    const [priceMap, global, fng, tvl, commodityMap] = await Promise.all([
       fetchCryptoPrices(),
       fetchGlobalMarket(),
       fetchFearGreed(),
       fetchTotalTvl(),
+      fetchCommodityPrices(commoditySymbols),
     ]);
 
     // Merge real crypto prices into assets
@@ -289,6 +308,22 @@ export async function refreshFromApis(): Promise<void> {
           const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
           asset.rsi = Math.round(Math.max(15, Math.min(85, 100 - 100 / (1 + rs))));
         }
+        asset.isLive = true;
+      }
+    }
+
+    // Merge real commodity prices into assets
+    for (const asset of CURRENT_ASSETS) {
+      if (asset.category !== 'commodities') continue;
+      const quote = commodityMap.get(asset.symbol);
+      if (quote) {
+        asset.price = quote.price;
+        asset.change24h = quote.changePercent;
+        if (typeof quote.volume === 'number' && Number.isFinite(quote.volume) && quote.volume > 0) {
+          asset.volume24h = quote.volume;
+        }
+        asset.spark = [...asset.spark.slice(1), asset.price];
+        asset.trend = deriveTrend(asset.change24h);
         asset.isLive = true;
       }
     }
