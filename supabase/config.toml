@@ -1,0 +1,5 @@
+[functions.verify-purchase]
+verify_jwt = false
+
+[functions.commodities-proxy]
+verify_jwt = false
