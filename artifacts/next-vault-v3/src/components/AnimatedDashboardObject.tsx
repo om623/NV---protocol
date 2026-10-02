@@ -44,7 +44,7 @@ export function AnimatedDashboardObject() {
     <div
       ref={ref}
       aria-hidden="true"
-      className="pointer-events-none fixed z-[1]"
+      className="pointer-events-none fixed z-[20]"
       style={{
         left: "50%",
         top: "42%",
