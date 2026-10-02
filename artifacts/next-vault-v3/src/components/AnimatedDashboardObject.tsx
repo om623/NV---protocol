@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
-type Point = {
+type Vec = {
   x: number;
   y: number;
 };
@@ -8,21 +8,23 @@ type Point = {
 type Footprint = {
   x: number;
   y: number;
-  angle: number;
-  age: number;
+  rotation: number;
+  life: number;
   side: number;
 };
 
-type WebNode = {
+type WebPoint = {
   x: number;
   y: number;
-  created: number;
+  born: number;
 };
 
-type WebLine = {
-  a: number;
-  b: number;
-  created: number;
+type Web = {
+  center: Vec;
+  points: WebPoint[];
+  born: number;
+  progress: number;
+  life: number;
 };
 
 export function AnimatedDashboardObject() {
@@ -32,213 +34,534 @@ export function AnimatedDashboardObject() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const reducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    );
-
-    let animationFrame = 0;
     let width = window.innerWidth;
     let height = window.innerHeight;
-    let dpr = 1;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    let lastTime = performance.now();
-    let elapsed = 0;
+    let raf = 0;
+    let previous = performance.now();
 
-    const creature: Point = {
-      x: width * 0.52,
-      y: height * 0.42,
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    );
+
+    /*
+     * ============================================================
+     * WORLD
+     * ============================================================
+     */
+
+    const creature: Vec = {
+      x: width * 0.5,
+      y: height * 0.45,
     };
 
-    const velocity: Point = {
+    const velocity: Vec = {
       x: 0,
       y: 0,
     };
 
-    const target: Point = {
-      x: width * 0.65,
-      y: height * 0.4,
+    const target: Vec = {
+      x: width * 0.75,
+      y: height * 0.35,
     };
 
-    let directionTimer = 0;
-    let pauseTimer = 0;
-    let webTimer = 0;
+    const mouse: Vec = {
+      x: width / 2,
+      y: height / 2,
+    };
 
-    let mouseX = width * 0.5;
-    let mouseY = height * 0.5;
-    let targetMouseX = mouseX;
-    let targetMouseY = mouseY;
+    const desiredMouse: Vec = {
+      x: width / 2,
+      y: height / 2,
+    };
 
     const footprints: Footprint[] = [];
-    const webNodes: WebNode[] = [];
-    const webLines: WebLine[] = [];
+    const webs: Web[] = [];
 
-    const resize = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    let elapsed = 0;
+    let targetAge = 0;
+    let targetDuration = 0;
 
+    let restTime = 0;
+    let footprintClock = 0;
+    let webClock = 0;
+
+    let walking = true;
+
+    /*
+     * ============================================================
+     * RESIZE
+     * ============================================================
+     */
+
+    function resize() {
       width = window.innerWidth;
       height = window.innerHeight;
 
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
 
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      creature.x = Math.min(creature.x, width - 40);
-      creature.y = Math.min(creature.y, height - 40);
-    };
+      creature.x = Math.max(
+        40,
+        Math.min(width - 40, creature.x)
+      );
 
-    const chooseNewTarget = () => {
-      const margin = Math.min(80, width * 0.08);
+      creature.y = Math.max(
+        40,
+        Math.min(height - 40, creature.y)
+      );
+    }
+
+    /*
+     * ============================================================
+     * NEW DESTINATION
+     *
+     * IMPORTANT:
+     * This is what makes the creature actually TRAVEL.
+     * ============================================================
+     */
+
+    function chooseDestination() {
+      const margin = 55;
 
       target.x =
         margin +
-        Math.random() * Math.max(1, width - margin * 2);
+        Math.random() *
+          Math.max(10, width - margin * 2);
 
       target.y =
         margin +
-        Math.random() * Math.max(1, height - margin * 2);
+        Math.random() *
+          Math.max(10, height - margin * 2);
 
-      directionTimer = 3500 + Math.random() * 6500;
+      targetAge = 0;
 
-      // Occasionally make the creature pause.
-      if (Math.random() < 0.22) {
-        pauseTimer = 700 + Math.random() * 1800;
+      targetDuration =
+        3500 +
+        Math.random() * 7000;
+
+      walking = true;
+
+      /*
+       * Occasionally stop at the destination.
+       */
+      if (Math.random() < 0.24) {
+        restTime =
+          800 +
+          Math.random() * 2200;
       }
-    };
+    }
 
-    const distance = (a: Point, b: Point) =>
-      Math.hypot(a.x - b.x, a.y - b.y);
+    /*
+     * ============================================================
+     * DISTANCE
+     * ============================================================
+     */
 
-    const addFootprints = () => {
-      if (velocity.x === 0 && velocity.y === 0) return;
+    function distance(a: Vec, b: Vec) {
+      return Math.hypot(
+        b.x - a.x,
+        b.y - a.y
+      );
+    }
 
-      const angle = Math.atan2(velocity.y, velocity.x);
+    /*
+     * ============================================================
+     * FOOTPRINTS
+     * ============================================================
+     */
 
+    function createFootprint(
+      rotation: number,
+      side: number
+    ) {
       footprints.push({
         x: creature.x,
         y: creature.y,
-        angle,
-        age: 0,
-        side: footprints.length % 2 === 0 ? -1 : 1,
+        rotation,
+        life: 0,
+        side,
       });
 
-      // Keep the visual history light.
-      if (footprints.length > 90) {
+      if (footprints.length > 130) {
         footprints.shift();
       }
-    };
+    }
 
-    const buildWeb = () => {
-      // The creature occasionally chooses its current location
-      // as a new web anchor.
-      if (webNodes.length >= 12) {
-        webNodes.shift();
+    /*
+     * ============================================================
+     * CREATE WEB
+     * ============================================================
+     */
 
-        for (let i = webLines.length - 1; i >= 0; i--) {
-          if (
-            webLines[i].a === 0 ||
-            webLines[i].b === 0
-          ) {
-            webLines.splice(i, 1);
-          }
-        }
-
-        for (const line of webLines) {
-          line.a = Math.max(0, line.a - 1);
-          line.b = Math.max(0, line.b - 1);
-        }
-      }
-
-      const node: WebNode = {
-        x: creature.x,
-        y: creature.y,
-        created: elapsed,
+    function createWeb() {
+      const web: Web = {
+        center: {
+          x: creature.x,
+          y: creature.y,
+        },
+        points: [],
+        born: elapsed,
+        progress: 0,
+        life: 0,
       };
 
-      const newIndex = webNodes.push(node) - 1;
+      /*
+       * Irregular web nodes.
+       */
+      const rings = 4;
+      const nodesPerRing = 7;
 
-      // Connect the new point to nearby points.
-      const nearby = webNodes
-        .map((other, index) => ({
-          index,
-          distance: distance(node, other),
-        }))
-        .filter(
-          item =>
-            item.index !== newIndex &&
-            item.distance < Math.min(width, height) * 0.3
-        )
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 3);
+      for (let ring = 1; ring <= rings; ring++) {
+        const radius =
+          25 +
+          ring * 18 +
+          Math.random() * 14;
 
-      for (const item of nearby) {
-        webLines.push({
-          a: newIndex,
-          b: item.index,
-          created: elapsed,
-        });
+        for (
+          let i = 0;
+          i < nodesPerRing;
+          i++
+        ) {
+          const angle =
+            (i / nodesPerRing) *
+              Math.PI *
+              2 +
+            ring * 0.35;
+
+          web.points.push({
+            x:
+              web.center.x +
+              Math.cos(angle) *
+                radius *
+                (0.8 + Math.random() * 0.4),
+
+            y:
+              web.center.y +
+              Math.sin(angle) *
+                radius *
+                (0.8 + Math.random() * 0.4),
+
+            born: elapsed,
+          });
+        }
       }
 
-      webTimer = 9000 + Math.random() * 10000;
-    };
+      webs.push(web);
 
-    const drawWebs = () => {
-      ctx.save();
+      /*
+       * Keep the screen clean.
+       */
+      if (webs.length > 5) {
+        webs.shift();
+      }
+    }
 
-      for (const line of webLines) {
-        const a = webNodes[line.a];
-        const b = webNodes[line.b];
+    /*
+     * ============================================================
+     * MOUSE
+     * ============================================================
+     */
 
-        if (!a || !b) continue;
+    function pointerMove(
+      event: PointerEvent
+    ) {
+      desiredMouse.x = event.clientX;
+      desiredMouse.y = event.clientY;
+    }
 
-        const age = elapsed - line.created;
-        const opacity = Math.max(
-          0,
-          Math.min(1, age / 1800)
+    /*
+     * ============================================================
+     * UPDATE CREATURE
+     * ============================================================
+     */
+
+    function update(dt: number) {
+      if (reducedMotion.matches) {
+        return;
+      }
+
+      elapsed += dt;
+      targetAge += dt;
+      footprintClock += dt;
+      webClock += dt;
+
+      /*
+       * Smooth mouse.
+       */
+      mouse.x +=
+        (desiredMouse.x - mouse.x) *
+        0.025;
+
+      mouse.y +=
+        (desiredMouse.y - mouse.y) *
+        0.025;
+
+      /*
+       * ----------------------------------------------------------
+       * REST
+       * ----------------------------------------------------------
+       */
+
+      if (restTime > 0) {
+        restTime -= dt;
+
+        velocity.x *= 0.92;
+        velocity.y *= 0.92;
+
+        if (restTime <= 0) {
+          chooseDestination();
+        }
+
+        return;
+      }
+
+      /*
+       * ----------------------------------------------------------
+       * DESTINATION REACHED
+       * ----------------------------------------------------------
+       */
+
+      const distanceToTarget =
+        distance(creature, target);
+
+      if (
+        distanceToTarget < 45 ||
+        targetAge > targetDuration
+      ) {
+        chooseDestination();
+      }
+
+      /*
+       * ----------------------------------------------------------
+       * DIRECTION
+       * ----------------------------------------------------------
+       */
+
+      const dx =
+        target.x - creature.x;
+
+      const dy =
+        target.y - creature.y;
+
+      const targetDistance =
+        Math.max(
+          1,
+          Math.hypot(dx, dy)
         );
 
-        ctx.strokeStyle = `rgba(0,229,188,${0.08 * opacity})`;
-        ctx.lineWidth = 0.7;
+      let directionX =
+        dx / targetDistance;
 
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
+      let directionY =
+        dy / targetDistance;
+
+      /*
+       * Organic wandering.
+       *
+       * This is deliberately NOT circular.
+       */
+      const wanderStrength = 0.45;
+
+      directionX +=
+        Math.sin(elapsed * 0.0011) *
+        wanderStrength;
+
+      directionY +=
+        Math.cos(elapsed * 0.0008) *
+        wanderStrength;
+
+      /*
+       * Very subtle attraction to mouse.
+       */
+      if (width > 700) {
+        directionX +=
+          ((mouse.x - creature.x) / width) *
+          0.08;
+
+        directionY +=
+          ((mouse.y - creature.y) / height) *
+          0.08;
       }
 
-      for (const node of webNodes) {
-        const age = elapsed - node.created;
-        const opacity = Math.max(
-          0,
-          Math.min(1, age / 1500)
+      const directionLength =
+        Math.max(
+          1,
+          Math.hypot(
+            directionX,
+            directionY
+          )
         );
 
-        ctx.fillStyle = `rgba(0,229,188,${0.22 * opacity})`;
+      directionX /= directionLength;
+      directionY /= directionLength;
 
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, 1.7, 0, Math.PI * 2);
-        ctx.fill();
+      /*
+       * ----------------------------------------------------------
+       * REAL ACCELERATION
+       * ----------------------------------------------------------
+       */
+
+      const acceleration = 0.00075 * dt;
+
+      velocity.x +=
+        directionX *
+        acceleration;
+
+      velocity.y +=
+        directionY *
+        acceleration;
+
+      /*
+       * Maximum travel speed.
+       */
+      const maxSpeed = 0.24;
+
+      const speed =
+        Math.hypot(
+          velocity.x,
+          velocity.y
+        );
+
+      if (speed > maxSpeed) {
+        velocity.x =
+          (velocity.x / speed) *
+          maxSpeed;
+
+        velocity.y =
+          (velocity.y / speed) *
+          maxSpeed;
       }
 
-      ctx.restore();
-    };
+      /*
+       * ----------------------------------------------------------
+       * MOVE THROUGH THE SCREEN
+       * ----------------------------------------------------------
+       */
 
-    const drawFootprints = () => {
+      creature.x +=
+        velocity.x * dt;
+
+      creature.y +=
+        velocity.y * dt;
+
+      /*
+       * ----------------------------------------------------------
+       * SCREEN BOUNDARIES
+       *
+       * It doesn't teleport.
+       * It turns around.
+       * ----------------------------------------------------------
+       */
+
+      const margin = 28;
+
+      if (creature.x < margin) {
+        creature.x = margin;
+        velocity.x =
+          Math.abs(velocity.x) + 0.01;
+      }
+
+      if (creature.x > width - margin) {
+        creature.x = width - margin;
+        velocity.x =
+          -Math.abs(velocity.x) - 0.01;
+      }
+
+      if (creature.y < margin) {
+        creature.y = margin;
+        velocity.y =
+          Math.abs(velocity.y) + 0.01;
+      }
+
+      if (creature.y > height - margin) {
+        creature.y = height - margin;
+        velocity.y =
+          -Math.abs(velocity.y) - 0.01;
+      }
+
+      /*
+       * ----------------------------------------------------------
+       * FOOTPRINTS
+       * ----------------------------------------------------------
+       */
+
+      const currentSpeed =
+        Math.hypot(
+          velocity.x,
+          velocity.y
+        );
+
+      if (
+        currentSpeed > 0.035 &&
+        footprintClock > 95
+      ) {
+        footprintClock = 0;
+
+        const angle =
+          Math.atan2(
+            velocity.y,
+            velocity.x
+          );
+
+        createFootprint(
+          angle,
+          Math.random() > 0.5 ? 1 : -1
+        );
+      }
+
+      /*
+       * Age footprints.
+       */
+      for (const footprint of footprints) {
+        footprint.life += dt;
+      }
+
+      /*
+       * ----------------------------------------------------------
+       * WEB CREATION
+       * ----------------------------------------------------------
+       *
+       * After enough exploration the creature
+       * periodically creates a web.
+       * ----------------------------------------------------------
+       */
+
+      if (
+        webClock > 12500 &&
+        currentSpeed < 0.08
+      ) {
+        webClock = 0;
+        createWeb();
+      }
+    }
+
+    /*
+     * ============================================================
+     * DRAW FOOTPRINTS
+     * ============================================================
+     */
+
+    function drawFootprints() {
       ctx.save();
 
       for (const footprint of footprints) {
-        const alpha = Math.max(
-          0,
-          0.22 * (1 - footprint.age / 7000)
-        );
+        const life =
+          1 -
+          footprint.life / 8500;
 
-        if (alpha <= 0) continue;
+        if (life <= 0) continue;
 
         ctx.save();
 
@@ -247,171 +570,426 @@ export function AnimatedDashboardObject() {
           footprint.y
         );
 
-        ctx.rotate(footprint.angle);
+        ctx.rotate(
+          footprint.rotation
+        );
 
-        const offset = footprint.side * 5;
+        const side =
+          footprint.side;
 
-        ctx.strokeStyle = `rgba(80,220,255,${alpha})`;
-        ctx.lineWidth = 0.8;
+        ctx.strokeStyle =
+          `rgba(0,229,188,${0.18 * life})`;
 
-        ctx.beginPath();
-        ctx.moveTo(offset, -2);
-        ctx.lineTo(offset + 3, -5);
-        ctx.stroke();
+        ctx.lineWidth = 0.7;
 
-        ctx.beginPath();
-        ctx.moveTo(offset, 0);
-        ctx.lineTo(offset + 4, 0);
-        ctx.stroke();
+        /*
+         * Three tiny digital claw marks.
+         */
+        for (let i = -1; i <= 1; i++) {
+          ctx.beginPath();
 
-        ctx.beginPath();
-        ctx.moveTo(offset, 2);
-        ctx.lineTo(offset + 3, 5);
-        ctx.stroke();
+          ctx.moveTo(
+            side * 2,
+            i * 3
+          );
+
+          ctx.lineTo(
+            side * 8,
+            i * 5
+          );
+
+          ctx.stroke();
+        }
 
         ctx.restore();
       }
 
       ctx.restore();
-    };
+    }
 
-    const drawCreature = (time: number) => {
-      const angle = Math.atan2(
-        velocity.y,
-        velocity.x
-      );
+    /*
+     * ============================================================
+     * DRAW WEBS
+     * ============================================================
+     */
 
-      const speed = Math.hypot(
-        velocity.x,
-        velocity.y
-      );
+    function drawWebs() {
+      ctx.save();
+
+      for (const web of webs) {
+        web.life += 16;
+
+        /*
+         * Web gradually appears.
+         */
+        web.progress = Math.min(
+          1,
+          (elapsed - web.born) /
+            7000
+        );
+
+        /*
+         * Web gradually disappears after a while.
+         */
+        const lifetime =
+          elapsed - web.born;
+
+        let opacity = 1;
+
+        if (lifetime > 26000) {
+          opacity =
+            Math.max(
+              0,
+              1 -
+                (lifetime - 26000) /
+                  5000
+            );
+        }
+
+        /*
+         * Radial cybernetic threads.
+         */
+        const visiblePoints =
+          Math.floor(
+            web.points.length *
+              web.progress
+          );
+
+        for (
+          let i = 0;
+          i < visiblePoints;
+          i++
+        ) {
+          const point =
+            web.points[i];
+
+          ctx.strokeStyle =
+            `rgba(0,229,188,${0.16 * opacity})`;
+
+          ctx.lineWidth = 0.65;
+
+          ctx.beginPath();
+
+          ctx.moveTo(
+            web.center.x,
+            web.center.y
+          );
+
+          ctx.lineTo(
+            point.x,
+            point.y
+          );
+
+          ctx.stroke();
+        }
+
+        /*
+         * Circular / polygonal threads.
+         */
+        for (
+          let ring = 0;
+          ring < 3;
+          ring++
+        ) {
+          const radius =
+            35 + ring * 25;
+
+          ctx.beginPath();
+
+          for (
+            let i = 0;
+            i <= 14;
+            i++
+          ) {
+            const angle =
+              (i / 14) *
+                Math.PI *
+                2;
+
+            const wobble =
+              Math.sin(
+                i * 2.7 + ring
+              ) * 4;
+
+            const x =
+              web.center.x +
+              Math.cos(angle) *
+                (radius + wobble);
+
+            const y =
+              web.center.y +
+              Math.sin(angle) *
+                (radius + wobble);
+
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+
+          ctx.strokeStyle =
+            `rgba(70,210,255,${0.12 * opacity * web.progress})`;
+
+          ctx.lineWidth = 0.55;
+
+          ctx.stroke();
+        }
+
+        /*
+         * Glowing nodes.
+         */
+        for (
+          let i = 0;
+          i < visiblePoints;
+          i++
+        ) {
+          const point =
+            web.points[i];
+
+          ctx.fillStyle =
+            `rgba(0,229,188,${0.35 * opacity})`;
+
+          ctx.shadowBlur = 8;
+
+          ctx.shadowColor =
+            "rgba(0,229,188,0.8)";
+
+          ctx.beginPath();
+
+          ctx.arc(
+            point.x,
+            point.y,
+            1.3,
+            0,
+            Math.PI * 2
+          );
+
+          ctx.fill();
+        }
+      }
+
+      ctx.shadowBlur = 0;
+
+      ctx.restore();
+    }
+
+    /*
+     * ============================================================
+     * DRAW CREATURE
+     * ============================================================
+     */
+
+    function drawCreature(
+      now: number
+    ) {
+      const speed =
+        Math.hypot(
+          velocity.x,
+          velocity.y
+        );
+
+      const angle =
+        Math.atan2(
+          velocity.y,
+          velocity.x
+        );
+
+      /*
+       * Leg animation is based on ACTUAL movement.
+       */
+      const walkCycle =
+        now *
+        0.018 *
+        Math.max(
+          0.4,
+          speed * 12
+        );
 
       ctx.save();
 
-      ctx.translate(creature.x, creature.y);
-
-      // Soft atmospheric glow.
-      const glow = ctx.createRadialGradient(
-        0,
-        0,
-        0,
-        0,
-        0,
-        55
+      ctx.translate(
+        creature.x,
+        creature.y
       );
 
-      glow.addColorStop(
-        0,
-        'rgba(0,229,188,0.20)'
-      );
-
-      glow.addColorStop(
-        0.35,
-        'rgba(0,180,255,0.07)'
-      );
-
-      glow.addColorStop(
-        1,
-        'rgba(0,0,0,0)'
-      );
-
-      ctx.fillStyle = glow;
-
-      ctx.beginPath();
-      ctx.arc(0, 0, 55, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Rotate the creature in the direction of travel.
       ctx.rotate(angle);
 
-      const legMotion =
-        Math.sin(time * 0.014) *
-        Math.min(1, speed * 0.08);
+      /*
+       * ----------------------------------------------------------
+       * AURA
+       * ----------------------------------------------------------
+       */
 
-      // Eight cybernetic legs.
+      const aura =
+        ctx.createRadialGradient(
+          0,
+          0,
+          0,
+          0,
+          0,
+          58
+        );
+
+      aura.addColorStop(
+        0,
+        "rgba(0,229,188,0.18)"
+      );
+
+      aura.addColorStop(
+        0.35,
+        "rgba(0,180,255,0.08)"
+      );
+
+      aura.addColorStop(
+        1,
+        "rgba(0,0,0,0)"
+      );
+
+      ctx.fillStyle = aura;
+
+      ctx.beginPath();
+
+      ctx.arc(
+        0,
+        0,
+        58,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+      /*
+       * ----------------------------------------------------------
+       * LEGS
+       * ----------------------------------------------------------
+       */
+
       for (let i = 0; i < 8; i++) {
-        const side = i < 4 ? -1 : 1;
+        const side =
+          i < 4 ? -1 : 1;
+
         const row = i % 4;
 
-        const startX = -10 + row * 6;
-        const startY = side * 6;
+        const x =
+          -11 + row * 7;
 
-        const reach =
-          14 +
-          row * 2 +
-          legMotion * (i % 2 === 0 ? 1 : -1);
+        const y =
+          side * 5;
+
+        /*
+         * Alternating walking gait.
+         */
+        const gait =
+          Math.sin(
+            walkCycle +
+              row * 0.9 +
+              (side > 0 ? Math.PI : 0)
+          ) * 4;
+
+        const footX =
+          x +
+          18 +
+          row * 2;
+
+        const footY =
+          side *
+          (17 +
+            row * 4 +
+            gait);
 
         ctx.strokeStyle =
-          'rgba(85,235,255,0.55)';
+          "rgba(70,230,255,0.7)";
 
-        ctx.lineWidth = 0.9;
-        ctx.lineCap = 'round';
+        ctx.lineWidth = 1;
+
+        ctx.lineCap = "round";
 
         ctx.beginPath();
 
-        ctx.moveTo(startX, startY);
+        ctx.moveTo(x, y);
 
-        ctx.quadraticCurveTo(
-          startX + 6,
-          side * (12 + row * 2),
-          startX + reach,
-          side * (18 + row * 3)
+        ctx.lineTo(
+          x + 8,
+          y + side * 8
+        );
+
+        ctx.lineTo(
+          footX,
+          footY
         );
 
         ctx.stroke();
 
-        // Small luminous foot.
+        /*
+         * Foot glow.
+         */
         ctx.fillStyle =
-          'rgba(0,229,188,0.65)';
+          "rgba(0,229,188,0.75)";
 
         ctx.beginPath();
+
         ctx.arc(
-          startX + reach,
-          side * (18 + row * 3),
-          1.15,
+          footX,
+          footY,
+          1.25,
           0,
           Math.PI * 2
         );
+
         ctx.fill();
       }
 
-      // Main body.
-      const body = ctx.createRadialGradient(
-        -3,
-        -3,
+      /*
+       * ----------------------------------------------------------
+       * BODY
+       * ----------------------------------------------------------
+       */
+
+      const body =
+        ctx.createRadialGradient(
+          -3,
+          -3,
+          1,
+          0,
+          0,
+          16
+        );
+
+      body.addColorStop(
+        0,
+        "rgba(255,255,255,1)"
+      );
+
+      body.addColorStop(
+        0.22,
+        "rgba(90,255,230,1)"
+      );
+
+      body.addColorStop(
+        0.55,
+        "rgba(0,205,190,0.75)"
+      );
+
+      body.addColorStop(
         1,
-        0,
-        0,
-        15
-      );
-
-      body.addColorStop(
-        0,
-        'rgba(235,255,252,1)'
-      );
-
-      body.addColorStop(
-        0.25,
-        'rgba(70,255,225,0.9)'
-      );
-
-      body.addColorStop(
-        0.7,
-        'rgba(0,160,210,0.45)'
-      );
-
-      body.addColorStop(
-        1,
-        'rgba(0,229,188,0)'
+        "rgba(0,100,180,0)"
       );
 
       ctx.fillStyle = body;
 
+      ctx.shadowBlur = 18;
+
+      ctx.shadowColor =
+        "rgba(0,229,188,0.9)";
+
       ctx.beginPath();
+
       ctx.ellipse(
         0,
         0,
-        13,
+        14,
         9,
         0,
         0,
@@ -420,200 +998,75 @@ export function AnimatedDashboardObject() {
 
       ctx.fill();
 
-      // Small central core.
-      ctx.fillStyle =
-        'rgba(240,255,255,0.95)';
+      ctx.shadowBlur = 0;
 
-      ctx.shadowBlur = 14;
-      ctx.shadowColor =
-        'rgba(0,229,188,0.9)';
+      /*
+       * ----------------------------------------------------------
+       * CORE
+       * ----------------------------------------------------------
+       */
+
+      ctx.fillStyle =
+        "rgba(240,255,255,0.98)";
 
       ctx.beginPath();
+
       ctx.arc(
-        2,
-        -1,
-        3.2 +
-          Math.sin(time * 0.01) * 0.5,
+        3,
+        0,
+        3.5 +
+          Math.sin(now * 0.008) * 0.6,
         0,
         Math.PI * 2
       );
 
       ctx.fill();
 
-      ctx.shadowBlur = 0;
+      /*
+       * ----------------------------------------------------------
+       * SENSOR LIGHTS
+       * ----------------------------------------------------------
+       */
 
-      // Two tiny sensor lights.
       ctx.fillStyle =
-        'rgba(130,245,255,0.9)';
+        "rgba(120,245,255,0.95)";
 
       ctx.beginPath();
-      ctx.arc(7, -4, 1.3, 0, Math.PI * 2);
-      ctx.arc(7, 4, 1.3, 0, Math.PI * 2);
+
+      ctx.arc(
+        8,
+        -4,
+        1.4,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.arc(
+        8,
+        4,
+        1.4,
+        0,
+        Math.PI * 2
+      );
+
       ctx.fill();
 
       ctx.restore();
-    };
+    }
 
-    const onPointerMove = (event: PointerEvent) => {
-      targetMouseX = event.clientX;
-      targetMouseY = event.clientY;
-    };
+    /*
+     * ============================================================
+     * MAIN LOOP
+     * ============================================================
+     */
 
-    const update = (dt: number) => {
-      if (reducedMotion.matches) return;
-
-      elapsed += dt;
-
-      directionTimer -= dt;
-      pauseTimer -= dt;
-      webTimer -= dt;
-
-      if (
-        directionTimer <= 0 ||
-        distance(creature, target) < 80
-      ) {
-        chooseNewTarget();
-      }
-
-      // Smooth cursor influence rather than direct following.
-      mouseX +=
-        (targetMouseX - mouseX) *
-        0.015;
-
-      mouseY +=
-        (targetMouseY - mouseY) *
-        0.015;
-
-      if (pauseTimer > 0) {
-        velocity.x *= 0.94;
-        velocity.y *= 0.94;
-      } else {
-        const dx = target.x - creature.x;
-        const dy = target.y - creature.y;
-
-        const length = Math.max(
-          1,
-          Math.hypot(dx, dy)
-        );
-
-        let desiredX = dx / length;
-        let desiredY = dy / length;
-
-        // Gentle organic wandering.
-        desiredX +=
-          Math.sin(elapsed * 0.0007) * 0.32;
-
-        desiredY +=
-          Math.cos(elapsed * 0.0009) * 0.32;
-
-        // Very subtle attraction toward the pointer.
-        if (width > 700) {
-          desiredX +=
-            ((mouseX - creature.x) / width) *
-            0.12;
-
-          desiredY +=
-            ((mouseY - creature.y) / height) *
-            0.12;
-        }
-
-        const desiredLength = Math.max(
-          1,
-          Math.hypot(desiredX, desiredY)
-        );
-
-        desiredX /= desiredLength;
-        desiredY /= desiredLength;
-
-        const acceleration = 0.0022 * dt;
-
-        velocity.x +=
-          (desiredX * 0.045 - velocity.x) *
-          acceleration;
-
-        velocity.y +=
-          (desiredY * 0.045 - velocity.y) *
-          acceleration;
-
-        const maxSpeed = 0.16 * dt;
-
-        const currentSpeed = Math.hypot(
-          velocity.x,
-          velocity.y
-        );
-
-        if (currentSpeed > maxSpeed) {
-          velocity.x =
-            (velocity.x / currentSpeed) *
-            maxSpeed;
-
-          velocity.y =
-            (velocity.y / currentSpeed) *
-            maxSpeed;
-        }
-
-        creature.x += velocity.x;
-        creature.y += velocity.y;
-      }
-
-      // Keep the creature inside the viewport.
-      const margin = 35;
-
-      if (creature.x < margin) {
-        creature.x = margin;
-        velocity.x = Math.abs(velocity.x);
-      }
-
-      if (creature.x > width - margin) {
-        creature.x = width - margin;
-        velocity.x = -Math.abs(velocity.x);
-      }
-
-      if (creature.y < margin) {
-        creature.y = margin;
-        velocity.y = Math.abs(velocity.y);
-      }
-
-      if (creature.y > height - margin) {
-        creature.y = height - margin;
-        velocity.y = -Math.abs(velocity.y);
-      }
-
-      // Footprints.
-      if (
-        Math.hypot(velocity.x, velocity.y) > 0.02 &&
-        Math.random() < 0.11
-      ) {
-        addFootprints();
-      }
-
-      for (const footprint of footprints) {
-        footprint.age += dt;
-      }
-
-      while (
-        footprints.length &&
-        footprints[0].age > 7000
-      ) {
-        footprints.shift();
-      }
-
-      // Web construction.
-      if (
-        webTimer <= 0 &&
-        pauseTimer > 0
-      ) {
-        buildWeb();
-      }
-    };
-
-    const draw = (now: number) => {
+    function frame(now: number) {
       const dt = Math.min(
-        40,
-        now - lastTime
+        32,
+        now - previous
       );
 
-      lastTime = now;
+      previous = now;
 
       ctx.clearRect(
         0,
@@ -625,42 +1078,50 @@ export function AnimatedDashboardObject() {
       update(dt);
 
       drawWebs();
+
       drawFootprints();
+
       drawCreature(now);
 
-      animationFrame =
-        requestAnimationFrame(draw);
-    };
+      raf =
+        requestAnimationFrame(frame);
+    }
+
+    /*
+     * ============================================================
+     * START
+     * ============================================================
+     */
 
     resize();
-    chooseNewTarget();
+
+    chooseDestination();
 
     window.addEventListener(
-      'resize',
-      resize,
-      { passive: true }
+      "resize",
+      resize
     );
 
     window.addEventListener(
-      'pointermove',
-      onPointerMove,
+      "pointermove",
+      pointerMove,
       { passive: true }
     );
 
-    animationFrame =
-      requestAnimationFrame(draw);
+    raf =
+      requestAnimationFrame(frame);
 
     return () => {
-      cancelAnimationFrame(animationFrame);
+      cancelAnimationFrame(raf);
 
       window.removeEventListener(
-        'resize',
+        "resize",
         resize
       );
 
       window.removeEventListener(
-        'pointermove',
-        onPointerMove
+        "pointermove",
+        pointerMove
       );
     };
   }, []);
@@ -669,7 +1130,7 @@ export function AnimatedDashboardObject() {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[20] overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-[20]"
     />
   );
 }
