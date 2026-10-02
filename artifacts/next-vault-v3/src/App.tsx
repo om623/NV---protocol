@@ -1207,6 +1207,8 @@ const handleRealSwap = async () => {
       <div className="fixed top-1/4 right-1/4 w-[500px] h-[500px] bg-accent/3 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808009_1px,transparent_1px),linear-gradient(to_bottom,#80808009_1px,transparent_1px)] bg-[size:28px_28px] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,#000_60%,transparent_100%)] pointer-events-none z-0" />
 
+         <AnimatedDashboardObject />
+      
       {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-border/40 bg-background/95 backdrop-blur-xl min-h-screen z-10 relative">
         <SidebarContent activeView={activeView} onNavigate={(v) => {
