@@ -30,6 +30,7 @@ interface CommodityResult {
 }
 
 const SYMBOL_MAP: Record<string, string> = {
+  // Commodities
   XAU: "GC=F",
   XAG: "SI=F",
   WTI: "CL=F",
@@ -49,6 +50,19 @@ const SYMBOL_MAP: Record<string, string> = {
   OJ: "OJ=F",
   LE: "LE=F",
   HE: "HE=F",
+  // Indices
+  SPX: "^GSPC",
+  NDX: "^NDX",
+  DJI: "^DJI",
+  RUT: "^RUT",
+  VIX: "^VIX",
+  FTSE: "^FTSE",
+  DAX: "^GDAXI",
+  CAC: "^FCHI",
+  N225: "^N225",
+  HSI: "^HSI",
+  IBOV: "^BVSP",
+  DXY: "DX-Y.NYB",
 };
 
 async function fetchOne(yahooSymbol: string): Promise<CommodityResult | null> {
