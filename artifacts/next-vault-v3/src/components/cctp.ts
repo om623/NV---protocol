@@ -33,6 +33,7 @@ import {
   optimism,
   optimismSepolia,
   polygon,
+  arc as arcMainnet,
 } from 'viem/chains';
 
 // ─── Arc Testnet (custom chain — not in viem/chains) ─────────────────────────
@@ -43,14 +44,17 @@ export const arcTestnet = defineChain({
   nativeCurrency: {
     name: 'USDC',
     symbol: 'USDC',
-    // Arc native currency is USDC with 6 decimals (confirmed Circle docs)
-    decimals: 6,
+    // Native gas token uses 18 decimals (native precision).
+    // The ERC-20 USDC interface at 0x3600…0000 uses 6 decimals for token amounts.
+    // Source: docs.arc.io/arc/references/connect-to-arc.md
+    decimals: 18,
   },
   rpcUrls: {
-    default: { http: ['https://rpc.testnet.arc.network'] },
+    // Source: docs.arc.io/arc/references/connect-to-arc.md
+    default: { http: ['https://rpc.testnet.arc.io'] },
   },
   blockExplorers: {
-    default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' },
+    default: { name: 'Arc Explorer', url: 'https://explorer.testnet.arc.io' },
   },
 });
 
@@ -89,7 +93,7 @@ export interface CctpNetwork {
   isMainnet: boolean;
   /** Circle Iris attestation API base URL — explicit, never inferred */
   attestationUrl: string;
-  chain: ReturnType<typeof defineChain> | typeof sepolia | typeof baseSepolia | typeof base | typeof mainnet | typeof arbitrum | typeof arbitrumSepolia | typeof optimism | typeof optimismSepolia | typeof polygon;
+  chain: ReturnType<typeof defineChain> | typeof sepolia | typeof baseSepolia | typeof base | typeof mainnet | typeof arbitrum | typeof arbitrumSepolia | typeof optimism | typeof optimismSepolia | typeof polygon | typeof arcMainnet;
   rpcUrl: string;
   explorerUrl: string;
   usdc: Address;
@@ -113,9 +117,11 @@ export const CCTP_NETWORKS: Record<string, CctpNetwork> = {
     isMainnet: false,
     attestationUrl: IRIS_TESTNET,
     chain: arcTestnet,
-    rpcUrl: 'https://rpc.testnet.arc.network',
-    explorerUrl: 'https://testnet.arcscan.app',
-    // Arc USDC: native token, Circle official sentinel address
+    // Source: docs.arc.io/arc/references/connect-to-arc.md
+    rpcUrl: 'https://rpc.testnet.arc.io',
+    explorerUrl: 'https://explorer.testnet.arc.io',
+    // Arc USDC ERC-20 sentinel address — 6 decimals for CCTP amounts.
+    // Source: docs.arc.io/arc/references/contract-addresses.md
     usdc: '0x3600000000000000000000000000000000000000' as Address,
     usdcDecimals: 6,
     tokenMessengerV2: TESTNET_TOKEN_MESSENGER_V2,
@@ -191,7 +197,29 @@ export const CCTP_NETWORKS: Record<string, CctpNetwork> = {
   },
 
   // ── MAINNETS ──────────────────────────────────────────────────────────────
-  // Arc Mainnet is NOT included — chain ID pending independent verification.
+  // All addresses sourced from:
+  //   docs.arc.io/arc/references/contract-addresses.md  (Arc)
+  //   developers.circle.com/cctp/evm-smart-contracts.md (others)
+
+  'arc-mainnet': {
+    id: 'arc-mainnet',
+    name: 'Arc',
+    chainId: 5042,
+    domain: 26,
+    isMainnet: true,
+    attestationUrl: IRIS_MAINNET,
+    // viem ships `arc` (chain ID 5042) as a built-in chain.
+    chain: arcMainnet,
+    rpcUrl: 'https://rpc.mainnet.arc.io',
+    explorerUrl: 'https://explorer.arc.io',
+    // Arc USDC ERC-20 sentinel address — 6 decimals for CCTP amounts.
+    // Native gas token uses 18 decimals but CCTP operates on ERC-20 (6 dec).
+    // Source: docs.arc.io/arc/references/contract-addresses.md
+    usdc: '0x3600000000000000000000000000000000000000' as Address,
+    usdcDecimals: 6,
+    tokenMessengerV2: MAINNET_TOKEN_MESSENGER_V2,
+    messageTransmitterV2: MAINNET_MESSAGE_TRANSMITTER_V2,
+  },
 
   'ethereum': {
     id: 'ethereum',

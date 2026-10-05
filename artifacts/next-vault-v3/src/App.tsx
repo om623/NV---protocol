@@ -819,10 +819,19 @@ function Home() {
 
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
+  /** Pick the first valid same-env CCTP destination that differs from `sourceId`. */
+  const defaultDestFor = (sourceId: string, envType: EnvMode): string => {
+    const found = NETWORKS_CONFIG.find(
+      n => n.id !== sourceId && n.type === envType && getCctpNetwork(n.id) !== null && n.tokens.some(tk => tk.symbol === 'USDC')
+    );
+    return found?.id ?? sourceId;
+  };
+
   const handleEnvChange = (mode: EnvMode) => {
     setEnvMode(mode);
     const net = mode === 'testnet' ? DEFAULT_TESTNET : DEFAULT_MAINNET;
     setActiveNetwork(net);
+    setSwapDestNetworkId(defaultDestFor(net.id, mode));
     const netTokens = dedupTokens(getNetworkTokens(net), net.chainId);
     if (netTokens.length > 0) {
       setSourceToken(netTokens[0].symbol);
@@ -833,6 +842,7 @@ function Home() {
   };
   const handleNetworkChange = (network: NetworkConfig) => {
     setActiveNetwork(network);
+    setSwapDestNetworkId(defaultDestFor(network.id, network.type));
     const netTokens = dedupTokens(getNetworkTokens(network), network.chainId);
     if (netTokens.length > 0) {
       setSourceToken(netTokens[0].symbol);
@@ -981,6 +991,18 @@ function Home() {
     }
     if (!destCctp) {
       toast({ title: 'Unsupported destination network', description: `Selected destination is not supported for CCTP transfers.`, variant: 'destructive' });
+      return;
+    }
+
+    // ── Cross-environment guard ────────────────────────────────────────────────
+    // CCTP testnet and mainnet are completely separate environments.
+    // A testnet burn transaction cannot be attested on mainnet Iris and vice versa.
+    if (sourceCctp.isMainnet !== destCctp.isMainnet) {
+      toast({
+        title: 'Invalid route',
+        description: `Cross-environment transfers are not supported. Both networks must be ${sourceCctp.isMainnet ? 'mainnet' : 'testnet'}.`,
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -1759,9 +1781,16 @@ function Home() {
                         className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 disabled:opacity-50"
                       >
                         {NETWORKS_CONFIG
-                          .filter(n => n.id !== activeNetwork.id && getCctpNetwork(n.id) !== null && n.tokens.some(tk => tk.symbol === 'USDC'))
+                          // Same-env only: testnet → testnet, mainnet → mainnet.
+                          // Exclude source network and networks without CCTP or USDC.
+                          .filter(n =>
+                            n.id !== activeNetwork.id &&
+                            n.type === activeNetwork.type &&
+                            getCctpNetwork(n.id) !== null &&
+                            n.tokens.some(tk => tk.symbol === 'USDC')
+                          )
                           .map(n => (
-                            <option key={n.id} value={n.id}>{n.name}{n.type === 'testnet' ? ' (Testnet)' : ''}</option>
+                            <option key={n.id} value={n.id}>{n.name}</option>
                           ))
                         }
                       </select>

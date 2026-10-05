@@ -49,14 +49,18 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     type: 'testnet',
     color: 'bg-emerald-500',
     icon: 'A',
-    rpcUrl: 'https://rpc.testnet.arc.network',
-    explorerUrl: 'https://testnet.arcscan.app',
-    // Arc native currency is USDC with 6 decimals (confirmed Circle docs)
-    nativeCurrency: { symbol: 'USDC', decimals: 6 },
+    // Source: docs.arc.io/arc/references/connect-to-arc.md
+    rpcUrl: 'https://rpc.testnet.arc.io',
+    explorerUrl: 'https://explorer.testnet.arc.io',
+    // Arc native gas token is USDC. The gas token uses 18 decimals (native precision).
+    // The ERC-20 USDC interface (address 0x3600…0000) uses 6 decimals for token amounts.
+    nativeCurrency: { symbol: 'USDC', decimals: 18 },
     status: 'online',
     tokens: [
-      // USDC is the native gas token on Arc; decimals = 6 (Circle official)
+      // USDC ERC-20 interface — 6 decimals. Source: docs.arc.io/arc/references/contract-addresses.md
       { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x3600000000000000000000000000000000000000', isNative: true },
+      // EURC on Arc Testnet. Source: docs.arc.io/arc/references/contract-addresses.md
+      { symbol: 'EURC', name: 'Euro Coin', decimals: 6, address: '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a', isNative: false },
     ],
   },
   {
@@ -135,6 +139,28 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
   // ── Mainnets ───────────────────────────────────────────────────────────────
   // All CCTP V2 contract addresses sourced from developers.circle.com/cctp/evm-smart-contracts.md
   // All USDC addresses sourced from developers.circle.com/stablecoins/usdc-contract-addresses.md
+  // Arc Mainnet config sourced from docs.arc.io/arc/references/connect-to-arc.md
+  //   and docs.arc.io/arc/references/contract-addresses.md
+  {
+    id: 'arc-mainnet',
+    name: 'Arc',
+    shortName: 'Arc',
+    chainId: 5042,
+    type: 'mainnet' as EnvMode,
+    color: 'bg-emerald-600',
+    icon: 'A',
+    rpcUrl: 'https://rpc.mainnet.arc.io',
+    explorerUrl: 'https://explorer.arc.io',
+    // Arc native gas token is USDC with 18 decimals (native precision).
+    // The ERC-20 USDC interface uses 6 decimals — use 6 for all CCTP operations.
+    nativeCurrency: { symbol: 'USDC', decimals: 18 },
+    status: 'online',
+    tokens: [
+      // USDC is the native gas token on Arc — ERC-20 interface uses 6 decimals.
+      // Source: docs.arc.io/arc/references/contract-addresses.md
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x3600000000000000000000000000000000000000', isNative: true },
+    ],
+  },
   {
     id: 'ethereum',
     name: 'Ethereum',
@@ -254,9 +280,23 @@ export const SIMULATED_WALLET_CHAIN_ID = 1; // Ethereum Mainnet
 export const ARC_TESTNET_CHAIN_PARAMS = {
   chainId: '0x' + (5042002).toString(16), // 0x4D2E32
   chainName: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-  rpcUrls: ['https://rpc.testnet.arc.network'],
-  blockExplorerUrls: ['https://testnet.arcscan.app'],
+  // Native gas token decimals = 18 (native precision). Source: docs.arc.io/arc/references/connect-to-arc.md
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: ['https://rpc.testnet.arc.io'],
+  blockExplorerUrls: ['https://explorer.testnet.arc.io'],
+};
+
+/**
+ * EIP-3085 chain params for Arc Mainnet.
+ * Source: docs.arc.io/arc/references/connect-to-arc.md
+ * Native currency is USDC with 18 decimals (native gas precision).
+ */
+export const ARC_MAINNET_CHAIN_PARAMS = {
+  chainId: '0x' + (5042).toString(16), // 0x13B2
+  chainName: 'Arc',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: ['https://rpc.mainnet.arc.io'],
+  blockExplorerUrls: ['https://explorer.arc.io'],
 };
 
 /**
