@@ -51,12 +51,12 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     icon: 'A',
     rpcUrl: 'https://rpc.testnet.arc.network',
     explorerUrl: 'https://testnet.arcscan.app',
-    nativeCurrency: { symbol: 'USDC', decimals: 18 },
+    // Arc native currency is USDC with 6 decimals (confirmed Circle docs)
+    nativeCurrency: { symbol: 'USDC', decimals: 6 },
     status: 'online',
     tokens: [
-      { symbol: 'USDC', name: 'USD Coin', decimals: 18, address: null, isNative: true },
-      { symbol: 'EURC', name: 'Euro Coin', decimals: 6, address: '0x82aF49447D8a07e3bd9BD0b78325c7F9b5C98E3a', isNative: false },
-      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC is the native gas token on Arc; decimals = 6 (Circle official)
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x3600000000000000000000000000000000000000', isNative: true },
     ],
   },
   {
@@ -73,6 +73,8 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     status: 'online',
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on Ethereum Sepolia — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', isNative: false },
     ],
   },
   {
@@ -88,20 +90,9 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     status: 'online',
     tokens: [
-  {
-    symbol: 'ETH',
-    name: 'Ethereum',
-    decimals: 18,
-    address: null,
-    isNative: true,
-  },
-  {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    decimals: 6,
-    address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    isNative: false,
-  },
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on Base Sepolia — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', isNative: false },
     ],
   },
   {
@@ -115,9 +106,11 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     rpcUrl: 'https://sepolia-rollup.arbitrum.io/rpc',
     explorerUrl: 'https://sepolia.arbiscan.io',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    status: 'unstable',
+    status: 'online',
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on Arbitrum Sepolia — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', isNative: false },
     ],
   },
   {
@@ -134,123 +127,106 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     status: 'online',
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on OP Sepolia — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7', isNative: false },
     ],
   },
-  
 
-// ── Mainnets ───────────────────────────────────────────────────────────────
-{
-  id: 'ethereum',
-  name: 'Ethereum',
-  shortName: 'Ethereum',
-  chainId: 1,
-  type: 'mainnet',
-  color: 'bg-indigo-500',
-  icon: 'E',
-  rpcUrl: 'https://cloudflare-eth.com',
-  explorerUrl: 'https://etherscan.io',
-  nativeCurrency: { symbol: 'ETH', decimals: 18 },
-  status: 'offline',
-  comingSoon: true,
-  tokens: [
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      decimals: 18,
-      address: null,
-      isNative: true,
-    },
-  ],
-},
+  // ── Mainnets ───────────────────────────────────────────────────────────────
+  // All CCTP V2 contract addresses sourced from developers.circle.com/cctp/evm-smart-contracts.md
+  // All USDC addresses sourced from developers.circle.com/stablecoins/usdc-contract-addresses.md
+  {
+    id: 'ethereum',
+    name: 'Ethereum',
+    shortName: 'Ethereum',
+    chainId: 1,
+    type: 'mainnet',
+    color: 'bg-indigo-500',
+    icon: 'E',
+    rpcUrl: 'https://cloudflare-eth.com',
+    explorerUrl: 'https://etherscan.io',
+    nativeCurrency: { symbol: 'ETH', decimals: 18 },
+    status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on Ethereum Mainnet — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', isNative: false },
+    ],
+  },
+  {
+    id: 'base',
+    name: 'Base',
+    shortName: 'Base',
+    chainId: 8453,
+    type: 'mainnet',
+    color: 'bg-blue-600',
+    icon: 'B',
+    rpcUrl: 'https://mainnet.base.org',
+    explorerUrl: 'https://basescan.org',
+    nativeCurrency: { symbol: 'ETH', decimals: 18 },
+    status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on Base Mainnet — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', isNative: false },
+    ],
+  },
+  {
+    id: 'arbitrum',
+    name: 'Arbitrum',
+    shortName: 'Arbitrum',
+    chainId: 42161,
+    type: 'mainnet',
+    color: 'bg-sky-600',
+    icon: 'Ar',
+    rpcUrl: 'https://arb1.arbitrum.io/rpc',
+    explorerUrl: 'https://arbiscan.io',
+    nativeCurrency: { symbol: 'ETH', decimals: 18 },
+    status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on Arbitrum One — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', isNative: false },
+    ],
+  },
+  {
+    id: 'optimism',
+    name: 'Optimism',
+    shortName: 'Optimism',
+    chainId: 10,
+    type: 'mainnet',
+    color: 'bg-red-600',
+    icon: 'O',
+    rpcUrl: 'https://mainnet.optimism.io',
+    explorerUrl: 'https://optimistic.etherscan.io',
+    nativeCurrency: { symbol: 'ETH', decimals: 18 },
+    status: 'online',
+    tokens: [
+      { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
+      // USDC on OP Mainnet — Circle official address
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', isNative: false },
+    ],
+  },
+  {
+    id: 'polygon',
+    name: 'Polygon',
+    shortName: 'Polygon',
+    chainId: 137,
+    type: 'mainnet',
+    color: 'bg-purple-600',
+    icon: 'P',
+    rpcUrl: 'https://polygon-rpc.com',
+    explorerUrl: 'https://polygonscan.com',
+    nativeCurrency: { symbol: 'MATIC', decimals: 18 },
+    status: 'online',
+    tokens: [
+      { symbol: 'MATIC', name: 'Polygon', decimals: 18, address: null, isNative: true },
+      // USDC on Polygon PoS — Circle official address (native USDC, not bridged USDC.e)
+      { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', isNative: false },
+    ],
+  },
+];
 
-{
-  id: 'base',
-  name: 'Base',
-  shortName: 'Base',
-  chainId: 8453,
-  type: 'mainnet',
-  color: 'bg-blue-600',
-  icon: 'B',
-  rpcUrl: 'https://mainnet.base.org',
-  explorerUrl: 'https://basescan.org',
-  nativeCurrency: { symbol: 'ETH', decimals: 18 },
-  status: 'offline',
-  comingSoon: true,
-  tokens: [
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      decimals: 18,
-      address: null,
-      isNative: true,
-    },
-    {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      decimals: 6,
-      address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      isNative: false,
-    },
-    {
-      symbol: 'EURC',
-      name: 'Euro Coin',
-      decimals: 6,
-      address: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42',
-      isNative: false,
-    },
-  ],
-},
-
-{
-  id: 'arbitrum',
-  name: 'Arbitrum',
-  shortName: 'Arbitrum',
-  chainId: 42161,
-  type: 'mainnet',
-  color: 'bg-sky-600',
-  icon: 'Ar',
-  rpcUrl: 'https://arb1.arbitrum.io/rpc',
-  explorerUrl: 'https://arbiscan.io',
-  nativeCurrency: { symbol: 'ETH', decimals: 18 },
-  status: 'offline',
-  comingSoon: true,
-  tokens: [
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      decimals: 18,
-      address: null,
-      isNative: true,
-    },
-  ],
-},
-
-{
-  id: 'optimism',
-  name: 'Optimism',
-  shortName: 'Optimism',
-  chainId: 10,
-  type: 'mainnet',
-  color: 'bg-red-600',
-  icon: 'O',
-  rpcUrl: 'https://mainnet.optimism.io',
-  explorerUrl: 'https://optimistic.etherscan.io',
-  nativeCurrency: { symbol: 'ETH', decimals: 18 },
-  status: 'offline',
-  comingSoon: true,
-  tokens: [
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      decimals: 18,
-      address: null,
-      isNative: true,
-    },
-  ],
-},
-
-];  
-  
 export const TESTNET_NETWORKS =
   NETWORKS_CONFIG.filter(n => n.type === 'testnet');
 
@@ -278,7 +254,7 @@ export const SIMULATED_WALLET_CHAIN_ID = 1; // Ethereum Mainnet
 export const ARC_TESTNET_CHAIN_PARAMS = {
   chainId: '0x' + (5042002).toString(16), // 0x4D2E32
   chainName: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: ['https://rpc.testnet.arc.network'],
   blockExplorerUrls: ['https://testnet.arcscan.app'],
 };

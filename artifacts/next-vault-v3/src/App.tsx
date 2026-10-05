@@ -14,6 +14,14 @@ import {
   getTokensForNetwork, ARC_TOKENS,
 } from './lib/arc';
 import { type WalletInfo, getLegacyProvider } from './lib/walletDiscovery';
+import {
+  getCctpNetwork,
+  approveCctpUsdc,
+  startCctpBridge,
+  waitForCctpAttestation,
+  completeCctpBridge,
+} from './components/cctp';
+import type { EIP1193Provider as ViemEip1193Provider } from 'viem';
 import { useGamification } from './hooks/useGamification';
 import { usePurchases } from './hooks/usePurchases';
 import { SKINS, XP_PACKAGES } from './lib/gamification';
@@ -33,6 +41,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import {
   type EnvMode, type NetworkConfig,
+  NETWORKS_CONFIG,
   TESTNET_NETWORKS, MAINNET_NETWORKS,
   DEFAULT_TESTNET, DEFAULT_MAINNET,
   SIMULATED_WALLET_CHAIN_ID,
@@ -835,11 +844,9 @@ function Home() {
   const handleSwitchNetwork = async () => {
     if (!provider) { setWalletChainId(activeNetwork.chainId); return; }
     try {
-      if (activeNetwork.type === 'testnet') {
-        await ensureNetwork(provider, networkChainParams(activeNetwork));
-      } else {
-        await ensureBaseNetwork(provider);
-      }
+      // Always use networkChainParams which correctly picks up each network's
+      // native currency from the NetworkConfig (ETH, MATIC, USDC, etc.)
+      await ensureNetwork(provider, networkChainParams(activeNetwork));
       const chainId = await getChainId(provider);
       setWalletChainId(chainId);
     } catch {
@@ -849,9 +856,11 @@ function Home() {
   };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
-  // True when a wallet is connected and the active network is a testnet
-  // (real swaps are supported on every registered testnet, not only Arc).
-  const isRealSwap = isConnected && activeNetwork.type === 'testnet';
+  // Destination network for cross-chain CCTP swap (separate from source activeNetwork)
+  const [swapDestNetworkId, setSwapDestNetworkId] = useState<string>('base-sepolia');
+
+  // isRealSwap: wallet connected AND active network has a CCTP config (testnet or mainnet)
+  const isRealSwap = isConnected && getCctpNetwork(activeNetwork.id) !== null;
 
   const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
     try {
@@ -869,11 +878,7 @@ function Home() {
       const accounts = await getAccounts(prov);
       const addr = accounts?.[0];
       if (!addr) { toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' }); return; }
-      if (activeNetwork.type === 'testnet') {
-        await ensureNetwork(prov, networkChainParams(activeNetwork));
-      } else {
-        await ensureBaseNetwork(prov);
-      }
+      await ensureNetwork(prov, networkChainParams(activeNetwork));
       const chainId = await getChainId(prov);
       setProvider(prov);
       setConnectedAddress(addr);
@@ -908,102 +913,232 @@ function Home() {
     toast({ title: t('wallet.disconnected') });
   };
 
-  // ── Real swap via injected EIP-1193 provider (Arc Testnet) ───────────────────
+  // ── Swap CCTP step state ─────────────────────────────────────────────────────
+  const [swapCctpStep, setSwapCctpStep] = useState<string | null>(null);
+  const [swapCctpBurnTx, setSwapCctpBurnTx] = useState<string | null>(null);
+  const [swapCctpMintTx, setSwapCctpMintTx] = useState<string | null>(null);
+  const [swapCctpError, setSwapCctpError] = useState<string | null>(null);
+  const [swapCctpRunning, setSwapCctpRunning] = useState(false);
 
-const handleRealSwap = async () => {
-  const n = parseFloat(amount);
-  if (!n || n <= 0) return;
+  // ── Real CCTP cross-chain USDC swap ──────────────────────────────────────────
 
-  const prov = provider ?? getLegacyProvider();
+  const handleRealSwap = async () => {
+    const n = parseFloat(amount);
+    if (!n || n <= 0) return;
 
-  if (!prov) {
-    toast({
-      title: t('wallet.notFound'),
-      description: t('wallet.installMetamask'),
-      variant: 'destructive',
-    });
-    return;
-  }
+    const prov = provider ?? getLegacyProvider();
 
-  try {
-    const accounts = await getAccounts(prov);
-    const from = accounts?.[0];
+    if (!prov) {
+      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
+      return;
+    }
 
-    if (!from) {
+    // ── Same-chain non-CCTP swap guard ─────────────────────────────────────────
+    // CCTP is cross-chain only. Same-chain USDC→EURC is not supported.
+    if (sourceToken !== 'USDC' || destToken !== 'USDC') {
+      // Cross-chain USDC→USDC is the only supported flow.
+      // Same-chain or non-USDC swaps surface an explicit message.
+      if (sourceToken !== 'USDC') {
+        toast({
+          title: 'Token not supported',
+          description: `Cross-chain transfers only support USDC as the source token. Select USDC to continue.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      // sourceToken is USDC but destToken is not USDC (e.g. EURC on same chain)
       toast({
-        title: t('wallet.accountNotAuth'),
+        title: 'Same-chain USDC → EURC unavailable',
+        description: 'Same-chain USDC → EURC swap is temporarily unavailable. Cross-chain USDC transfers are currently supported.',
         variant: 'destructive',
       });
       return;
     }
 
-    // ─────────────────────────────────────────────
-    // SWITCH TO ACTIVE TESTNET
-    // ─────────────────────────────────────────────
+    // ── Determine destination network ──────────────────────────────────────────
+    // The Swap card operates on a single active network. For cross-chain CCTP
+    // the user must select source = activeNetwork and destination = a different
+    // CCTP network. We use a second network picker stored in swapDestNetwork.
+    // If it is not set or equals the source, we surface an error.
+    const fromNetworkId = activeNetwork.id;
+    const toNetworkId   = swapDestNetworkId;
 
-    await ensureNetwork(prov, networkChainParams(activeNetwork));
-    const chainId = await getChainId(prov);
-    setWalletChainId(chainId);
-
-    // ─────────────────────────────────────────────
-    // TOKEN CONFIGURATION
-    // ─────────────────────────────────────────────
-
-    const tokenMap = getTokensForNetwork(activeNetwork);
-
-    const fromTokenCfg = tokenMap[sourceToken];
-    const toTokenCfg = tokenMap[destToken];
-
-    if (!fromTokenCfg || !toTokenCfg) {
-      throw new Error(
-        `Token não suportado na rede ${activeNetwork.name}: ${sourceToken} → ${destToken}`,
-      );
-    }
-
-    if (fromTokenCfg.isNative) {
-      throw new Error(
-        `Swap de ${sourceToken} (token nativo) não suportado. Use um token ERC-20 como origem.`,
-      );
-    }
-
-    if (!fromTokenCfg.address) {
-      throw new Error(
-        `Endereço do token ${sourceToken} não configurado na rede ${activeNetwork.name}.`,
-      );
-    }
-
-    // ─────────────────────────────────────────────
-    // No DEX router integration exists for any testnet.
-    // The codebase has ERC-20 transfer and CCTP bridge
-    // functions only — no Uniswap, 1inch, or any other
-    // swap protocol. We do NOT fake a swap.
-    // ─────────────────────────────────────────────
-
-    throw new Error(
-      `Nenhum router de swap (DEX) está configurado para ${activeNetwork.name}. ` +
-      `A Bridge CCTP V2 está disponível para transferências cross-chain de USDC.`,
-    );
-
-  } catch (err) {
-    const code = (err as { code?: number })?.code;
-
-    if (code === 4001) {
+    if (!toNetworkId || toNetworkId === fromNetworkId) {
       toast({
-        title: t('wallet.txRefused'),
-        description: t('wallet.walletRefused'),
+        title: 'Select destination network',
+        description: 'Choose a different destination network for the cross-chain transfer.',
         variant: 'destructive',
       });
-    } else {
-      toast({
-        title: t('wallet.swapFailed'),
-        description: (err as Error)?.message || 'Erro desconhecido.',
-        variant: 'destructive',
-      });
+      return;
     }
 
-    console.error('REAL SWAP ERROR:', err);
+    const sourceCctp = getCctpNetwork(fromNetworkId);
+    const destCctp   = getCctpNetwork(toNetworkId);
+
+    if (!sourceCctp) {
+      toast({ title: 'Unsupported source network', description: `${activeNetwork.name} is not supported for CCTP transfers.`, variant: 'destructive' });
+      return;
+    }
+    if (!destCctp) {
+      toast({ title: 'Unsupported destination network', description: `Selected destination is not supported for CCTP transfers.`, variant: 'destructive' });
+      return;
+    }
+
+    // ── Wallet check ───────────────────────────────────────────────────────────
+    let from = connectedAddress;
+    if (!from) {
+      try {
+        const accounts = await getAccounts(prov);
+        from = accounts?.[0] ?? null;
+      } catch { /* handled below */ }
+    }
+    if (!from) {
+      toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' });
+      return;
+    }
+
+    setSwapCctpRunning(true);
+    setSwapCctpStep(null);
+    setSwapCctpBurnTx(null);
+    setSwapCctpMintTx(null);
+    setSwapCctpError(null);
+
+    const step = (msg: string) => {
+      setSwapCctpStep(msg);
+      toast({ title: msg });
+    };
+
+    try {
+      // 1. Switch to source network
+      step(`Switching to ${sourceCctp.name}…`);
+      await ensureNetwork(prov, {
+        chainId: '0x' + sourceCctp.chainId.toString(16),
+        chainName: sourceCctp.name,
+        nativeCurrency: (sourceCctp.chain as { nativeCurrency?: { name: string; symbol: string; decimals: number } }).nativeCurrency ?? { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+        rpcUrls: [sourceCctp.rpcUrl],
+        blockExplorerUrls: [sourceCctp.explorerUrl],
+      });
+      const liveChainId = await getChainId(prov);
+      setWalletChainId(liveChainId);
+
+      // 2. Approve USDC
+      step(`Approving USDC on ${sourceCctp.name}…`);
+      const approveTx = await approveCctpUsdc(
+        prov as unknown as ViemEip1193Provider,
+        from,
+        fromNetworkId,
+        n,
+      );
+
+      // Wait for approval confirmation
+      step('Waiting for approval confirmation…');
+      await waitForEthTx(prov, approveTx);
+
+      // 3. Burn USDC via CCTP
+      step(`Burning ${n} USDC on ${sourceCctp.name}…`);
+      const burnTx = await startCctpBridge(
+        prov as unknown as ViemEip1193Provider,
+        from,
+        fromNetworkId,
+        toNetworkId,
+        n,
+      );
+      setSwapCctpBurnTx(burnTx);
+      toast({
+        title: `USDC burned`,
+        description: `TX: ${burnTx.slice(0, 18)}… — ${sourceCctp.explorerUrl}/tx/${burnTx}`,
+      });
+
+      // Wait for burn confirmation
+      step('Waiting for burn confirmation…');
+      await waitForEthTx(prov, burnTx);
+
+      // 4. Poll Circle Iris for attestation
+      step('Waiting for Circle attestation…');
+      const attestation = await waitForCctpAttestation(fromNetworkId, burnTx);
+
+      // 5. Switch to destination network
+      step(`Switching to ${destCctp.name}…`);
+      await ensureNetwork(prov, {
+        chainId: '0x' + destCctp.chainId.toString(16),
+        chainName: destCctp.name,
+        nativeCurrency: (destCctp.chain as { nativeCurrency?: { name: string; symbol: string; decimals: number } }).nativeCurrency ?? { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+        rpcUrls: [destCctp.rpcUrl],
+        blockExplorerUrls: [destCctp.explorerUrl],
+      });
+
+      // 6. Complete mint on destination
+      step(`Completing transfer on ${destCctp.name}…`);
+      const mintTx = await completeCctpBridge(
+        prov as unknown as ViemEip1193Provider,
+        from,
+        toNetworkId,
+        attestation,
+      );
+      setSwapCctpMintTx(mintTx);
+
+      // Wait for mint confirmation
+      step('Waiting for destination confirmation…');
+      await waitForEthTx(prov, mintTx);
+
+      // 7. Success
+      setSwapCctpStep('Transfer complete!');
+      toast({
+        title: `Transfer complete ✓`,
+        description: `Minted on ${destCctp.name}: ${mintTx.slice(0, 18)}… | ${destCctp.explorerUrl}/tx/${mintTx}`,
+      });
+
+      // Record in recent transactions
+      const simTxId = mintTx;
+      setTransactions(prev => [{
+        id: simTxId,
+        fromToken: 'USDC',
+        toToken: 'USDC',
+        fromAmount: n,
+        toAmount: n,
+        time: 'Just now',
+        status: 'Success',
+      }, ...prev]);
+
+      const xpGained = gamification.recordSwap(simTxId);
+      toast({ title: `+${xpGained} XP` });
+      setAmount('');
+    } catch (err) {
+      const code = (err as { code?: number })?.code;
+      let msg: string;
+
+      if (code === 4001 || code === -32603) {
+        msg = 'Transaction rejected by wallet.';
+      } else if (err instanceof Error) {
+        msg = err.message;
+      } else {
+        msg = 'Unknown error during CCTP transfer.';
+      }
+
+      setSwapCctpError(msg);
+      setSwapCctpStep(null);
+      toast({ title: t('wallet.swapFailed'), description: msg, variant: 'destructive' });
+      console.error('CCTP SWAP ERROR:', err);
+    } finally {
+      setSwapCctpRunning(false);
+    }
+  };
+
+  // ── Helper: wait for an EVM transaction receipt ───────────────────────────────
+  async function waitForEthTx(prov: Eip1193Provider, txHash: string): Promise<void> {
+    const maxMs = 5 * 60 * 1000;
+    const started = Date.now();
+    while (Date.now() - started < maxMs) {
+      const receipt = await prov.request({ method: 'eth_getTransactionReceipt', params: [txHash] });
+      if (receipt) {
+        const status = (receipt as { status?: string }).status;
+        if (status === '0x0') throw new Error('Transaction reverted on-chain.');
+        return;
+      }
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    throw new Error('Transaction confirmation timeout.');
   }
-};
 
   const handleSwap = () => {
     if (isConnected && isRealSwap) {
@@ -1613,6 +1748,26 @@ const handleRealSwap = async () => {
                     </div>
                   </div>
 
+                  {/* ── Destination network selector (real CCTP swap only) ── */}
+                  {isRealSwap && sourceToken === 'USDC' && (
+                    <div className="mt-4 rounded-xl border border-border/40 bg-secondary/20 p-3">
+                      <div className="text-xs text-muted-foreground/60 font-mono mb-2">Destination Network (CCTP)</div>
+                      <select
+                        value={swapDestNetworkId}
+                        onChange={e => setSwapDestNetworkId(e.target.value)}
+                        disabled={swapCctpRunning}
+                        className="w-full bg-background border border-border/50 rounded-xl px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 disabled:opacity-50"
+                      >
+                        {NETWORKS_CONFIG
+                          .filter(n => n.id !== activeNetwork.id && getCctpNetwork(n.id) !== null && n.tokens.some(tk => tk.symbol === 'USDC'))
+                          .map(n => (
+                            <option key={n.id} value={n.id}>{n.name}{n.type === 'testnet' ? ' (Testnet)' : ''}</option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  )}
+
                   <div className="mt-5 mb-2 flex justify-between text-xs font-mono text-muted-foreground/50 px-1">
                     <span className="flex items-center gap-1"><Zap size={11} className="text-primary" /> {t('swap.routing')}</span>
                     <span translate="no">1 {sourceToken} = {formatRate(rate)} {destToken}</span>
@@ -1623,6 +1778,57 @@ const handleRealSwap = async () => {
                         <div className="pt-2.5 pb-1 mt-1.5 mb-1.5 border-t border-border/40 flex justify-between text-xs font-mono px-1">
                           <span className="flex items-center gap-1.5 text-muted-foreground/50"><Flame size={11} className="text-orange-500" /> {t('swap.estGas')}</span>
                           <span className="text-muted-foreground/60">$1.24</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* ── CCTP transfer status panel ───────────────────────── */}
+                  <AnimatePresence>
+                    {(swapCctpStep || swapCctpError || swapCctpBurnTx || swapCctpMintTx) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className={`mt-3 rounded-xl border p-3 text-xs font-mono space-y-1 ${
+                          swapCctpError
+                            ? 'border-red-500/20 bg-red-500/5 text-red-400'
+                            : 'border-primary/20 bg-primary/5 text-primary'
+                        }`}>
+                          {swapCctpError && <div className="flex items-start gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /><span>{swapCctpError}</span></div>}
+                          {swapCctpStep && !swapCctpError && (
+                            <div className="flex items-center gap-1.5">
+                              <Loader2 size={11} className={swapCctpRunning ? 'animate-spin' : ''} />
+                              <span>{swapCctpStep}</span>
+                            </div>
+                          )}
+                          {swapCctpBurnTx && (
+                            <div className="flex items-start gap-1.5 text-muted-foreground/60">
+                              <span className="shrink-0">Burn TX:</span>
+                              <a
+                                href={`${getCctpNetwork(activeNetwork.id)?.explorerUrl ?? ''}/tx/${swapCctpBurnTx}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="truncate hover:text-primary transition-colors"
+                              >
+                                {swapCctpBurnTx.slice(0, 20)}…
+                              </a>
+                            </div>
+                          )}
+                          {swapCctpMintTx && (
+                            <div className="flex items-start gap-1.5 text-emerald-400">
+                              <Check size={11} className="mt-0.5 shrink-0" />
+                              <span className="shrink-0">Mint TX:</span>
+                              <a
+                                href={`${getCctpNetwork(swapDestNetworkId)?.explorerUrl ?? ''}/tx/${swapCctpMintTx}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="truncate hover:text-emerald-300 transition-colors"
+                              >
+                                {swapCctpMintTx.slice(0, 20)}…
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     )}
@@ -1641,17 +1847,22 @@ const handleRealSwap = async () => {
                       )}
                     </button>
                   ) : (
-                    <button onClick={handleSwap} disabled={!amount || parseFloat(amount) <= 0}
+                    <button onClick={handleSwap} disabled={!amount || parseFloat(amount) <= 0 || swapCctpRunning}
                       className={`w-full mt-3 text-base font-semibold py-3.5 rounded-2xl transition-all duration-300 relative overflow-hidden group border cursor-pointer ${
-                        !amount || parseFloat(amount) <= 0
+                        !amount || parseFloat(amount) <= 0 || swapCctpRunning
                           ? 'bg-secondary/40 text-muted-foreground/50 border-border/30 cursor-not-allowed'
                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                       }`}>
                       <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
-                        {isRealSwap ? <Zap size={16} /> : <Wallet size={16} />}
-                        {isRealSwap ? t('action.swapOn') + ' ' + activeNetwork.shortName : t('action.swap')}
+                        {swapCctpRunning ? (
+                          <><Loader2 size={16} className="animate-spin" /> Processing…</>
+                        ) : isRealSwap ? (
+                          <><Zap size={16} /> {t('action.swapOn')} {activeNetwork.shortName}</>
+                        ) : (
+                          <><Wallet size={16} /> {t('action.swap')}</>
+                        )}
                       </span>
-                      {amount && parseFloat(amount) > 0 && (
+                      {amount && parseFloat(amount) > 0 && !swapCctpRunning && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
                       )}
                     </button>
