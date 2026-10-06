@@ -22,6 +22,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    const cfg = LOCALES.find(l => l.code === locale);
+    document.documentElement.dir = cfg?.dir ?? 'ltr';
   }, [locale]);
 
   const t = useCallback((key: string, vars?: Record<string, string | number>) => {

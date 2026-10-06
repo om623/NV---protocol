@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight, Award } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, Terminal, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, Pause, ChevronRight, Award, Newspaper } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -53,6 +53,7 @@ import { isValidNum, safeBalance, safeBalanceFmt, dedupTokens } from './lib/util
 import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
+import { NVIntelligence } from './components/NVIntelligence';
 import type { DashboardContext } from './lib/news';
 
 
@@ -140,11 +141,12 @@ const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge';
+type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
   { key: 'nav.simulation',    Icon: Activity,        view: 'simulacao'      },
+  { key: 'nav.intelligence',  Icon: Newspaper,       view: 'intelligence'   },
   { key: 'nav.history',       Icon: History,         view: 'historico',     comingSoon: true },
   { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
   { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
@@ -1690,6 +1692,11 @@ function Home() {
                     });
                   }}
                 />
+              )}
+
+              {/* ── NV Intelligence View ────────────────────────────────────── */}
+              {activeView === 'intelligence' && (
+                <NVIntelligence />
               )}
 
               {/* ── Bridge View ─────────────────────────────────────────────── */}
