@@ -36,10 +36,61 @@ export interface BridgeTransfer {
 
 export const BRIDGE_NETWORKS: Record<string, CctpNetwork> = CCTP_NETWORKS;
 
+// ─── Mainnet route pairs ──────────────────────────────────────────────────────
+// Each entry [A, B] auto-generates A→B and B→A in BRIDGE_ROUTES below.
+// IDs must match the keys in CCTP_NETWORKS (cctp.ts). Do NOT store any
+// contract addresses or domains here — cctp.ts is the single source of truth.
+//
+// Full mesh of all 25 CCTP V2 EVM mainnet chains (October 2026).
+// Source: developers.circle.com/cctp/concepts/supported-chains-and-domains.md
+
+const MAINNET_IDS = [
+  'arc-mainnet',
+  'ethereum',
+  'base',
+  'arbitrum',
+  'optimism',
+  'polygon',
+  'avalanche',
+  'unichain',
+  'linea',
+  'codex',
+  'sonic',
+  'world-chain',
+  'monad',
+  'sei',
+  'xdc',
+  'hyperevm',
+  'ink',
+  'plume',
+  'edge',
+  'injective',
+  'morph',
+  'pharos',
+  'cronos',
+  'plasma',
+  'xlayer',
+] as const;
+
+// Generate every unique unordered pair (i < j) — 300 pairs → 600 bidirectional routes.
+const MAINNET_ROUTE_PAIRS: [string, string][] = [];
+for (let i = 0; i < MAINNET_IDS.length; i++) {
+  for (let j = i + 1; j < MAINNET_IDS.length; j++) {
+    MAINNET_ROUTE_PAIRS.push([MAINNET_IDS[i], MAINNET_IDS[j]]);
+  }
+}
+
 // ─── Supported Bridge routes ──────────────────────────────────────────────────
-// BridgeView only shows testnet USDC routes — kept exactly as before.
+// Testnet routes (Arc Testnet ↔ Base Sepolia) — preserved as-is.
+// Mainnet routes — full mesh of all 25 CCTP V2 EVM mainnet chains.
+// All contract addresses come from cctp.ts (single source of truth).
+// Cross-environment (mainnet ↔ testnet) routes are intentionally absent —
+// assertSameEnvironment() in cctp.ts enforces this at the executor level too.
 
 const BRIDGE_ROUTES: BridgeRoute[] = [
+
+  // ── Testnet ──────────────────────────────────────────────────────────────
+
   {
     id: 'base-sepolia-arc-usdc',
     fromNetwork: 'base-sepolia',
@@ -76,6 +127,34 @@ const BRIDGE_ROUTES: BridgeRoute[] = [
     fee: 0,
     status: 'coming-soon',
   },
+
+  // ── Mainnet ───────────────────────────────────────────────────────────────
+  // All mainnet routes are bidirectional. Routes are generated below from
+  // MAINNET_ROUTE_PAIRS — each pair [A, B] produces A→B and B→A automatically.
+  // Network IDs match cctp.ts exactly. No addresses are stored here.
+  // Source: developers.circle.com/cctp/references/contract-addresses.md
+  //         developers.circle.com/cctp/concepts/supported-chains-and-domains.md
+
+  ...MAINNET_ROUTE_PAIRS.flatMap(([a, b]) => [
+    {
+      id: `${a}-${b}-usdc`,
+      fromNetwork: a,
+      toNetwork: b,
+      token: 'USDC',
+      estimatedTime: '~2 min',
+      fee: 0,
+      status: 'available' as const,
+    },
+    {
+      id: `${b}-${a}-usdc`,
+      fromNetwork: b,
+      toNetwork: a,
+      token: 'USDC',
+      estimatedTime: '~2 min',
+      fee: 0,
+      status: 'available' as const,
+    },
+  ]),
 ];
 
 // ─── Public API ───────────────────────────────────────────────────────────────

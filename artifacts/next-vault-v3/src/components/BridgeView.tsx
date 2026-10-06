@@ -15,19 +15,65 @@ interface BridgeViewProps {
   connectedAddress: string | null;
 }
 
-const NETWORKS = {
-  'base-sepolia': {
-    name: 'Base Sepolia',
-  },
-  'arc-testnet': {
-    name: 'Arc Testnet',
-  },
-  sepolia: {
-    name: 'Ethereum Sepolia',
-  },
+// ─── Network display metadata ─────────────────────────────────────────────────
+// Keyed by the same IDs used in cctp.ts / bridge.ts.
+
+const TESTNET_NETWORKS = {
+  'base-sepolia':  { name: 'Base Sepolia' },
+  'arc-testnet':   { name: 'Arc Testnet' },
+  'sepolia':       { name: 'Ethereum Sepolia' },
 } as const;
 
-type NetworkId = keyof typeof NETWORKS;
+const MAINNET_NETWORKS = {
+  // IDs match cctp.ts exactly — 25 CCTP V2 EVM mainnet chains (October 2026).
+  'arc-mainnet':   { name: 'Arc' },
+  'ethereum':      { name: 'Ethereum' },
+  'base':          { name: 'Base' },
+  'arbitrum':      { name: 'Arbitrum One' },
+  'optimism':      { name: 'OP Mainnet' },
+  'polygon':       { name: 'Polygon PoS' },
+  'avalanche':     { name: 'Avalanche' },
+  'unichain':      { name: 'Unichain' },
+  'linea':         { name: 'Linea' },
+  'codex':         { name: 'Codex' },
+  'sonic':         { name: 'Sonic' },
+  'world-chain':   { name: 'World Chain' },
+  'monad':         { name: 'Monad' },
+  'sei':           { name: 'Sei' },
+  'xdc':           { name: 'XDC Network' },
+  'hyperevm':      { name: 'HyperEVM' },
+  'ink':           { name: 'Ink' },
+  'plume':         { name: 'Plume' },
+  'edge':          { name: 'EDGE' },
+  'injective':     { name: 'Injective (inEVM)' },
+  'morph':         { name: 'Morph' },
+  'pharos':        { name: 'Pharos' },
+  'cronos':        { name: 'Cronos' },
+  'plasma':        { name: 'Plasma' },
+  'xlayer':        { name: 'X Layer' },
+} as const;
+
+type TestnetId = keyof typeof TESTNET_NETWORKS;
+type MainnetId = keyof typeof MAINNET_NETWORKS;
+type NetworkId = TestnetId | MainnetId;
+
+type EnvMode = 'testnet' | 'mainnet';
+
+const DEFAULT_FROM: Record<EnvMode, NetworkId> = {
+  testnet: 'base-sepolia',
+  mainnet: 'arc-mainnet',
+};
+
+const DEFAULT_TO: Record<EnvMode, NetworkId> = {
+  testnet: 'arc-testnet',
+  mainnet: 'base',
+};
+
+function getNetworkName(id: string): string {
+  if (id in TESTNET_NETWORKS) return TESTNET_NETWORKS[id as TestnetId].name;
+  if (id in MAINNET_NETWORKS) return MAINNET_NETWORKS[id as MainnetId].name;
+  return id;
+}
 
 export function BridgeView({
   provider,
@@ -36,28 +82,41 @@ export function BridgeView({
   const routes = getBridgeRoutes();
 
   // ─────────────────────────────────────────────────────────────
-  // ROTAS DISPONÍVEIS
+  // ENV MODE (testnet / mainnet)
   // ─────────────────────────────────────────────────────────────
+
+  const [envMode, setEnvMode] = useState<EnvMode>('testnet');
+
+  // ─────────────────────────────────────────────────────────────
+  // ROTAS DISPONÍVEIS para o modo atual
+  // ─────────────────────────────────────────────────────────────
+
+  const isMainnet = envMode === 'mainnet';
 
   const availableRoutes = useMemo(
     () =>
-      routes.filter(
-        route =>
-          route.status === 'available' &&
-          route.token === 'USDC',
-      ),
-    [routes],
+      routes.filter(route => {
+        if (route.status !== 'available') return false;
+        if (route.token !== 'USDC') return false;
+        // Keep only routes whose fromNetwork belongs to the active env.
+        const fromIsMainnet = route.fromNetwork in MAINNET_NETWORKS;
+        return isMainnet ? fromIsMainnet : !fromIsMainnet;
+      }),
+    [routes, isMainnet],
   );
+
+  // Networks available for the current env (for the dropdowns).
+  const activeNetworks = isMainnet ? MAINNET_NETWORKS : TESTNET_NETWORKS;
 
   // ─────────────────────────────────────────────────────────────
   // ESTADO DA BRIDGE
   // ─────────────────────────────────────────────────────────────
 
   const [fromNetwork, setFromNetwork] =
-    useState<NetworkId>('base-sepolia');
+    useState<NetworkId>(DEFAULT_FROM[envMode]);
 
   const [toNetwork, setToNetwork] =
-    useState<NetworkId>('arc-testnet');
+    useState<NetworkId>(DEFAULT_TO[envMode]);
 
   const [amount, setAmount] = useState('');
 
@@ -87,6 +146,19 @@ export function BridgeView({
     Boolean(route) &&
     Number(amount) > 0 &&
     status !== 'processing';
+
+  // ─────────────────────────────────────────────────────────────
+  // TROCAR MODO (testnet / mainnet)
+  // ─────────────────────────────────────────────────────────────
+
+  function switchEnvMode(mode: EnvMode) {
+    setEnvMode(mode);
+    setFromNetwork(DEFAULT_FROM[mode]);
+    setToNetwork(DEFAULT_TO[mode]);
+    setStatus('idle');
+    setMessage('');
+    setAmount('');
+  }
 
   // ─────────────────────────────────────────────────────────────
   // TROCAR REDES
@@ -129,7 +201,7 @@ export function BridgeView({
     if (!route) {
       setStatus('error');
       setMessage(
-        `Rota indisponível: ${NETWORKS[fromNetwork].name} → ${NETWORKS[toNetwork].name}`,
+        `Rota indisponível: ${getNetworkName(fromNetwork)} → ${getNetworkName(toNetwork)}`,
       );
       return;
     }
@@ -260,6 +332,37 @@ export function BridgeView({
       </div>
 
       {/* ─────────────────────────────────────────────
+          ENV MODE TOGGLE (Testnet / Mainnet)
+      ───────────────────────────────────────────── */}
+
+      <div className="flex rounded-xl border border-border/40 overflow-hidden text-sm font-medium">
+        <button
+          type="button"
+          onClick={() => switchEnvMode('testnet')}
+          disabled={status === 'processing'}
+          className={`flex-1 py-2 transition-all disabled:cursor-not-allowed ${
+            envMode === 'testnet'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary/20 text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🧪 Testnet
+        </button>
+        <button
+          type="button"
+          onClick={() => switchEnvMode('mainnet')}
+          disabled={status === 'processing'}
+          className={`flex-1 py-2 transition-all disabled:cursor-not-allowed ${
+            envMode === 'mainnet'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary/20 text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🌐 Mainnet
+        </button>
+      </div>
+
+      {/* ─────────────────────────────────────────────
           MAIN CARD
       ───────────────────────────────────────────── */}
 
@@ -295,7 +398,7 @@ export function BridgeView({
             }}
             className="w-full bg-background border border-border/50 rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            {Object.entries(NETWORKS).map(
+            {Object.entries(activeNetworks).map(
               ([id, network]) => (
                 <option
                   key={id}
@@ -357,7 +460,7 @@ export function BridgeView({
             }}
             className="w-full bg-background border border-border/50 rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            {Object.entries(NETWORKS).map(
+            {Object.entries(activeNetworks).map(
               ([id, network]) => (
                 <option
                   key={id}
@@ -428,9 +531,9 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-foreground text-right">
-              {NETWORKS[fromNetwork].name}
+              {getNetworkName(fromNetwork)}
               {' → '}
-              {NETWORKS[toNetwork].name}
+              {getNetworkName(toNetwork)}
             </span>
 
           </div>
