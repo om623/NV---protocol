@@ -32,6 +32,7 @@ import {
 
 import { useI18n } from '../i18n/context';
 import { LOCALES } from '../i18n/types';
+import NVVoicePlayer from './NVVoicePlayer';
 import {
   type NewsItem,
   type NewsCategory,
@@ -645,15 +646,16 @@ function FilterPanel({
   );
 }
 
-// ─── NV News Panel (voice infrastructure) ────────────────────────────────────
+// ─── NV News Panel — voice layer ─────────────────────────────────────────────
 
 function NVNewsPanel({ news }: { news: NewsItem[] }) {
   const { t, locale } = useI18n();
   const queue = useMemo(() => buildNVNewsQueue(news, 10, locale), [news, locale]);
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur overflow-hidden">
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border/30">
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2.5 px-1">
         <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
           <Mic size={14} className="text-amber-400" />
         </div>
@@ -661,58 +663,14 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
           <div className="text-xs font-semibold text-foreground">{t('intel.nvNewsTitle')}</div>
           <div className="text-[9px] text-muted-foreground/50 font-mono">{t('intel.nvNewsSubtitle')}</div>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 rounded-md bg-amber-500/5 border border-amber-500/15 px-2 py-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-amber-400/40" />
-          <span className="text-[9px] font-mono text-amber-400/70">{t('intel.voiceSoon')}</span>
+        <div className="ml-auto flex items-center gap-1.5 rounded-md bg-primary/5 border border-primary/15 px-2 py-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+          <span className="text-[9px] font-mono text-primary/70">{t('voice.live')}</span>
         </div>
       </div>
 
-      <div className="px-4 py-3">
-        <p className="text-xs text-muted-foreground/60 mb-3 leading-relaxed">{t('intel.nvNewsVoice')}</p>
-
-        {queue.length === 0 ? (
-          <p className="text-xs text-muted-foreground/40 italic">{t('intel.nvNewsReady')}</p>
-        ) : (
-          <div className="space-y-2">
-            {queue.map((item, i) => {
-              const catCfg = CATEGORY_CONFIG[item.category];
-              return (
-              <div
-                key={i}
-                className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border ${
-                  item.priority === 'breaking'
-                    ? 'bg-red-500/5 border-red-500/20'
-                    : 'bg-orange-500/5 border-orange-500/10'
-                }`}
-              >
-                <div className={`text-[9px] font-mono font-bold mt-0.5 shrink-0 w-4 text-center ${item.priority === 'breaking' ? 'text-red-400' : 'text-orange-400'}`}>
-                  {i + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                    <span className="text-[9px] font-mono text-muted-foreground/60">{COUNTRY_FLAG[item.country]} {item.country}</span>
-                    <span className={`text-[8px] font-mono px-1 py-0.5 rounded ${catCfg.bg} ${catCfg.color}`}>{item.category}</span>
-                    <span className="ml-auto text-[9px] font-mono text-muted-foreground/40 flex items-center gap-1">
-                      <Clock size={8} />
-                      {formatRelativeTime(new Date(item.publishedAt).getTime() || Date.now(), locale)}
-                    </span>
-                  </div>
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-foreground/80 hover:text-primary transition-colors leading-snug block"
-                  >
-                    {item.headline}
-                  </a>
-                  <div className="mt-1 text-[9px] font-mono text-muted-foreground/40">{item.source}</div>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Player — handles its own empty-state and unsupported fallback */}
+      <NVVoicePlayer queue={queue} />
     </div>
   );
 }
@@ -813,9 +771,9 @@ function NVAgentPanel({ news }: { news: NewsItem[] }) {
             {news.length} {t('intel.agentItems')}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-1 text-[9px] text-muted-foreground/40 font-mono">
-          <Mic size={9} />
-          {t('intel.voiceSoon')}
+        <div className="ml-auto flex items-center gap-1 text-[9px] text-primary/50 font-mono">
+          <Bot size={9} />
+          {t('intel.agentItems')} {news.length > 0 ? '●' : '○'}
         </div>
       </div>
 
