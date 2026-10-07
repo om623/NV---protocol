@@ -301,6 +301,22 @@ export default function NVVoicePlayer({ queue }: Props) {
                     <span className={`text-[8px] font-mono px-1 py-0.5 rounded ${catCfg?.bg ?? 'bg-muted/30'} ${catCfg?.color ?? 'text-muted-foreground'}`}>
                       {item.category}
                     </span>
+                    {/* Editorial tier chip */}
+                    {item.editorialTier === 2 && (
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">
+                        {t('focus.local')}
+                      </span>
+                    )}
+                    {item.editorialTier === 1 && (
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded bg-primary/5 text-primary/50 border border-primary/10">
+                        {t('focus.region')}
+                      </span>
+                    )}
+                    {(item.editorialTier === 0 || item.editorialTier === undefined) && (
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded bg-muted/20 text-muted-foreground/40 border border-border/20">
+                        {t('focus.global')}
+                      </span>
+                    )}
                     {item.priority === 'breaking' && (
                       <span className="flex items-center gap-0.5 text-[8px] font-mono text-red-400 bg-red-500/8 border border-red-500/20 px-1 py-0.5 rounded">
                         <Zap size={7} />

@@ -55,6 +55,7 @@ import {
   answerFromNews,
   formatRelativeTime,
   buildNVNewsQueue,
+  getEditorialFocus,
 } from '../lib/intelligence';
 
 // ─── Badge components ─────────────────────────────────────────────────────────
@@ -646,11 +647,12 @@ function FilterPanel({
   );
 }
 
-// ─── NV News Panel — voice layer ─────────────────────────────────────────────
+// ─── NV News Panel — voice layer with editorial focus ────────────────────────
 
 function NVNewsPanel({ news }: { news: NewsItem[] }) {
   const { t, locale } = useI18n();
   const queue = useMemo(() => buildNVNewsQueue(news, 10, locale), [news, locale]);
+  const focus = useMemo(() => getEditorialFocus(locale), [locale]);
 
   return (
     <div className="space-y-3">
@@ -663,11 +665,17 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
           <div className="text-xs font-semibold text-foreground">{t('intel.nvNewsTitle')}</div>
           <div className="text-[9px] text-muted-foreground/50 font-mono">{t('intel.nvNewsSubtitle')}</div>
         </div>
+        {/* Editorial focus badge */}
         <div className="ml-auto flex items-center gap-1.5 rounded-md bg-primary/5 border border-primary/15 px-2 py-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-          <span className="text-[9px] font-mono text-primary/70">{t('voice.live')}</span>
+          <span className="text-[11px]">{focus.flag}</span>
+          <span className="text-[9px] font-mono text-primary/70">{t(focus.labelKey)}</span>
         </div>
       </div>
+
+      {/* Focus description — single line */}
+      <p className="text-[9px] font-mono text-muted-foreground/40 px-1 leading-relaxed">
+        {t('focus.description')}
+      </p>
 
       {/* Player — handles its own empty-state and unsupported fallback */}
       <NVVoicePlayer queue={queue} />

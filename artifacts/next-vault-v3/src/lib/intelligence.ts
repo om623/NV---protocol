@@ -119,6 +119,13 @@ export interface NVNewsItem {
   url: string;
   /** Script text ready for TTS in the user's selected language */
   voiceScript: string;
+  /**
+   * Editorial relevance to the current locale:
+   *   2 = primary country match (local)
+   *   1 = primary region match
+   *   0 = global / systemic (always preserved)
+   */
+  editorialTier?: 0 | 1 | 2;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1313,16 +1320,176 @@ export function answerFromNews(
   };
 }
 
+// ─── Editorial Priority System ───────────────────────────────────────────────
+//
+// Each NV locale maps to a geographic / market focus that controls NV News
+// editorial ranking.  Rules:
+//   • Primary countries → strongest boost (+4)
+//   • Primary regions   → secondary boost (+2)
+//   • Global categories → always preserved regardless of locale (no penalty)
+//   • Breaking events from ANY region are preserved when globally significant
+//   • Medium/low items from unrelated regions receive a mild demotion (-1)
+
+/** Categories that are always globally relevant and never demoted */
+const GLOBAL_CATEGORIES = new Set<NewsCategory>([
+  'Central Banks',
+  'Geopolitics',
+  'Global Markets',
+  'Regulation',
+  'Crypto/Web3',
+  'Tokenization',
+]);
+
+/** Categories considered of primary systemic importance (never demoted for breaking) */
+const SYSTEMIC_CATEGORIES = new Set<NewsCategory>([
+  'Central Banks',
+  'Geopolitics',
+  'Global Markets',
+]);
+
+export interface EditorialFocus {
+  /** Display label key (i18n) */
+  labelKey: string;
+  /** Primary CountryMarkets — strongest editorial preference */
+  primaryCountries: CountryMarket[];
+  /** Primary MarketRegions — secondary preference */
+  primaryRegions: MarketRegion[];
+  /** BCP-47 of preferred source language for this locale */
+  preferredSourceLang: string;
+  /** Flag emoji for the UI badge */
+  flag: string;
+}
+
+export const LOCALE_EDITORIAL_FOCUS: Record<string, EditorialFocus> = {
+  'pt-BR': {
+    labelKey: 'focus.ptBR',
+    primaryCountries: ['Brazil', 'Latin America'],
+    primaryRegions: ['americas'],
+    preferredSourceLang: 'pt',
+    flag: '🇧🇷',
+  },
+  'en': {
+    labelKey: 'focus.en',
+    primaryCountries: ['USA', 'UK'],
+    primaryRegions: ['americas', 'europe'],
+    preferredSourceLang: 'en',
+    flag: '🇺🇸',
+  },
+  'es': {
+    labelKey: 'focus.es',
+    primaryCountries: ['Latin America', 'Europe'],
+    primaryRegions: ['americas', 'europe'],
+    preferredSourceLang: 'es',
+    flag: '🌎',
+  },
+  'fr': {
+    labelKey: 'focus.fr',
+    primaryCountries: ['Europe'],
+    primaryRegions: ['europe'],
+    preferredSourceLang: 'fr',
+    flag: '🇫🇷',
+  },
+  'zh': {
+    labelKey: 'focus.zh',
+    primaryCountries: ['China'],
+    primaryRegions: ['asia'],
+    preferredSourceLang: 'zh',
+    flag: '🇨🇳',
+  },
+  'ja': {
+    labelKey: 'focus.ja',
+    primaryCountries: ['Japan'],
+    primaryRegions: ['asia'],
+    preferredSourceLang: 'ja',
+    flag: '🇯🇵',
+  },
+  'ko': {
+    labelKey: 'focus.ko',
+    primaryCountries: ['South Korea'],
+    primaryRegions: ['asia'],
+    preferredSourceLang: 'ko',
+    flag: '🇰🇷',
+  },
+  'hi': {
+    labelKey: 'focus.hi',
+    primaryCountries: ['India'],
+    primaryRegions: ['asia'],
+    preferredSourceLang: 'hi',
+    flag: '🇮🇳',
+  },
+  'ar': {
+    labelKey: 'focus.ar',
+    primaryCountries: ['Middle East'],
+    primaryRegions: ['middle-east'],
+    preferredSourceLang: 'ar',
+    flag: '🕌',
+  },
+};
+
+/** Return the editorial focus for a locale, defaulting to 'en' */
+export function getEditorialFocus(locale: string): EditorialFocus {
+  return LOCALE_EDITORIAL_FOCUS[locale] ?? LOCALE_EDITORIAL_FOCUS['en']!;
+}
+
+/**
+ * Compute an editorial score for a single NewsItem under the given locale.
+ *
+ * Score ranges from -1 to +5:
+ *   +4  primary country match (strongest editorial preference)
+ *   +2  primary region match only (no country match)
+ *   +1  source language matches locale's preferred language
+ *   0   global / systemic category (always neutral, never demoted)
+ *   -1  non-primary region AND non-global category AND priority < breaking
+ *
+ * Priority itself is handled separately in PRIORITY_RANK — this score is
+ * ADDED on top of priority to produce the final sort key.
+ */
+export function editorialScore(item: NewsItem, locale: string): number {
+  const focus = getEditorialFocus(locale);
+
+  const countryMatch = (focus.primaryCountries as string[]).includes(item.country);
+  const regionMatch = focus.primaryRegions.includes(item.region);
+  const langMatch = item.originalLanguage.startsWith(focus.preferredSourceLang);
+  const isGlobal = GLOBAL_CATEGORIES.has(item.category) || item.country === 'Global';
+  const isSystemic = SYSTEMIC_CATEGORIES.has(item.category);
+
+  if (countryMatch) {
+    return 4 + (langMatch ? 1 : 0);
+  }
+  if (regionMatch) {
+    return 2 + (langMatch ? 1 : 0);
+  }
+  // Globally important / systemic — neutral (0), always preserved
+  if (isGlobal || isSystemic) {
+    return 0;
+  }
+  // Unrelated region + non-global: mild demotion for medium/low only
+  if (item.priority === 'medium' || item.priority === 'low') {
+    return -1;
+  }
+  // Breaking from any region: 0 (preserved, not boosted)
+  return 0;
+}
+
 // ─── NV News — voice broadcast infrastructure ─────────────────────────────────
 // Selects top-priority items and builds voice scripts.
 // Voice layer (TTS / SpeechSynthesis) not implemented yet — infrastructure ready.
 
 /**
- * Builds the NV News broadcast queue.
- * - Includes breaking + high priority items only
- * - Sorts: breaking first, then by recency
- * - Voice script is locale-aware (opening phrase only; body always in source language)
- * - Never fabricates content; only derives from real item metadata
+ * Builds the NV News broadcast queue with locale-aware editorial prioritization.
+ *
+ * Sorting key = PRIORITY_RANK * 10 - editorialScore - recencyTie
+ *
+ * This means:
+ *   • Breaking events from the primary locale region always lead
+ *   • Breaking from other regions follow (editorial score 0 for non-regional breaking)
+ *   • High-priority local events rank above High from unrelated regions
+ *   • Medium/low items from unrelated regions are demoted and appear last
+ *   • Globally systemic categories (Central Banks, Geopolitics, Global Markets,
+ *     Regulation, Crypto/Web3, Tokenization) are NEVER demoted
+ *
+ * Content is NEVER hidden — only reordered. All real items are eligible;
+ * only the top maxItems appear in the final NV News queue.
  */
 export function buildNVNewsQueue(
   items: NewsItem[],
@@ -1342,28 +1509,59 @@ export function buildNVNewsQueue(
   };
   const phrases = openingPhrases[locale] ?? openingPhrases['en']!;
 
-  return items
-    .filter(i => i.priority === 'breaking' || i.priority === 'high')
-    .sort((a, b) => {
-      const pd = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-      return pd !== 0 ? pd : b.publishedMs - a.publishedMs;
-    })
+  // Include breaking + high; include medium only when it matches the primary focus
+  const focus = getEditorialFocus(locale);
+  const eligible = items.filter(i => {
+    if (i.priority === 'breaking' || i.priority === 'high') return true;
+    if (i.priority === 'medium') {
+      // Keep medium items from primary country or global categories
+      const isLocal = (focus.primaryCountries as string[]).includes(i.country);
+      const isGlobalCat = GLOBAL_CATEGORIES.has(i.category);
+      return isLocal || isGlobalCat;
+    }
+    return false;
+  });
+
+  // Composite sort: lower value = higher rank
+  // = (PRIORITY_RANK * 10) - editorialScore * 2 - recencyTie
+  const sorted = eligible.slice().sort((a, b) => {
+    const aScore = PRIORITY_RANK[a.priority] * 10 - editorialScore(a, locale) * 2;
+    const bScore = PRIORITY_RANK[b.priority] * 10 - editorialScore(b, locale) * 2;
+    if (aScore !== bScore) return aScore - bScore;
+    // Tiebreak: more recent first
+    return b.publishedMs - a.publishedMs;
+  });
+
+  return sorted
     .slice(0, maxItems)
-    .map(item => ({
-      headline: item.title,
-      summary: item.summary || '',
-      source: item.source,
-      country: item.country,
-      region: item.region,
-      category: item.category,
-      priority: item.priority,
-      publishedAt: item.publishedAt,
-      url: item.url,
-      voiceScript:
-        `${item.priority === 'breaking' ? phrases.breaking + ' ' : phrases.high}` +
-        `${COUNTRY_FLAG[item.country]} ${item.country}. ${item.source}: ${item.title}. ` +
-        `${item.summary ? item.summary.slice(0, 180) + '. ' : ''}`,
-    }));
+    .map(item => {
+      const edScore = editorialScore(item, locale);
+      const isLocal = edScore >= 4;
+      const isPrimaryRegion = edScore >= 2 && edScore < 4;
+      // Enrich the voice script with locale context marker
+      const contextNote = isLocal
+        ? `${COUNTRY_FLAG[item.country]} `
+        : isPrimaryRegion
+        ? `${REGION_CONFIG[item.region]?.flag ?? '🌐'} `
+        : '🌐 ';
+      return {
+        headline: item.title,
+        summary: item.summary || '',
+        source: item.source,
+        country: item.country,
+        region: item.region,
+        category: item.category,
+        priority: item.priority,
+        publishedAt: item.publishedAt,
+        url: item.url,
+        /** editorial relevance to current locale: 0=global, 1=region, 2=local */
+        editorialTier: isLocal ? 2 : isPrimaryRegion ? 1 : 0,
+        voiceScript:
+          `${item.priority === 'breaking' ? phrases.breaking + ' ' : phrases.high}` +
+          `${contextNote}${item.source}: ${item.title}. ` +
+          `${item.summary ? item.summary.slice(0, 200) + '. ' : ''}`,
+      };
+    });
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
