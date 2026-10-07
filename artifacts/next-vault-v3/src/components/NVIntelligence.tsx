@@ -140,17 +140,17 @@ function StatsBar({
   clusters: EventCluster[];
   lastUpdate: number;
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const breaking = news.filter(i => i.priority === 'breaking').length;
   const multiConfirmed = clusters.filter(c => c.multiSourceConfirmed).length;
   const sources = [...new Set(news.map(n => n.source))].length;
 
   const stats = [
-    { icon: Newspaper,    value: news.length,      label: 'items',    color: 'text-foreground/70' },
-    { icon: Zap,          value: breaking,          label: 'breaking', color: 'text-red-400' },
-    { icon: Layers,       value: clusters.length,   label: 'events',   color: 'text-cyan-400' },
-    { icon: Users,        value: multiConfirmed,    label: 'confirmed',color: 'text-emerald-400' },
-    { icon: TrendingUp,   value: sources,           label: 'sources',  color: 'text-primary' },
+    { icon: Newspaper,  value: news.length,    label: t('intel.statItems'),     color: 'text-foreground/70' },
+    { icon: Zap,        value: breaking,        label: t('intel.breaking'),      color: 'text-red-400' },
+    { icon: Layers,     value: clusters.length, label: t('intel.statEvents'),    color: 'text-cyan-400' },
+    { icon: Users,      value: multiConfirmed,  label: t('intel.statConfirmed'), color: 'text-emerald-400' },
+    { icon: TrendingUp, value: sources,         label: t('intel.statSources'),   color: 'text-primary' },
   ];
 
   return (
@@ -176,7 +176,8 @@ function StatsBar({
 
 function ClusterCard({ cluster }: { cluster: EventCluster }) {
   const { t, locale } = useI18n();
-  const [expanded, setExpanded] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const rep = cluster.representative;
   const cfg = PRIORITY_CONFIG[cluster.priority];
   const catCfg = CATEGORY_CONFIG[cluster.category];
@@ -221,19 +222,38 @@ function ClusterCard({ cluster }: { cluster: EventCluster }) {
           <ExternalLink size={10} className="inline ml-1 opacity-0 group-hover:opacity-60 transition-opacity" />
         </a>
 
-        {/* Summary */}
+        {/* Context summary line */}
+        {cluster.contextSummary && (
+          <p className="mt-1 text-[10px] text-muted-foreground/50 font-mono">{cluster.contextSummary}</p>
+        )}
+
+        {/* Related categories (cross-topic events) */}
+        {cluster.relatedCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {cluster.relatedCategories.slice(0, 3).map(cat => {
+              const cc = CATEGORY_CONFIG[cat];
+              return (
+                <span key={cat} className={`text-[8px] font-mono px-1 py-0.5 rounded ${cc.bg} ${cc.color} opacity-70`}>
+                  {cat}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Summary (expandable) */}
         {rep.summary && rep.summary.length > 10 && (
           <>
             <button
               type="button"
-              onClick={() => setExpanded(v => !v)}
+              onClick={() => setSummaryOpen(v => !v)}
               className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
             >
-              {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-              {expanded ? t('intel.collapse') : t('intel.expand')}
+              {summaryOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              {summaryOpen ? t('intel.collapse') : t('intel.expand')}
             </button>
             <AnimatePresence>
-              {expanded && (
+              {summaryOpen && (
                 <motion.p
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -247,25 +267,25 @@ function ClusterCard({ cluster }: { cluster: EventCluster }) {
           </>
         )}
 
-        {/* Related sources (when cluster has multiple items) */}
+        {/* Related sources (separate expandable) */}
         {cluster.items.length > 1 && (
           <div className="mt-2">
             <button
               type="button"
-              onClick={() => setExpanded(v => !v)}
+              onClick={() => setSourcesOpen(v => !v)}
               className="text-[9px] font-mono text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
             >
-              {cluster.items.length} {t('intel.relatedSources')} {expanded ? '▲' : '▼'}
+              {cluster.items.length} {t('intel.relatedSources')} {sourcesOpen ? '▲' : '▼'}
             </button>
             <AnimatePresence>
-              {expanded && (
+              {sourcesOpen && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   className="mt-1.5 space-y-1 overflow-hidden"
                 >
-                  {cluster.items.slice(0, 5).map(item => (
+                  {cluster.items.slice(0, 6).map(item => (
                     <a
                       key={item.id}
                       href={item.url}
@@ -455,6 +475,7 @@ interface Filters {
   country: CountryMarket | 'all';
   categories: Set<NewsCategory>;
   priority: NewsPriority | 'all';
+  confirmedOnly: boolean;
 }
 
 function FilterPanel({
@@ -507,7 +528,7 @@ function FilterPanel({
       >
         <Filter size={12} className="text-muted-foreground/50 shrink-0" />
         <span className="text-xs text-muted-foreground/60">{t('intel.language')} · {t('intel.country')} · {t('intel.priority')} · {t('intel.allCategories')}</span>
-        {(filters.categories.size > 0 || filters.country !== 'all' || filters.priority !== 'all') && (
+        {(filters.categories.size > 0 || filters.country !== 'all' || filters.priority !== 'all' || filters.confirmedOnly) && (
           <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
         )}
         {open ? <ChevronUp size={12} className="ml-auto text-muted-foreground/40" /> : <ChevronDown size={12} className="ml-auto text-muted-foreground/40" />}
@@ -590,14 +611,30 @@ function FilterPanel({
                 </div>
               </div>
 
-              {/* Reset */}
-              {(filters.categories.size > 0 || filters.country !== 'all' || filters.priority !== 'all') && (
+              {/* Confirmed events only toggle */}
+              <div>
                 <button
                   type="button"
-                  onClick={() => onChange({ ...filters, categories: new Set(), country: 'all', priority: 'all' })}
+                  onClick={() => onChange({ ...filters, confirmedOnly: !filters.confirmedOnly })}
+                  className={`flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded border transition-all ${
+                    filters.confirmedOnly
+                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                      : 'bg-secondary/20 border-border/30 text-muted-foreground/60 hover:border-border/60'
+                  }`}
+                >
+                  <CheckCircle2 size={9} />
+                  {t('intel.showConfirmed')}
+                </button>
+              </div>
+
+              {/* Reset */}
+              {(filters.categories.size > 0 || filters.country !== 'all' || filters.priority !== 'all' || filters.confirmedOnly) && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...filters, categories: new Set(), country: 'all', priority: 'all', confirmedOnly: false })}
                   className="text-[10px] font-mono text-muted-foreground/40 hover:text-muted-foreground/70 underline transition-colors"
                 >
-                  Reset filters
+                  {t('intel.resetFilters')}
                 </button>
               )}
             </div>
@@ -611,8 +648,8 @@ function FilterPanel({
 // ─── NV News Panel (voice infrastructure) ────────────────────────────────────
 
 function NVNewsPanel({ news }: { news: NewsItem[] }) {
-  const { t } = useI18n();
-  const queue = useMemo(() => buildNVNewsQueue(news, 8), [news]);
+  const { t, locale } = useI18n();
+  const queue = useMemo(() => buildNVNewsQueue(news, 10, locale), [news, locale]);
 
   return (
     <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur overflow-hidden">
@@ -637,34 +674,42 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
           <p className="text-xs text-muted-foreground/40 italic">{t('intel.nvNewsReady')}</p>
         ) : (
           <div className="space-y-2">
-            {queue.map((item, i) => (
+            {queue.map((item, i) => {
+              const catCfg = CATEGORY_CONFIG[item.category];
+              return (
               <div
                 key={i}
-                className={`flex items-start gap-3 rounded-lg px-3 py-2 border ${
+                className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border ${
                   item.priority === 'breaking'
-                    ? 'bg-red-500/5 border-red-500/15'
+                    ? 'bg-red-500/5 border-red-500/20'
                     : 'bg-orange-500/5 border-orange-500/10'
                 }`}
               >
                 <div className={`text-[9px] font-mono font-bold mt-0.5 shrink-0 w-4 text-center ${item.priority === 'breaking' ? 'text-red-400' : 'text-orange-400'}`}>
                   {i + 1}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span className="text-[9px] font-mono text-muted-foreground/50">{COUNTRY_FLAG[item.country]} {item.country}</span>
-                    <span className="text-[9px] font-mono text-muted-foreground/40">{item.source}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span className="text-[9px] font-mono text-muted-foreground/60">{COUNTRY_FLAG[item.country]} {item.country}</span>
+                    <span className={`text-[8px] font-mono px-1 py-0.5 rounded ${catCfg.bg} ${catCfg.color}`}>{item.category}</span>
+                    <span className="ml-auto text-[9px] font-mono text-muted-foreground/40 flex items-center gap-1">
+                      <Clock size={8} />
+                      {formatRelativeTime(new Date(item.publishedAt).getTime() || Date.now(), locale)}
+                    </span>
                   </div>
                   <a
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-foreground/80 hover:text-primary transition-colors leading-snug block truncate"
+                    className="text-xs text-foreground/80 hover:text-primary transition-colors leading-snug block"
                   >
                     {item.headline}
                   </a>
+                  <div className="mt-1 text-[9px] font-mono text-muted-foreground/40">{item.source}</div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -988,6 +1033,7 @@ export function NVIntelligence() {
     country: 'all',
     categories: new Set(),
     priority: 'all',
+    confirmedOnly: false,
   });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1034,6 +1080,7 @@ export function NVIntelligence() {
       if (filters.country !== 'all' && c.country !== filters.country) return false;
       if (filters.priority !== 'all' && c.priority !== filters.priority) return false;
       if (filters.categories.size > 0 && !filters.categories.has(c.category)) return false;
+      if (filters.confirmedOnly && !c.multiSourceConfirmed) return false;
       return true;
     });
   }, [clusters, filters]);

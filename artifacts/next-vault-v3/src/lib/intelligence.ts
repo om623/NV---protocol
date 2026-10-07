@@ -124,7 +124,7 @@ export interface NVNewsItem {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const FEED_REFRESH_MS = 30_000;
-export const MAX_ITEMS = 300;
+export const MAX_ITEMS = 400;
 
 export const ALL_CATEGORIES: NewsCategory[] = [
   'Crypto/Web3',
@@ -218,15 +218,35 @@ function guessCategory(title: string, tags: string[]): NewsCategory {
 
 // ─── Deduplication ────────────────────────────────────────────────────────────
 
+/** Extract a normalised slug from a URL for cross-domain dedup (e.g. syndicated content). */
+function urlSlug(url: string): string {
+  try {
+    const u = new URL(url);
+    // Take the last 2 path segments, strip query/hash
+    const parts = u.pathname.split('/').filter(Boolean);
+    return parts.slice(-2).join('/').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50);
+  } catch {
+    return url.slice(0, 60);
+  }
+}
+
 export function deduplicateNews(items: NewsItem[]): NewsItem[] {
   const seen = new Set<string>();
   const result: NewsItem[] = [];
   for (const item of items) {
     if (seen.has(item.url)) continue;
     seen.add(item.url);
-    const titleKey = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+
+    // Normalised title key (catches same article under slightly different URLs)
+    const titleKey = 't:' + item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
     if (seen.has(titleKey)) continue;
     seen.add(titleKey);
+
+    // URL slug key (catches syndicated/cross-posted articles)
+    const slug = 's:' + urlSlug(item.url);
+    if (slug.length > 4 && seen.has(slug)) continue;
+    seen.add(slug);
+
     result.push(item);
   }
   return result;
@@ -1009,6 +1029,93 @@ export const PROVIDERS: NewsProvider[] = [
       return fetchRss('https://www.ft.com/rss/home', this.id, 'Financial Times', 'https://www.ft.com', this.region, this.country, this.language);
     },
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Latin America — additional sources
+  // ════════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'el-economista-mx',
+    name: 'El Economista (México)',
+    url: 'https://www.eleconomista.com.mx',
+    categories: ['Economy', 'Equities', 'Central Banks', 'M&A'],
+    region: 'americas',
+    country: 'Latin America',
+    language: 'es',
+    async fetch() {
+      return fetchRss('https://www.eleconomista.com.mx/rss/portada.xml', this.id, 'El Economista MX', 'https://www.eleconomista.com.mx', this.region, this.country, this.language, 'Economy');
+    },
+  },
+  {
+    id: 'folha-sp',
+    name: 'Folha de S.Paulo',
+    url: 'https://www.folha.uol.com.br',
+    categories: ['Economy', 'Politics', 'Equities', 'M&A'],
+    region: 'americas',
+    country: 'Brazil',
+    language: 'pt',
+    async fetch() {
+      return fetchRss('https://feeds.folha.uol.com.br/mercado/rss091.xml', this.id, 'Folha de S.Paulo', 'https://www.folha.uol.com.br/mercado', this.region, this.country, this.language, 'Economy');
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Asia — additional sources
+  // ════════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'the-hindu-biz',
+    name: 'The Hindu Business',
+    url: 'https://www.thehindu.com',
+    categories: ['Economy', 'Equities', 'Politics', 'Regulation'],
+    region: 'asia',
+    country: 'India',
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://www.thehindu.com/business/Economy/feeder/default.rss', this.id, 'The Hindu', 'https://www.thehindu.com/business', this.region, this.country, this.language, 'Economy');
+    },
+  },
+  {
+    id: 'dawn-pakistan',
+    name: 'Dawn Business',
+    url: 'https://www.dawn.com',
+    categories: ['Economy', 'Geopolitics', 'Politics'],
+    region: 'asia',
+    country: 'India',   // closest CountryMarket — represents South Asia
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://www.dawn.com/feeds/business', this.id, 'Dawn', 'https://www.dawn.com/business', this.region, this.country, this.language, 'Economy');
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Global — additional quality sources
+  // ════════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'politico-us',
+    name: 'Politico (US)',
+    url: 'https://www.politico.com',
+    categories: ['Politics', 'Economy', 'Regulation'],
+    region: 'americas',
+    country: 'USA',
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://www.politico.com/rss/politicopicks.xml', this.id, 'Politico', 'https://www.politico.com', this.region, this.country, this.language, 'Politics');
+    },
+  },
+  {
+    id: 'asia-times',
+    name: 'Asia Times',
+    url: 'https://asiatimes.com',
+    categories: ['Geopolitics', 'Economy', 'Politics'],
+    region: 'asia',
+    country: 'Global',
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://asiatimes.com/feed/', this.id, 'Asia Times', 'https://asiatimes.com', this.region, this.country, this.language, 'Geopolitics');
+    },
+  },
 ];
 
 // ─── Pending providers (require API keys) ─────────────────────────────────────
@@ -1210,9 +1317,37 @@ export function answerFromNews(
 // Selects top-priority items and builds voice scripts.
 // Voice layer (TTS / SpeechSynthesis) not implemented yet — infrastructure ready.
 
-export function buildNVNewsQueue(items: NewsItem[], maxItems = 8): NVNewsItem[] {
+/**
+ * Builds the NV News broadcast queue.
+ * - Includes breaking + high priority items only
+ * - Sorts: breaking first, then by recency
+ * - Voice script is locale-aware (opening phrase only; body always in source language)
+ * - Never fabricates content; only derives from real item metadata
+ */
+export function buildNVNewsQueue(
+  items: NewsItem[],
+  maxItems = 10,
+  locale: Locale = 'en',
+): NVNewsItem[] {
+  const openingPhrases: Partial<Record<Locale, { breaking: string; high: string }>> = {
+    'pt-BR': { breaking: 'Urgente.', high: '' },
+    'en':    { breaking: 'Breaking news.', high: '' },
+    'es':    { breaking: 'Urgente.', high: '' },
+    'fr':    { breaking: 'Alerte.', high: '' },
+    'zh':    { breaking: '突发新闻。', high: '' },
+    'ja':    { breaking: '速報。', high: '' },
+    'ko':    { breaking: '속보.', high: '' },
+    'hi':    { breaking: 'ब्रेकिंग न्यूज़।', high: '' },
+    'ar':    { breaking: 'خبر عاجل.', high: '' },
+  };
+  const phrases = openingPhrases[locale] ?? openingPhrases['en']!;
+
   return items
     .filter(i => i.priority === 'breaking' || i.priority === 'high')
+    .sort((a, b) => {
+      const pd = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+      return pd !== 0 ? pd : b.publishedMs - a.publishedMs;
+    })
     .slice(0, maxItems)
     .map(item => ({
       headline: item.title,
@@ -1224,12 +1359,10 @@ export function buildNVNewsQueue(items: NewsItem[], maxItems = 8): NVNewsItem[] 
       priority: item.priority,
       publishedAt: item.publishedAt,
       url: item.url,
-      // Voice script format — ready for TTS integration
       voiceScript:
-        `${item.priority === 'breaking' ? 'Breaking news. ' : ''}` +
-        `From ${item.country}. ${item.source} reports: ${item.title}. ` +
-        `${item.summary ? item.summary.slice(0, 200) + '. ' : ''}` +
-        `Source: ${item.source}.`,
+        `${item.priority === 'breaking' ? phrases.breaking + ' ' : phrases.high}` +
+        `${COUNTRY_FLAG[item.country]} ${item.country}. ${item.source}: ${item.title}. ` +
+        `${item.summary ? item.summary.slice(0, 180) + '. ' : ''}`,
     }));
 }
 
@@ -1362,11 +1495,19 @@ export interface EventCluster {
   /** Cluster-level priority (best of all items) */
   priority: NewsPriority;
   category: NewsCategory;
+  /** All distinct categories present in the cluster (for cross-topic events) */
+  relatedCategories: NewsCategory[];
   region: MarketRegion;
   country: CountryMarket;
   publishedMs: number;
   /** True when 2+ independent sources cover this event */
   multiSourceConfirmed: boolean;
+  /**
+   * Short context sentence built from the cluster members.
+   * Combines country + category span and source count.
+   * Never fabricated — only derived from real item metadata.
+   */
+  contextSummary: string;
 }
 
 /** Trigram set for a string (used for Jaccard similarity). */
@@ -1385,8 +1526,14 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 0 : inter / union;
 }
 
-const CLUSTER_TIME_WINDOW_MS = 6 * 3_600_000; // 6 hours
-const CLUSTER_SIM_THRESHOLD  = 0.18;           // Jaccard ≥ 0.18 → same event
+const CLUSTER_TIME_WINDOW_MS         = 6 * 3_600_000;  // 6 hours standard
+const CLUSTER_TIME_WINDOW_BREAKING_MS = 12 * 3_600_000; // 12 hours for breaking
+const CLUSTER_SIM_THRESHOLD           = 0.18;           // Jaccard ≥ 0.18 → same event
+
+// Categories that can bridge into the same cluster (geo-political overlap)
+const BRIDGEABLE_CATEGORIES = new Set<string>([
+  'Geopolitics', 'Politics', 'Economy', 'Central Banks', 'Global Markets',
+]);
 
 const PRIORITY_RANK: Record<NewsPriority, number> = {
   breaking: 0, high: 1, medium: 2, low: 3,
@@ -1411,10 +1558,20 @@ export function clusterNews(items: NewsItem[]): EventCluster[] {
 
   for (let i = 0; i < items.length - 1; i++) {
     for (let j = i + 1; j < items.length; j++) {
-      if (items[i].category !== items[j].category) continue;
+      const catMatch = items[i].category === items[j].category;
+      const bridgeable = BRIDGEABLE_CATEGORIES.has(items[i].category) &&
+                         BRIDGEABLE_CATEGORIES.has(items[j].category);
+      if (!catMatch && !bridgeable) continue;
+
+      // Use extended window when either item is breaking
+      const isBreaking = items[i].priority === 'breaking' || items[j].priority === 'breaking';
+      const timeLimit = isBreaking ? CLUSTER_TIME_WINDOW_BREAKING_MS : CLUSTER_TIME_WINDOW_MS;
       const timeDiff = Math.abs(items[i].publishedMs - items[j].publishedMs);
-      if (timeDiff > CLUSTER_TIME_WINDOW_MS) continue;
-      if (jaccardSim(tgrams[i], tgrams[j]) >= CLUSTER_SIM_THRESHOLD) {
+      if (timeDiff > timeLimit) continue;
+
+      // Raise threshold slightly for cross-category bridges to avoid false positives
+      const threshold = catMatch ? CLUSTER_SIM_THRESHOLD : CLUSTER_SIM_THRESHOLD + 0.08;
+      if (jaccardSim(tgrams[i], tgrams[j]) >= threshold) {
         union(i, j);
       }
     }
@@ -1440,6 +1597,17 @@ export function clusterNews(items: NewsItem[]): EventCluster[] {
 
     const rep = members[0];
     const uniqueSources = [...new Set(members.map(m => m.source))];
+    const uniqueCategories = [...new Set(members.map(m => m.category))] as NewsCategory[];
+    const uniqueCountries  = [...new Set(members.map(m => m.country))];
+
+    // contextSummary: purely derived from metadata, no fabrication
+    const coverageStr = uniqueCountries.length > 1
+      ? uniqueCountries.slice(0, 3).join(', ')
+      : uniqueCountries[0];
+    const confirmStr = uniqueSources.length >= 2
+      ? ` · ${uniqueSources.length} sources`
+      : '';
+    const contextSummary = `${coverageStr}${confirmStr}`;
 
     clusters.push({
       id: rep.id,
@@ -1449,10 +1617,12 @@ export function clusterNews(items: NewsItem[]): EventCluster[] {
       sources: uniqueSources,
       priority: rep.priority,
       category: rep.category,
+      relatedCategories: uniqueCategories.filter(c => c !== rep.category),
       region: rep.region,
       country: rep.country,
       publishedMs: rep.publishedMs,
       multiSourceConfirmed: uniqueSources.length >= 2,
+      contextSummary,
     });
   }
 
