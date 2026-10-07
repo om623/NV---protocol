@@ -33,6 +33,7 @@ import {
 import { useI18n } from '../i18n/context';
 import { LOCALES } from '../i18n/types';
 import NVVoicePlayer from './NVVoicePlayer';
+import { NVLiveProvider } from './NVLiveContext';
 import {
   type NewsItem,
   type NewsCategory,
@@ -1060,6 +1061,9 @@ export function NVIntelligence() {
 
   const breakingCount = useMemo(() => news.filter(n => n.priority === 'breaking').length, [news]);
 
+  // NV News queue for the Live provider — rebuilt whenever news or locale changes
+  const nvNewsQueue = useMemo(() => buildNVNewsQueue(news, 20, locale), [news, locale]);
+
   // Active sources list
   const activeSources = useMemo(() => [...new Set(news.map(n => n.source))].sort(), [news]);
 
@@ -1070,6 +1074,7 @@ export function NVIntelligence() {
   ];
 
   return (
+    <NVLiveProvider queue={nvNewsQueue}>
     <div className="w-full max-w-5xl mx-auto space-y-5">
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
@@ -1292,5 +1297,6 @@ export function NVIntelligence() {
         </div>
       )}
     </div>
+    </NVLiveProvider>
   );
 }

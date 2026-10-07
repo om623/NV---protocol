@@ -23,11 +23,12 @@ import {
   Radio,
   AlertCircle,
   Loader2,
+  Timer,
 } from 'lucide-react';
 import type { NVNewsItem } from '../lib/intelligence';
 import { COUNTRY_FLAG, CATEGORY_CONFIG, formatRelativeTime } from '../lib/intelligence';
 import { useNVVoice } from '../lib/useNVVoice';
-import { useNVLive } from '../lib/useNVLive';
+import { useNVLiveContext } from './NVLiveContext';
 import { useI18n } from '../i18n/context';
 
 interface Props {
@@ -45,7 +46,7 @@ export default function NVVoicePlayer({ queue }: Props) {
   const { supported, state, currentIndex, speed, setSpeed, play, pause, resume, stop, skipTo } =
     useNVVoice(locale);
 
-  // Live mode
+  // Live mode — reads from the singleton context (persists across navigation)
   const {
     liveEnabled,
     toggleLive,
@@ -53,16 +54,25 @@ export default function NVVoicePlayer({ queue }: Props) {
     currentLiveItem,
     needsActivation,
     unlockAutoplay,
-  } = useNVLive(queue, locale);
+    cooldownRemainingMs,
+    updateQueue,
+  } = useNVLiveContext();
 
   const isPlaying = state === 'playing';
   const isPaused = state === 'paused';
   const isActive = isPlaying || isPaused;
 
-  // When Live is on, stop the manual player to avoid conflicts
+  // When Live is turned ON: stop manual player to avoid conflicts,
+  // then immediately seed the queue with current items.
   const handleToggleLive = () => {
     if (!liveEnabled && isActive) stop();
     toggleLive();
+    // If turning ON, pass current queue now (provider also does this on refresh,
+    // but the first activation needs an immediate seed).
+    if (!liveEnabled) {
+      // toggleLive flips to ON — seed immediately
+      setTimeout(() => updateQueue(queue), 0);
+    }
   };
 
   const displayQueue = useMemo(() => queue, [queue]);
@@ -115,6 +125,18 @@ export default function NVVoicePlayer({ queue }: Props) {
               {pendingQueue.length > 0 && (
                 <span className="text-[9px] font-mono bg-red-500/15 text-red-400 border border-red-500/25 rounded px-1.5 py-0.5 shrink-0">
                   +{pendingQueue.length} {t('live.pending')}
+                </span>
+              )}
+            </>
+          ) : cooldownRemainingMs > 0 ? (
+            <>
+              <Timer size={11} className="text-muted-foreground/40 shrink-0" />
+              <span className="text-[10px] font-mono text-muted-foreground/50 flex-1">
+                {t('live.cooldown')} {Math.ceil(cooldownRemainingMs / 60000)}m
+              </span>
+              {pendingQueue.length > 0 && (
+                <span className="text-[9px] font-mono bg-primary/10 text-primary border border-primary/20 rounded px-1.5 py-0.5 shrink-0">
+                  {pendingQueue.length} {t('live.pending')}
                 </span>
               )}
             </>
