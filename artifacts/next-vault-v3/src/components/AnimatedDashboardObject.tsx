@@ -31,11 +31,17 @@ export function AnimatedDashboardObject() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const canvasRaw = canvasRef.current;
+    if (!canvasRaw) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const ctxRaw = canvasRaw.getContext("2d");
+    if (!ctxRaw) return;
+
+    // Alias as non-null for inner function closures
+    const canvas = canvasRaw!;
+    const ctx = ctxRaw!;
+
+
 
     let width = window.innerWidth;
     let height = window.innerHeight;

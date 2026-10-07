@@ -24,6 +24,10 @@ import {
   MapPin,
   Tag,
   Languages,
+  Layers,
+  TrendingUp,
+  Users,
+  Zap,
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/context';
@@ -35,6 +39,7 @@ import {
   type CountryMarket,
   type NewsPriority,
   type AgentMessage,
+  type EventCluster,
   ALL_CATEGORIES,
   ALL_REGIONS,
   ALL_COUNTRY_MARKETS,
@@ -45,7 +50,7 @@ import {
   LANGUAGE_LABELS,
   FEED_REFRESH_MS,
   PENDING_PROVIDERS,
-  fetchAllNews,
+  fetchAllNewsWithClusters,
   answerFromNews,
   formatRelativeTime,
   buildNVNewsQueue,
@@ -82,6 +87,223 @@ function CountryBadge({ country, region }: { country: CountryMarket; region: Mar
       <span>{COUNTRY_FLAG[country]}</span>
       <span>{country}</span>
     </span>
+  );
+}
+
+// ─── Breaking Ticker ─────────────────────────────────────────────────────────
+
+function BreakingTicker({ items }: { items: NewsItem[] }) {
+  const breaking = items.filter(i => i.priority === 'breaking');
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (breaking.length <= 1) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % breaking.length), 5000);
+    return () => clearInterval(t);
+  }, [breaking.length]);
+  if (!breaking.length) return null;
+  const item = breaking[idx % breaking.length];
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/8 px-3 py-2 overflow-hidden">
+      <span className="flex items-center gap-1 shrink-0 text-[9px] font-mono font-bold text-red-400 tracking-widest uppercase">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+        BREAKING
+      </span>
+      <div className="flex-1 min-w-0">
+        <AnimatePresence mode="wait">
+          <motion.a
+            key={item.id}
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="block text-[11px] text-red-300 hover:text-red-200 truncate transition-colors"
+          >
+            {COUNTRY_FLAG[item.country]} {item.title}
+          </motion.a>
+        </AnimatePresence>
+      </div>
+      <span className="shrink-0 text-[9px] font-mono text-red-400/50">{item.source}</span>
+    </div>
+  );
+}
+
+// ─── Stats Bar ────────────────────────────────────────────────────────────────
+
+function StatsBar({
+  news,
+  clusters,
+  lastUpdate,
+}: {
+  news: NewsItem[];
+  clusters: EventCluster[];
+  lastUpdate: number;
+}) {
+  const { locale } = useI18n();
+  const breaking = news.filter(i => i.priority === 'breaking').length;
+  const multiConfirmed = clusters.filter(c => c.multiSourceConfirmed).length;
+  const sources = [...new Set(news.map(n => n.source))].length;
+
+  const stats = [
+    { icon: Newspaper,    value: news.length,      label: 'items',    color: 'text-foreground/70' },
+    { icon: Zap,          value: breaking,          label: 'breaking', color: 'text-red-400' },
+    { icon: Layers,       value: clusters.length,   label: 'events',   color: 'text-cyan-400' },
+    { icon: Users,        value: multiConfirmed,    label: 'confirmed',color: 'text-emerald-400' },
+    { icon: TrendingUp,   value: sources,           label: 'sources',  color: 'text-primary' },
+  ];
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap px-1">
+      {stats.map(s => (
+        <div key={s.label} className="flex items-center gap-1.5">
+          <s.icon size={11} className={s.color} />
+          <span className={`text-[11px] font-mono font-semibold ${s.color}`}>{s.value}</span>
+          <span className="text-[10px] text-muted-foreground/40 font-mono">{s.label}</span>
+        </div>
+      ))}
+      {lastUpdate > 0 && (
+        <div className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground/40 font-mono">
+          <Radio size={9} className="text-emerald-400" />
+          {formatRelativeTime(lastUpdate, locale)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Cluster Card ─────────────────────────────────────────────────────────────
+
+function ClusterCard({ cluster }: { cluster: EventCluster }) {
+  const { t, locale } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  const rep = cluster.representative;
+  const cfg = PRIORITY_CONFIG[cluster.priority];
+  const catCfg = CATEGORY_CONFIG[cluster.category];
+  const regionCfg = REGION_CONFIG[cluster.region];
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`rounded-xl border bg-card/60 hover:bg-card/80 transition-all duration-200 overflow-hidden ${
+        cluster.priority === 'breaking' ? 'border-red-500/30' : 'border-border/40 hover:border-primary/20'
+      }`}
+    >
+      <div className="p-4">
+        {/* Top row */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <PriorityBadge priority={cluster.priority} />
+          <span className={`inline-flex text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded ${catCfg.bg} ${catCfg.color}`}>
+            {cluster.category}
+          </span>
+          {cluster.multiSourceConfirmed && (
+            <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <CheckCircle2 size={8} />
+              {cluster.sources.length} {t('intel.confirmed')}
+            </span>
+          )}
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground/50 font-mono shrink-0">
+            <Clock size={9} />
+            {formatRelativeTime(cluster.publishedMs, locale)}
+          </span>
+        </div>
+
+        {/* Headline */}
+        <a
+          href={rep.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-sm font-medium text-foreground hover:text-primary transition-colors leading-snug group"
+        >
+          {cluster.headline}
+          <ExternalLink size={10} className="inline ml-1 opacity-0 group-hover:opacity-60 transition-opacity" />
+        </a>
+
+        {/* Summary */}
+        {rep.summary && rep.summary.length > 10 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setExpanded(v => !v)}
+              className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              {expanded ? t('intel.collapse') : t('intel.expand')}
+            </button>
+            <AnimatePresence>
+              {expanded && (
+                <motion.p
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-2 text-xs text-muted-foreground/70 leading-relaxed overflow-hidden"
+                >
+                  {rep.summary}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+
+        {/* Related sources (when cluster has multiple items) */}
+        {cluster.items.length > 1 && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => setExpanded(v => !v)}
+              className="text-[9px] font-mono text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+            >
+              {cluster.items.length} {t('intel.relatedSources')} {expanded ? '▲' : '▼'}
+            </button>
+            <AnimatePresence>
+              {expanded && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-1.5 space-y-1 overflow-hidden"
+                >
+                  {cluster.items.slice(0, 5).map(item => (
+                    <a
+                      key={item.id}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-[10px] text-muted-foreground/60 hover:text-primary transition-colors"
+                    >
+                      <ExternalLink size={8} className="shrink-0" />
+                      <span className="font-mono text-muted-foreground/40">[{item.source}]</span>
+                      <span className="truncate">{item.title}</span>
+                    </a>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/20 flex-wrap">
+          <div className="w-4 h-4 rounded bg-secondary/40 flex items-center justify-center text-[8px] font-bold text-muted-foreground/60 font-mono uppercase shrink-0">
+            {rep.source.slice(0, 2)}
+          </div>
+          <a
+            href={rep.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors font-mono"
+          >
+            {rep.source}
+          </a>
+          <span className={`inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded bg-secondary/30 ${regionCfg.color} ml-auto`}>
+            <span>{COUNTRY_FLAG[cluster.country]}</span>
+            <span>{cluster.country}</span>
+          </span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -755,10 +977,12 @@ function LanguageSelector() {
 export function NVIntelligence() {
   const { t, locale } = useI18n();
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [clusters, setClusters] = useState<EventCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'feed' | 'agent' | 'nvnews'>('feed');
+  const [viewMode, setViewMode] = useState<'clusters' | 'flat'>('clusters');
   const [filters, setFilters] = useState<Filters>({
     region: 'all',
     country: 'all',
@@ -769,9 +993,10 @@ export function NVIntelligence() {
 
   const loadNews = useCallback(async () => {
     try {
-      const items = await fetchAllNews();
+      const { items, clusters: c } = await fetchAllNewsWithClusters();
       if (items.length > 0) {
         setNews(items);
+        setClusters(c);
         setLastUpdate(Date.now());
         setError(null);
       } else {
@@ -791,7 +1016,7 @@ export function NVIntelligence() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [loadNews]);
 
-  // Filtered news
+  // Filtered news (flat)
   const filteredNews = useMemo(() => {
     return news.filter(item => {
       if (filters.region !== 'all' && item.region !== filters.region) return false;
@@ -801,6 +1026,17 @@ export function NVIntelligence() {
       return true;
     });
   }, [news, filters]);
+
+  // Filtered clusters
+  const filteredClusters = useMemo(() => {
+    return clusters.filter(c => {
+      if (filters.region !== 'all' && c.region !== filters.region) return false;
+      if (filters.country !== 'all' && c.country !== filters.country) return false;
+      if (filters.priority !== 'all' && c.priority !== filters.priority) return false;
+      if (filters.categories.size > 0 && !filters.categories.has(c.category)) return false;
+      return true;
+    });
+  }, [clusters, filters]);
 
   // Region counts
   const regionCounts = useMemo(() =>
@@ -848,12 +1084,6 @@ export function NVIntelligence() {
         {/* Controls */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <LanguageSelector />
-          {lastUpdate > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground/50 font-mono">
-              <Radio size={9} className="text-emerald-400" />
-              {formatRelativeTime(lastUpdate, locale)}
-            </div>
-          )}
           <button
             type="button"
             onClick={() => { setLoading(true); loadNews(); }}
@@ -865,6 +1095,16 @@ export function NVIntelligence() {
           </button>
         </div>
       </div>
+
+      {/* ── Stats bar ───────────────────────────────────────────────────────── */}
+      {news.length > 0 && (
+        <StatsBar news={news} clusters={clusters} lastUpdate={lastUpdate} />
+      )}
+
+      {/* ── Breaking ticker ─────────────────────────────────────────────────── */}
+      {news.filter(i => i.priority === 'breaking').length > 0 && (
+        <BreakingTicker items={news} />
+      )}
 
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
       <div className="flex rounded-xl border border-border/40 overflow-hidden text-sm font-medium">
@@ -905,7 +1145,38 @@ export function NVIntelligence() {
             counts={regionCounts}
           />
 
-          {/* Advanced filters */}
+          {/* View mode toggle + Advanced filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-lg border border-border/40 overflow-hidden text-[11px] font-mono">
+              <button
+                type="button"
+                onClick={() => setViewMode('clusters')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-all ${viewMode === 'clusters' ? 'bg-primary/15 text-primary' : 'text-muted-foreground/60 hover:text-foreground/70'}`}
+              >
+                <Layers size={11} />
+                {t('intel.viewClusters')}
+                {filteredClusters.length > 0 && (
+                  <span className={`text-[9px] px-1 rounded ${viewMode === 'clusters' ? 'bg-primary/20' : 'bg-secondary/40'}`}>
+                    {filteredClusters.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('flat')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border-l border-border/40 transition-all ${viewMode === 'flat' ? 'bg-primary/15 text-primary' : 'text-muted-foreground/60 hover:text-foreground/70'}`}
+              >
+                <Newspaper size={11} />
+                {t('intel.viewFlat')}
+                {filteredNews.length > 0 && (
+                  <span className={`text-[9px] px-1 rounded ${viewMode === 'flat' ? 'bg-primary/20' : 'bg-secondary/40'}`}>
+                    {filteredNews.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
           <FilterPanel filters={filters} onChange={setFilters} news={news} />
 
           {/* Loading */}
@@ -931,14 +1202,26 @@ export function NVIntelligence() {
           )}
 
           {/* Empty */}
-          {!loading && filteredNews.length === 0 && !error && (
-            <div className="text-center py-12 text-sm text-muted-foreground/50">
-              {t('intel.noNews')}
+          {!loading && viewMode === 'clusters' && filteredClusters.length === 0 && !error && (
+            <div className="text-center py-12 text-sm text-muted-foreground/50">{t('intel.noNews')}</div>
+          )}
+          {!loading && viewMode === 'flat' && filteredNews.length === 0 && !error && (
+            <div className="text-center py-12 text-sm text-muted-foreground/50">{t('intel.noNews')}</div>
+          )}
+
+          {/* Cluster view */}
+          {viewMode === 'clusters' && filteredClusters.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AnimatePresence mode="popLayout">
+                {filteredClusters.map(cluster => (
+                  <ClusterCard key={cluster.id} cluster={cluster} />
+                ))}
+              </AnimatePresence>
             </div>
           )}
 
-          {/* Cards */}
-          {filteredNews.length > 0 && (
+          {/* Flat view */}
+          {viewMode === 'flat' && filteredNews.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
               <AnimatePresence mode="popLayout">
                 {filteredNews.map(item => (
@@ -953,8 +1236,8 @@ export function NVIntelligence() {
             <div className="flex items-start gap-2 pt-2">
               <CheckCircle2 size={11} className="text-emerald-400 shrink-0 mt-0.5" />
               <div className="text-[10px] text-muted-foreground/50 font-mono leading-relaxed">
-                {t('intel.sources')}: {activeSources.slice(0, 12).join(' · ')}
-                {activeSources.length > 12 ? ` + ${activeSources.length - 12} more` : ''}
+                {t('intel.sources')}: {activeSources.slice(0, 14).join(' · ')}
+                {activeSources.length > 14 ? ` + ${activeSources.length - 14} more` : ''}
               </div>
             </div>
           )}

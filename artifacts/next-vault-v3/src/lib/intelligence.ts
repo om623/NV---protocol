@@ -54,6 +54,7 @@ export type CountryMarket =
   | 'South Korea'
   | 'India'
   | 'Middle East'
+  | 'Latin America'
   | 'Global';
 
 export interface NewsItem {
@@ -151,7 +152,7 @@ export const ALL_REGIONS: { id: MarketRegion; labelKey: string }[] = [
 ];
 
 export const ALL_COUNTRY_MARKETS: CountryMarket[] = [
-  'USA', 'UK', 'Brazil', 'Europe', 'China', 'Japan', 'South Korea', 'India', 'Middle East', 'Global',
+  'USA', 'UK', 'Brazil', 'Europe', 'China', 'Japan', 'South Korea', 'India', 'Middle East', 'Latin America', 'Global',
 ];
 
 const PRIORITY_ORDER: Record<NewsPriority, number> = {
@@ -926,6 +927,88 @@ export const PROVIDERS: NewsProvider[] = [
       return fetchRss('https://www.investing.com/rss/news_25.rss', this.id, 'Investing.com', 'https://www.investing.com', this.region, this.country, this.language);
     },
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Latin America (beyond Brazil) — ~5 sources
+  // ════════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'reuters-latam',
+    name: 'Reuters América Latina',
+    url: 'https://reuters.com',
+    categories: ['Economy', 'Politics', 'Geopolitics', 'Equities'],
+    region: 'americas',
+    country: 'Latin America' as CountryMarket,
+    language: 'es',
+    async fetch() {
+      return fetchRss('https://feeds.reuters.com/reuters/latamTopNews', this.id, 'Reuters LatAm', 'https://www.reuters.com/world/americas', this.region, this.country as CountryMarket, this.language);
+    },
+  },
+  {
+    id: 'mercopress',
+    name: 'MercoPress',
+    url: 'https://en.mercopress.com',
+    categories: ['Economy', 'Politics', 'Geopolitics'],
+    region: 'americas',
+    country: 'Latin America' as CountryMarket,
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://en.mercopress.com/rss', this.id, 'MercoPress', 'https://en.mercopress.com', this.region, this.country as CountryMarket, this.language, 'Economy');
+    },
+  },
+  {
+    id: 'el-pais-economia',
+    name: 'El País Economía',
+    url: 'https://elpais.com',
+    categories: ['Economy', 'Politics', 'Geopolitics', 'Equities'],
+    region: 'americas',
+    country: 'Latin America' as CountryMarket,
+    language: 'es',
+    async fetch() {
+      return fetchRss('https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada', this.id, 'El País', 'https://elpais.com/economia', this.region, this.country as CountryMarket, this.language, 'Economy');
+    },
+  },
+  {
+    id: 'bloomberg-latam',
+    name: 'Bloomberg Línea',
+    url: 'https://www.bloomberglinea.com',
+    categories: ['Equities', 'Economy', 'M&A', 'Central Banks', 'Crypto/Web3'],
+    region: 'americas',
+    country: 'Latin America' as CountryMarket,
+    language: 'es',
+    async fetch() {
+      return fetchRss('https://www.bloomberglinea.com/arc/outboundfeeds/rss/category/mercados/', this.id, 'Bloomberg Línea', 'https://www.bloomberglinea.com', this.region, this.country as CountryMarket, this.language);
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Additional Global / Crypto
+  // ════════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'blockworks',
+    name: 'Blockworks',
+    url: 'https://blockworks.co',
+    categories: ['Crypto/Web3', 'Tokenization', 'Regulation', 'Central Banks'],
+    region: 'global',
+    country: 'Global',
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://blockworks.co/feed', this.id, 'Blockworks', 'https://blockworks.co', this.region, this.country, this.language);
+    },
+  },
+  {
+    id: 'ft-global',
+    name: 'FT Global Economy',
+    url: 'https://ft.com',
+    categories: ['Global Markets', 'Economy', 'Central Banks', 'Geopolitics'],
+    region: 'global',
+    country: 'Global',
+    language: 'en',
+    async fetch() {
+      return fetchRss('https://www.ft.com/rss/home', this.id, 'Financial Times', 'https://www.ft.com', this.region, this.country, this.language);
+    },
+  },
 ];
 
 // ─── Pending providers (require API keys) ─────────────────────────────────────
@@ -994,8 +1077,51 @@ export async function fetchAllNews(): Promise<NewsItem[]> {
   return sorted.slice(0, MAX_ITEMS);
 }
 
+/** Returns the flat feed AND event clusters from one fetch. */
+export async function fetchAllNewsWithClusters(): Promise<{
+  items: NewsItem[];
+  clusters: EventCluster[];
+}> {
+  const items = await fetchAllNews();
+  const clusters = clusterNews(items);
+  return { items, clusters };
+}
+
 // ─── NV Agent — locale-aware Q&A ─────────────────────────────────────────────
 // Answers ONLY from loaded news. No fabricated content. No investment advice.
+
+// Country/region keyword map for agent routing
+const AGENT_GEO_MAP: Array<{ keywords: string[]; country?: CountryMarket; region?: MarketRegion }> = [
+  { keywords: ['usa', 'united states', 'america', 'federal reserve', 'fed', 'wall street', 'nasdaq', 'nyse', 's&p'], country: 'USA' },
+  { keywords: ['brazil', 'brasil', 'bovespa', 'b3', 'real', 'selic', 'bacen', 'banco central', 'fii', 'fiis'], country: 'Brazil' },
+  { keywords: ['uk', 'united kingdom', 'britain', 'boe', 'bank of england', 'ftse', 'london', 'sterling'], country: 'UK' },
+  { keywords: ['europe', 'ecb', 'european central bank', 'euro', 'eurozone', 'eu', 'germany', 'france', 'dax', 'cac'], country: 'Europe' },
+  { keywords: ['china', 'pboc', 'yuan', 'renminbi', 'hong kong', 'shanghai', 'beijing', 'hang seng', 'csi'], country: 'China' },
+  { keywords: ['japan', 'boj', 'bank of japan', 'yen', 'nikkei', 'tokyo'], country: 'Japan' },
+  { keywords: ['korea', 'south korea', 'kospi', 'seoul', 'won', 'korean'], country: 'South Korea' },
+  { keywords: ['india', 'rbi', 'sensex', 'nifty', 'rupee', 'mumbai', 'indian', 'sebi'], country: 'India' },
+  { keywords: ['middle east', 'saudi', 'uae', 'dubai', 'qatar', 'iran', 'israel', 'oil', 'opec'], country: 'Middle East' },
+  { keywords: ['latin america', 'latam', 'argentina', 'colombia', 'mexico', 'chile', 'peru'], country: 'Latin America' },
+  { keywords: ['asia', 'asian', 'pacific'], region: 'asia' },
+  { keywords: ['americas', 'american'], region: 'americas' },
+  { keywords: ['europe', 'european'], region: 'europe' },
+];
+
+const AGENT_CAT_MAP: Array<{ keywords: string[]; category: NewsCategory }> = [
+  { keywords: ['crypto', 'bitcoin', 'ethereum', 'web3', 'defi', 'nft', 'blockchain', 'usdc', 'stablecoin'], category: 'Crypto/Web3' },
+  { keywords: ['tokeniz', 'rwa', 'real world asset', 'tokenization'], category: 'Tokenization' },
+  { keywords: ['central bank', 'rate hike', 'rate cut', 'monetary policy', 'fed', 'ecb', 'boj', 'boe', 'pboc', 'rbi', 'selic'], category: 'Central Banks' },
+  { keywords: ['regulation', 'sec', 'cftc', 'esma', 'fca', 'compliance', 'ban', 'law', 'bill'], category: 'Regulation' },
+  { keywords: ['merger', 'acquisition', 'm&a', 'takeover', 'buyout', 'deal', 'acquire'], category: 'M&A' },
+  { keywords: ['dividend', 'yield', 'payout', 'distribution'], category: 'Dividends' },
+  { keywords: ['reit', 'real estate investment'], category: 'REITs' },
+  { keywords: ['fii', 'fundo imobiliário', 'fundo imobiliario'], category: 'FIIs' },
+  { keywords: ['small cap', 'smallcap', 'micro cap'], category: 'Small Caps' },
+  { keywords: ['geopolit', 'war', 'conflict', 'sanction', 'nato', 'military', 'invasion', 'troops'], category: 'Geopolitics' },
+  { keywords: ['election', 'president', 'government', 'political', 'minister', 'parliament', 'senate', 'vote'], category: 'Politics' },
+  { keywords: ['gdp', 'inflation', 'cpi', 'recession', 'growth', 'unemployment', 'jobs', 'tariff', 'trade'], category: 'Economy' },
+  { keywords: ['stock', 'equity', 'share', 'ipo', 'earnings', 'quarter'], category: 'Equities' },
+];
 
 export function answerFromNews(
   question: string,
@@ -1009,14 +1135,35 @@ export function answerFromNews(
     return { answer: translate('intel.agentNoNews'), sources: [] };
   }
 
-  const q = question.toLowerCase();
-  const relevant = items
-    .filter(item => {
-      const haystack = (item.title + ' ' + item.summary + ' ' + item.tags.join(' ') + ' ' + item.country + ' ' + item.region).toLowerCase();
-      const words = q.replace(/[?!.,]/g, '').split(' ').filter(w => w.length > 3);
-      return words.some(w => haystack.includes(w));
-    })
-    .slice(0, 6);
+  const q = question.toLowerCase().replace(/[?!.,;:]/g, ' ');
+  const words = q.split(/\s+/).filter(w => w.length > 2);
+
+  // Detect geo/category intent from the question
+  const geoFilter = AGENT_GEO_MAP.find(g => g.keywords.some(kw => q.includes(kw)));
+  const catFilter = AGENT_CAT_MAP.find(c => c.keywords.some(kw => q.includes(kw)));
+
+  // Score each item: +3 per keyword match in title, +1 in summary/tags, +2 for geo match, +2 for category match
+  const scored = items.map(item => {
+    const titleL = item.title.toLowerCase();
+    const bodyL = (item.summary + ' ' + item.tags.join(' ') + ' ' + item.country + ' ' + item.region).toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      if (titleL.includes(w)) score += 3;
+      else if (bodyL.includes(w)) score += 1;
+    }
+    if (geoFilter) {
+      if (geoFilter.country && item.country === geoFilter.country) score += 2;
+      if (geoFilter.region && item.region === geoFilter.region) score += 2;
+    }
+    if (catFilter && item.category === catFilter.category) score += 2;
+    return { item, score };
+  });
+
+  const relevant = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score || PRIORITY_RANK[a.item.priority] - PRIORITY_RANK[b.item.priority])
+    .slice(0, 7)
+    .map(s => s.item);
 
   if (!relevant.length) {
     const recent = items.slice(0, 5).map(i => `• ${i.source} (${i.country}): "${i.title}"`).join('\n');
@@ -1026,13 +1173,31 @@ export function answerFromNews(
     };
   }
 
-  const summary = relevant
-    .map((item, i) => `${i + 1}. [${item.source} — ${item.country}] ${item.title}${item.summary ? ' — ' + item.summary.slice(0, 120) : ''}`)
-    .join('\n');
+  // Build context-aware preamble
+  const contextParts: string[] = [];
+  if (geoFilter?.country) contextParts.push(`${COUNTRY_FLAG[geoFilter.country]} ${geoFilter.country}`);
+  else if (geoFilter?.region) contextParts.push(geoFilter.region);
+  if (catFilter) contextParts.push(catFilter.category);
+
+  const factItems = relevant.filter(i => i.priority === 'breaking' || i.priority === 'high');
+  const otherItems = relevant.filter(i => i.priority !== 'breaking' && i.priority !== 'high');
+  const orderedItems = [...factItems, ...otherItems];
+
+  const summary = orderedItems
+    .map((item, i) => {
+      const time = formatRelativeTime(item.publishedMs, locale);
+      const multiSrc = relevant.filter(r => r.title.toLowerCase().slice(0, 30) === item.title.toLowerCase().slice(0, 30)).length > 1;
+      return `${i + 1}. [${item.source} — ${item.country} — ${time}]${multiSrc ? ' ✓' : ''}\n   ${item.title}${item.summary ? '\n   ' + item.summary.slice(0, 150) : ''}`;
+    })
+    .join('\n\n');
+
+  const preamble = contextParts.length > 0
+    ? translate('intel.agentAnswerContext', { ctx: contextParts.join(' · '), summary })
+    : translate('intel.agentAnswer', { summary });
 
   return {
-    answer: translate('intel.agentAnswer', { summary }),
-    sources: relevant.map(item => ({
+    answer: preamble,
+    sources: orderedItems.map(item => ({
       title: item.title,
       url: item.url,
       source: item.source,
@@ -1130,16 +1295,17 @@ export const REGION_CONFIG: Record<MarketRegion, { label: string; color: string;
 };
 
 export const COUNTRY_FLAG: Record<CountryMarket, string> = {
-  'USA':         '🇺🇸',
-  'UK':          '🇬🇧',
-  'Brazil':      '🇧🇷',
-  'Europe':      '🇪🇺',
-  'China':       '🇨🇳',
-  'Japan':       '🇯🇵',
-  'South Korea': '🇰🇷',
-  'India':       '🇮🇳',
-  'Middle East': '🕌',
-  'Global':      '🌐',
+  'USA':          '🇺🇸',
+  'UK':           '🇬🇧',
+  'Brazil':       '🇧🇷',
+  'Europe':       '🇪🇺',
+  'China':        '🇨🇳',
+  'Japan':        '🇯🇵',
+  'South Korea':  '🇰🇷',
+  'India':        '🇮🇳',
+  'Middle East':  '🕌',
+  'Latin America':'🌎',
+  'Global':       '🌐',
 };
 
 export function formatRelativeTime(ms: number, locale: Locale = 'en'): string {
@@ -1174,4 +1340,133 @@ export function formatRelativeTime(ms: number, locale: Locale = 'en'): string {
     zh: `${days}天前`, ja: `${days}日前`, ko: `${days}일 전`, hi: `${days}दिन पहले`, ar: `منذ ${days}أيام`,
   };
   return labels[locale] ?? `${days}d ago`;
+}
+
+// ─── Intelligence Core — Event Clustering ─────────────────────────────────────
+// Groups NewsItems that describe the same real-world event:
+//   - same category + high title similarity (Jaccard on trigrams)
+//   - published within 6 hours of each other
+// Preserves all original items; never fabricates content.
+
+export interface EventCluster {
+  /** Stable id — taken from the highest-priority representative item */
+  id: string;
+  /** Best headline to represent the cluster */
+  headline: string;
+  /** Representative item (highest priority, most recent) */
+  representative: NewsItem;
+  /** All items in the cluster, sorted by priority then recency */
+  items: NewsItem[];
+  /** Unique sources confirming this event */
+  sources: string[];
+  /** Cluster-level priority (best of all items) */
+  priority: NewsPriority;
+  category: NewsCategory;
+  region: MarketRegion;
+  country: CountryMarket;
+  publishedMs: number;
+  /** True when 2+ independent sources cover this event */
+  multiSourceConfirmed: boolean;
+}
+
+/** Trigram set for a string (used for Jaccard similarity). */
+function trigrams(s: string): Set<string> {
+  const norm = s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const out = new Set<string>();
+  for (let i = 0; i < norm.length - 2; i++) out.add(norm.slice(i, i + 3));
+  return out;
+}
+
+function jaccardSim(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) { if (b.has(t)) inter++; }
+  const union = a.size + b.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+const CLUSTER_TIME_WINDOW_MS = 6 * 3_600_000; // 6 hours
+const CLUSTER_SIM_THRESHOLD  = 0.18;           // Jaccard ≥ 0.18 → same event
+
+const PRIORITY_RANK: Record<NewsPriority, number> = {
+  breaking: 0, high: 1, medium: 2, low: 3,
+};
+
+/**
+ * Groups `items` into EventClusters.
+ * Items from the same source with near-identical titles are deduplicated
+ * before clustering so one prolific publisher can't dominate a cluster.
+ */
+export function clusterNews(items: NewsItem[]): EventCluster[] {
+  // Pre-compute trigrams once per item
+  const tgrams = items.map(it => trigrams(it.title));
+
+  // Union-Find for cluster membership
+  const parent = items.map((_, i) => i);
+  function find(x: number): number {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  }
+  function union(a: number, b: number) { parent[find(a)] = find(b); }
+
+  for (let i = 0; i < items.length - 1; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      if (items[i].category !== items[j].category) continue;
+      const timeDiff = Math.abs(items[i].publishedMs - items[j].publishedMs);
+      if (timeDiff > CLUSTER_TIME_WINDOW_MS) continue;
+      if (jaccardSim(tgrams[i], tgrams[j]) >= CLUSTER_SIM_THRESHOLD) {
+        union(i, j);
+      }
+    }
+  }
+
+  // Group by root
+  const groups = new Map<number, number[]>();
+  for (let i = 0; i < items.length; i++) {
+    const root = find(i);
+    const grp = groups.get(root) ?? [];
+    grp.push(i);
+    groups.set(root, grp);
+  }
+
+  const clusters: EventCluster[] = [];
+  for (const indices of groups.values()) {
+    const members = indices
+      .map(i => items[i])
+      .sort((a, b) => {
+        const pd = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+        return pd !== 0 ? pd : b.publishedMs - a.publishedMs;
+      });
+
+    const rep = members[0];
+    const uniqueSources = [...new Set(members.map(m => m.source))];
+
+    clusters.push({
+      id: rep.id,
+      headline: rep.title,
+      representative: rep,
+      items: members,
+      sources: uniqueSources,
+      priority: rep.priority,
+      category: rep.category,
+      region: rep.region,
+      country: rep.country,
+      publishedMs: rep.publishedMs,
+      multiSourceConfirmed: uniqueSources.length >= 2,
+    });
+  }
+
+  // Sort clusters: priority first, then recency
+  return clusters.sort((a, b) => {
+    const pd = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+    return pd !== 0 ? pd : b.publishedMs - a.publishedMs;
+  });
+}
+
+/**
+ * Returns a flat deduplicated feed from clusters, keeping the representative
+ * item for each cluster. Safe to use anywhere the old `NewsItem[]` was used.
+ */
+export function clusterFeedToItems(clusters: EventCluster[]): NewsItem[] {
+  return clusters.map(c => c.representative);
 }
