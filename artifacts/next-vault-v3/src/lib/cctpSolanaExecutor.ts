@@ -26,6 +26,7 @@ import {
 import {
   buildDepositForBurnTx,
   fetchIrisAttestation,
+  base64ToBytes,
   CCTP_DOMAIN_SOLANA,
   type IrisMessageV2,
 } from './cctpSolana';
@@ -191,8 +192,8 @@ export async function executeSolanaToEvmBridge(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const partiallySignedTx = await signTransactionMessageWithSigners(transactionMessage as any);
 
-    // Serialize to wire format for the wallet
-    const wireBytes = Buffer.from(getBase64EncodedWireTransaction(partiallySignedTx), 'base64');
+    // Serialize to wire format for the wallet (base64ToBytes is Buffer-free)
+    const wireBytes = base64ToBytes(getBase64EncodedWireTransaction(partiallySignedTx));
 
     // ── STEP 2: Request wallet signature ─────────────────────────────────────
     onStep({

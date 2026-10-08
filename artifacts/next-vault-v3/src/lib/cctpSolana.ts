@@ -59,6 +59,55 @@ export {
   SOLANA_USDC_MINT,
 };
 
+// ─── Pure browser-safe byte utilities ────────────────────────────────────────
+// No Buffer, no Node.js — works in any browser or edge runtime.
+
+/** Decode a hex string (no 0x prefix) to Uint8Array */
+function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) throw new Error(`hexToBytes: odd-length hex string`);
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+/** Concatenate multiple Uint8Array / number[] into one Uint8Array */
+function concatBytes(...parts: (Uint8Array | number[])[]): Uint8Array {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const p of parts) {
+    out.set(p instanceof Uint8Array ? p : new Uint8Array(p), offset);
+    offset += p.length;
+  }
+  return out;
+}
+
+/** Write a uint64 little-endian value into an 8-byte Uint8Array */
+function writeBigUInt64LE(value: bigint): Uint8Array {
+  const buf = new Uint8Array(8);
+  const view = new DataView(buf.buffer);
+  view.setBigUint64(0, value, /* littleEndian */ true);
+  return buf;
+}
+
+/** Write a uint32 little-endian value into a 4-byte Uint8Array */
+function writeUInt32LE(value: number): Uint8Array {
+  const buf = new Uint8Array(4);
+  const view = new DataView(buf.buffer);
+  view.setUint32(0, value, /* littleEndian */ true);
+  return buf;
+}
+
+/** Decode a base64 string to Uint8Array (browser-safe, no Buffer) */
+export function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
 // ─── Iris attestation API ─────────────────────────────────────────────────────
 // Source: developers.circle.com/cctp/references/technical-guide
 // Rate limit: 35 requests/second. Exceeding it results in HTTP 429 + 5-minute ban.
@@ -544,7 +593,7 @@ export const ASSOCIATED_TOKEN_PROGRAM  = address('ATokenGPvbdGVxr1b2hvZbsiqW5xWH
  *   developers.circle.com/cctp/quickstarts/transfer-usdc-solana-to-arc
  * Verified October 2026.
  */
-export const DEPOSIT_FOR_BURN_DISCRIMINATOR = Buffer.from([
+export const DEPOSIT_FOR_BURN_DISCRIMINATOR = new Uint8Array([
   215, 60, 61, 46, 114, 55, 128, 176,
 ]);
 
@@ -632,10 +681,10 @@ export async function buildDepositForBurnTx(params: {
 
   // ── 2. Encode destination EVM address as 32-byte recipient ──
   // EVM address is 20 bytes, padded with 12 zero bytes on the left.
-  const destBytes32 = Buffer.concat([
-    Buffer.alloc(12),
-    Buffer.from(toEvmAddress.toLowerCase().replace(/^0x/, ''), 'hex'),
-  ]);
+  const destBytes32 = concatBytes(
+    new Uint8Array(12),
+    hexToBytes(toEvmAddress.toLowerCase().replace(/^0x/, '')),
+  );
 
   // ── 3. PDA derivation ──
   const [senderAuthorityPda] = await getProgramDerivedAddress({
@@ -701,22 +750,14 @@ export async function buildDepositForBurnTx(params: {
   const messageSentEventAccount = await generateKeyPairSigner();
 
   // ── 5. Encode instruction data (Anchor LE serialization) ──
-  const amountBuf = Buffer.alloc(8);
-  amountBuf.writeBigUInt64LE(amountRaw);
-
-  const domainBuf = Buffer.alloc(4);
-  domainBuf.writeUInt32LE(destinationDomain);
-
-  const maxFeeBuf = Buffer.alloc(8);
-  maxFeeBuf.writeBigUInt64LE(maxFeeRaw);
-
-  const finalityBuf = Buffer.alloc(4);
-  finalityBuf.writeUInt32LE(minFinalityThreshold);
-
+  const amountBuf          = writeBigUInt64LE(amountRaw);
+  const domainBuf          = writeUInt32LE(destinationDomain);
+  const maxFeeBuf          = writeBigUInt64LE(maxFeeRaw);
+  const finalityBuf        = writeUInt32LE(minFinalityThreshold);
   // destinationCaller = Pubkey::default() = 32 zero bytes (any caller may receive)
-  const destinationCallerBuf = Buffer.alloc(32);
+  const destinationCallerBuf = new Uint8Array(32);
 
-  const instructionData = new Uint8Array(Buffer.concat([
+  const instructionData = concatBytes(
     DEPOSIT_FOR_BURN_DISCRIMINATOR,
     amountBuf,
     domainBuf,
@@ -724,7 +765,7 @@ export async function buildDepositForBurnTx(params: {
     destinationCallerBuf, // destinationCaller = default (32 bytes)
     maxFeeBuf,
     finalityBuf,
-  ]));
+  );
 
   // ── 6. Build the instruction ──
   // AccountRole values: 0=READONLY, 1=WRITABLE, 2=READONLY_SIGNER, 3=WRITABLE_SIGNER
