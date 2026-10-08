@@ -35,6 +35,7 @@ import { WalletView } from './components/WalletView';
 import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { MarketGrid } from './components/MarketGrid';
+import { MarketTicker } from './components/MarketTicker';
 import { PortfolioCharts } from './components/PortfolioCharts';
 import { IntelligenceColumn } from './components/IntelligenceColumn';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,6 +55,7 @@ import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
 import { NVIntelligence } from './components/NVIntelligence';
+import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
 
 
@@ -141,7 +143,7 @@ const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
@@ -152,6 +154,7 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
   { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge'         },
   { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
+  { key: 'nav.solana',        Icon: Zap,             view: 'solana'         },
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes', comingSoon: true },
   { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
@@ -1639,6 +1642,11 @@ function Home() {
                 />
               )}
 
+              {/* ── Solana Wallet View ─────────────────────────────────── */}
+              {activeView === 'solana' && (
+                <SolanaWalletPanel />
+              )}
+
               {/* ── Profile / Gamification View ─────────────────────────── */}
               {activeView === 'perfil' && (
                 <ProfileView
@@ -1710,6 +1718,9 @@ function Home() {
               {/* ── Dashboard / Simulation View (default) ──────────────────── */}
               {activeView === 'dashboard' && (
                 <>
+
+              {/* ── Market Ticker Tape ────────────────────────────────── */}
+              <MarketTicker />
 
               {/* ── Digital Presenter ─────────────────────────────────── */}
               <DigitalPresenter context={dashboardContext} />

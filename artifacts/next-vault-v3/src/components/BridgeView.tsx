@@ -9,6 +9,7 @@ import {
 import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
+import { SolanaBridgePanel } from './SolanaBridgePanel';
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
@@ -25,11 +26,13 @@ const TESTNET_NETWORKS = {
 } as const;
 
 const MAINNET_NETWORKS = {
-  // IDs match cctp.ts exactly — 25 CCTP V2 EVM mainnet chains (October 2026).
+  // IDs match cctp.ts exactly — 25 CCTP V2 EVM mainnet chains + Solana (October 2026).
+  // Solana is listed as a source-only option (non-EVM — renders SolanaBridgePanel).
   'arc-mainnet':   { name: 'Arc' },
-  'ethereum':      { name: 'Ethereum' },
   'base':          { name: 'Base' },
+  'solana':        { name: 'Solana ↗' },   // Non-EVM — triggers SolanaBridgePanel when FROM
   'arbitrum':      { name: 'Arbitrum One' },
+  'ethereum':      { name: 'Ethereum' },
   'optimism':      { name: 'OP Mainnet' },
   'polygon':       { name: 'Polygon PoS' },
   'avalanche':     { name: 'Avalanche' },
@@ -363,9 +366,24 @@ export function BridgeView({
       </div>
 
       {/* ─────────────────────────────────────────────
-          MAIN CARD
+          SOLANA BRIDGE (non-EVM path)
+          Rendered when "Solana ↗" is selected as FROM
+          in mainnet mode. Completely isolated from the
+          EVM bridge path below.
       ───────────────────────────────────────────── */}
 
+      {isMainnet && fromNetwork === 'solana' && (
+        <SolanaBridgePanel
+          evmProvider={provider}
+          evmAddress={connectedAddress}
+        />
+      )}
+
+      {/* ─────────────────────────────────────────────
+          MAIN CARD (EVM bridge — hidden when Solana FROM)
+      ───────────────────────────────────────────── */}
+
+      {!(isMainnet && fromNetwork === 'solana') && (<>
       <div className="rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
 
         {/* ─────────────────────────────────────────
@@ -661,7 +679,8 @@ export function BridgeView({
           disponível no CCTP configurado.
         </div>
       )}
+      </>)}
 
     </div>
   );
-        }
+}
