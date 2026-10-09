@@ -53,11 +53,17 @@ import {
   FEED_REFRESH_MS,
   PENDING_PROVIDERS,
   fetchAllNewsWithClusters,
-  answerFromNews,
   formatRelativeTime,
   buildNVNewsQueue,
   getEditorialFocus,
 } from '../lib/intelligence';
+import { agentQuery }        from '../lib/agentApi';
+import { buildFullContext }  from '../lib/agentContext';
+import type { NVAgentContext } from '../lib/agentContext';
+import { getAllAssets, getMarketSentiment } from '../lib/marketData';
+import { getTvlState, subscribeTvl } from '../lib/tvl';
+import { useSolanaWallet }   from '../lib/useSolanaWallet';
+import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 
 // ─── Badge components ─────────────────────────────────────────────────────────
 
@@ -686,7 +692,7 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
 
 // ─── NV Agent Panel ───────────────────────────────────────────────────────────
 
-function NVAgentPanel({ news }: { news: NewsItem[] }) {
+function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentContext | null }) {
   const { t, locale } = useI18n();
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
@@ -762,7 +768,10 @@ function NVAgentPanel({ news }: { news: NewsItem[] }) {
     setMessages(prev => [...prev, { role: 'user', content: question, timestamp: Date.now() }]);
     setLoading(true);
     await new Promise(r => setTimeout(r, 350));
-    const { answer, sources } = answerFromNews(question, news, locale, t);
+    // Use full context when available; fall back to news-only for backward compat
+    const { answer, sources } = agentCtx
+      ? agentQuery(question, agentCtx, { locale, t })
+      : agentQuery(question, news, locale, t);
     setMessages(prev => [...prev, { role: 'assistant', content: answer, sources, timestamp: Date.now() }]);
     setLoading(false);
   }
@@ -989,6 +998,7 @@ function LanguageSelector() {
 export function NVIntelligence() {
   const { t, locale } = useI18n();
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsFetchedAt, setNewsFetchedAt] = useState(0);
   const [clusters, setClusters] = useState<EventCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(0);
@@ -1004,13 +1014,26 @@ export function NVIntelligence() {
   });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Phase 1: real data for the agent ──────────────────────────────────────
+  // Solana wallet context (read-only snapshot — no transactions)
+  const { agentContext: solanaAgentCtx } = useSolanaWallet();
+  // EVM wallet from context (set by App.tsx, read-only)
+  const evmWallet = useNVEvmWallet();
+  // TVL state — subscribe to live updates
+  const [tvlState, setTvlState] = useState(getTvlState);
+  useEffect(() => {
+    return subscribeTvl(() => setTvlState(getTvlState()));
+  }, []);
+
   const loadNews = useCallback(async () => {
     try {
       const { items, clusters: c } = await fetchAllNewsWithClusters();
       if (items.length > 0) {
+        const now = Date.now();
         setNews(items);
+        setNewsFetchedAt(now);
         setClusters(c);
-        setLastUpdate(Date.now());
+        setLastUpdate(now);
         setError(null);
       } else {
         setError(t('intel.error'));
@@ -1022,6 +1045,30 @@ export function NVIntelligence() {
       setLoading(false);
     }
   }, [t]);
+
+  // ── Phase 2: assemble unified NVAgentContext ───────────────────────────────
+  const agentCtx = useMemo<NVAgentContext>(() => {
+    const assets = getAllAssets();
+    const sentiment = getMarketSentiment();
+    return buildFullContext({
+      items: news,
+      newsFetchedAt,
+      assets,
+      sentiment,
+      marketFetchedAt: newsFetchedAt,
+      marketIsLive: assets.some(a => a.isLive),
+      tvlEntries: tvlState.entries,
+      tvlStatus: tvlState.status,
+      tvlFetchedAt: tvlState.fetchedAt,
+      solanaWalletState: solanaAgentCtx.wallet,
+      solanaBalanceState: solanaAgentCtx.balance,
+      solanaUsdcBalanceState: solanaAgentCtx.usdcBalance,
+      evmAddress: evmWallet.address,
+      evmNetwork: evmWallet.networkName,
+      evmUsdcBalance: evmWallet.usdcBalance,
+      locale,
+    });
+  }, [news, newsFetchedAt, tvlState, solanaAgentCtx, evmWallet, locale]);
 
   useEffect(() => {
     loadNews();
@@ -1267,7 +1314,7 @@ export function NVIntelligence() {
       {/* ── Agent tab ───────────────────────────────────────────────────────── */}
       {activeTab === 'agent' && (
         <div className="space-y-4">
-          <NVAgentPanel news={news} />
+          <NVAgentPanel news={news} agentCtx={agentCtx} />
           {news.length > 0 && (
             <div className="rounded-xl border border-border/30 bg-secondary/10 px-4 py-3">
               <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">

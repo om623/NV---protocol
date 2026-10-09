@@ -1,0 +1,7 @@
+{
+  "schedule": "*/5 * * * *",
+  "coingeckoApiUrl": "https://api.coingecko.com/api/v3",
+  "defillama ApiUrl": "https://api.llama.fi",
+  "assets": ["bitcoin", "ethereum", "usd-coin", "solana", "avalanche-2", "matic-network"],
+  "tvlChains": ["Ethereum", "Solana", "Arbitrum", "Base", "Avalanche", "Polygon", "Arc"]
+}

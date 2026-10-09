@@ -57,6 +57,7 @@ import { LanguageSelector } from './components/LanguageSelector';
 import { NVIntelligence } from './components/NVIntelligence';
 import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
+import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
 
 
 const queryClient = new QueryClient();
@@ -679,6 +680,20 @@ function Home() {
   const [envMode,       setEnvMode]       = useState<EnvMode>('testnet');
   const [activeNetwork, setActiveNetwork] = useState<NetworkConfig>(DEFAULT_TESTNET);
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
+
+  // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
+  const setNVEvmWallet = useSetNVEvmWallet();
+  useEffect(() => {
+    const usdcBal = realBalances?.['USDC'];
+    setNVEvmWallet({
+      address: connectedAddress,
+      networkName: activeNetwork.name,
+      chainId: activeNetwork.chainId,
+      usdcBalance: usdcBal !== undefined && usdcBal !== null
+        ? usdcBal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : null,
+    });
+  }, [connectedAddress, activeNetwork, realBalances, setNVEvmWallet]);
 
   // ── Gamification ───────────────────────────────────────────────────────────
   const gamification = useGamification();
@@ -2313,13 +2328,15 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <NVEvmWalletProvider>
+        <TooltipProvider>
+          {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </NVEvmWalletProvider>
     </QueryClientProvider>
   );
 }

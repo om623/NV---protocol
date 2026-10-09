@@ -1,0 +1,20 @@
+# CRE Workflow configuration for nv-market-data
+# See: https://docs.chain.link/cre/reference/project-configuration-ts
+
+staging-settings:
+  user-workflow:
+    workflow-name: "nv-market-data-staging"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.staging.json"
+    secrets-path: ""
+
+production-settings:
+  user-workflow:
+    workflow-name: "nv-market-data-production"
+    deployment-registry: "onchain:ethereum-mainnet"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.production.json"
+    secrets-path: ""
