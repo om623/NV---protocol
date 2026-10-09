@@ -62,6 +62,7 @@ import { buildFullContext }  from '../lib/agentContext';
 import type { NVAgentContext } from '../lib/agentContext';
 import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
+import { getPaymentState, subscribePaymentState } from '../lib/payments';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 
@@ -710,38 +711,42 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   const suggestions = useMemo(() => {
     const byLocale: Record<string, string[]> = {
       'pt-BR': [
+        'Preço do Bitcoin',
+        'Top 10 cripto por market cap',
+        'TVL do Ethereum',
+        'Minha carteira conectada',
+        'Como fazer bridge USDC?',
         'O que está acontecendo nos mercados hoje?',
-        'Quais são as principais notícias da Ásia?',
-        'Quais tensões geopolíticas estão em destaque?',
-        'Mostre notícias sobre tokenização.',
-        'Quais bancos centrais tomaram decisões recentes?',
       ],
       'en': [
+        'Bitcoin price',
+        'Top 10 crypto by market cap',
+        'Ethereum TVL',
+        'My connected wallet',
+        'How to bridge USDC?',
         "What's happening in markets today?",
-        "Top news from Asia?",
-        "Key geopolitical tensions?",
-        "Tokenization news?",
-        "Central bank decisions?",
       ],
       'es': [
+        'Precio de Bitcoin',
+        'Top 10 cripto por market cap',
+        'TVL de Ethereum',
+        'Mi cartera conectada',
+        '¿Cómo hacer bridge de USDC?',
         '¿Qué pasa en los mercados hoy?',
-        'Noticias principales de Asia',
-        'Tensiones geopolíticas clave',
-        'Noticias de tokenización',
-        'Decisiones de bancos centrales',
       ],
       'fr': [
-        "Que se passe-t-il sur les marchés aujourd'hui?",
-        "Principales nouvelles d'Asie",
-        "Tensions géopolitiques clés",
-        "Actualités tokenisation",
-        "Décisions des banques centrales",
+        'Prix du Bitcoin',
+        'Top 10 crypto par market cap',
+        'TVL Ethereum',
+        'Mon portefeuille connecté',
+        'Comment bridger USDC?',
+        "Actualité des marchés aujourd'hui",
       ],
-      'zh': ['今天市场发生了什么？', '亚洲主要新闻', '主要地缘政治紧张局势', '代币化新闻', '央行决定'],
-      'ja': ['今日の市場は？', 'アジアのトップニュース', '地政学的緊張', 'トークン化ニュース', '中央銀行の決定'],
-      'ko': ['오늘 시장 동향은?', '아시아 주요 뉴스', '지정학적 긴장', '토큰화 뉴스', '중앙은행 결정'],
-      'hi': ['आज बाज़ार में क्या हो रहा है?', 'एशिया की मुख्य खबरें', 'भू-राजनीतिक तनाव', 'टोकनाइज़ेशन समाचार', 'केंद्रीय बैंक निर्णय'],
-      'ar': ['ماذا يحدث في الأسواق اليوم؟', 'أبرز أخبار آسيا', 'التوترات الجيوسياسية', 'أخبار التوكنيز', 'قرارات البنوك المركزية'],
+      'zh': ['比特币价格', '市值前10加密货币', '以太坊TVL', '我的钱包', '如何跨链USDC?', '今天市场发生了什么？'],
+      'ja': ['ビットコイン価格', 'トップ10暗号通貨', 'イーサリアムTVL', '接続中ウォレット', 'USDCブリッジ方法', '今日の市場ニュース'],
+      'ko': ['비트코인 가격', '시총 상위 10 코인', '이더리움 TVL', '내 연결된 지갑', 'USDC 브리지 방법', '오늘 시장 동향은?'],
+      'hi': ['Bitcoin की कीमत', 'Top 10 crypto market cap', 'Ethereum TVL', 'मेरा कनेक्टेड वॉलेट', 'USDC bridge कैसे करें?', 'आज बाज़ार में क्या हो रहा है?'],
+      'ar': ['سعر البيتكوين', 'أفضل 10 عملات رقمية', 'TVL إيثيريوم', 'محفظتي المتصلة', 'كيف أحول USDC؟', 'أخبار الأسواق اليوم'],
     };
     return byLocale[locale] ?? byLocale['en'];
   }, [locale]);
@@ -1025,6 +1030,12 @@ export function NVIntelligence() {
     return subscribeTvl(() => setTvlState(getTvlState()));
   }, []);
 
+  // Payment state — subscribe to live updates from payments.ts pub-sub
+  const [paymentState, setPaymentState] = useState(getPaymentState);
+  useEffect(() => {
+    return subscribePaymentState(s => setPaymentState(s));
+  }, []);
+
   const loadNews = useCallback(async () => {
     try {
       const { items, clusters: c } = await fetchAllNewsWithClusters();
@@ -1050,6 +1061,17 @@ export function NVIntelligence() {
   const agentCtx = useMemo<NVAgentContext>(() => {
     const assets = getAllAssets();
     const sentiment = getMarketSentiment();
+    // Map PurchaseState → AgentPaymentSnapshot (idle maps to null)
+    const payment = paymentState.status !== 'idle'
+      ? {
+          status: paymentState.status,
+          txHash: paymentState.txHash,
+          error: paymentState.error,
+          productId: paymentState.productId,
+          networkName: 'Base Mainnet',
+          tokenSymbol: 'USDC',
+        }
+      : null;
     return buildFullContext({
       items: news,
       newsFetchedAt,
@@ -1066,9 +1088,10 @@ export function NVIntelligence() {
       evmAddress: evmWallet.address,
       evmNetwork: evmWallet.networkName,
       evmUsdcBalance: evmWallet.usdcBalance,
+      payment,
       locale,
     });
-  }, [news, newsFetchedAt, tvlState, solanaAgentCtx, evmWallet, locale]);
+  }, [news, newsFetchedAt, tvlState, paymentState, solanaAgentCtx, evmWallet, locale]);
 
   useEffect(() => {
     loadNews();

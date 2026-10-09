@@ -1,36 +1,44 @@
 /**
- * NV Protocol — Market Data CRE Workflow
+ * NV Protocol — Market Data CRE Workflow  (@chainlink/cre-sdk v1.23)
  *
  * Purpose:
  *   Fetches real-time crypto prices (CoinGecko) and DeFi TVL (DeFiLlama)
- *   on a cron schedule, aggregates consensus across DON nodes, and makes
- *   the result available to the NV Agent context.
+ *   on a cron schedule, aggregates consensus across DON nodes, and returns
+ *   a verified MarketDataReport.
  *
- * Runtime environment:
- *   Compiled to WASM via Javy/QuickJS. No Node.js built-ins. No browser
- *   globals. All HTTP calls go through cre.capabilities.HTTPClient.
+ * SDK: @chainlink/cre-sdk ^1.23.0
+ * Runtime: compiled to WASM/QuickJS — no Node.js built-ins.
+ *   HTTP is available via a restricted global `fetch` injected by the CRE runtime.
+ *   We declare it here so TypeScript is happy; at deploy time the CRE compiler
+ *   validates that only allowed APIs are used.
  *
- * Deployment:
+ * Deployment prerequisites:
  *   1. Install CRE CLI: https://docs.chain.link/cre/getting-started/cli-installation
- *   2. Authenticate: `cre login`
- *   3. Init project (already done): `cre init` was used to create this directory
- *   4. Install deps: `bun install` (inside this directory)
- *   5. Simulate: `cre workflow simulate --target staging-settings --config config.staging.json main.ts`
- *   6. Deploy: `cre workflow deploy --target staging-settings`
+ *   2. Authenticate:    cre login
+ *   3. Simulate:        cre workflow simulate --target staging-settings --config config.staging.json main.ts
+ *   4. Deploy:          cre workflow deploy --target staging-settings
+ *   NOTE: DON access required (apply at https://chain.link/developers).
  *
- * External access required before deploy:
- *   • Chainlink DON access (apply at https://chain.link/developers)
- *   • Funded signing key on the target chain (for on-chain registry writes)
- *   • CRE login session (SSO via `cre login`)
- *
- * @chainlink/cre-sdk version: ^1.14.0
+ * @chainlink/cre-sdk version: ^1.23.0
  */
 
+// ─── CRE fetch shim ──────────────────────────────────────────────────────────
+// The CRE WASM runtime injects a restricted `fetch` global. TypeScript does not
+// know about it (lib: ["ES2020"] has no DOM), so we declare it here.
+// The CRE CLI validates that the call is legitimate at compile/simulate time.
+declare function fetch(
+  url: string,
+  init?: { headers?: Record<string, string>; method?: string; body?: string },
+): Promise<{
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+}>;
+
 import {
-  Runner,
   CronCapability,
-  HTTPClient,
-  consensusMedianAggregation,
+  handler,
   consensusIdenticalAggregation,
   type Runtime,
   type NodeRuntime,
@@ -40,26 +48,27 @@ import { z } from "zod";
 // ─── Config schema ────────────────────────────────────────────────────────────
 
 const configSchema = z.object({
-  /** Cron expression — default every 5 minutes */
+  /** Cron expression — every 5 minutes by default */
   schedule: z.string(),
   /** CoinGecko API base URL */
   coingeckoApiUrl: z.string().url(),
   /** DeFiLlama API base URL */
   defillamaApiUrl: z.string().url(),
-  /** CoinGecko asset IDs to fetch */
+  /** CoinGecko asset IDs (comma-joined for query param) */
   assets: z.array(z.string()).min(1),
-  /** DeFiLlama chain names to include in TVL summary */
+  /** DeFiLlama chain names to include in the TVL summary */
   tvlChains: z.array(z.string()).min(1),
 });
 
 type Config = z.infer<typeof configSchema>;
 
-// ─── Types for workflow output ────────────────────────────────────────────────
+// ─── Output types ─────────────────────────────────────────────────────────────
 
 interface AssetPrice {
   id: string;
   usdPrice: number;
-  change24h: number | null;
+  /** NaN when CoinGecko does not return a 24h change for this asset */
+  change24h: number;
 }
 
 interface ChainTvl {
@@ -68,69 +77,71 @@ interface ChainTvl {
 }
 
 interface MarketDataReport {
+  /** Epoch ms when this report was assembled */
   fetchedAtMs: number;
-  prices: AssetPrice[];
-  topTvl: ChainTvl[];
+  /** Per-asset consensus prices from CoinGecko */
+  prices: ReadonlyArray<AssetPrice>;
+  /** Top chains by TVL from DeFiLlama (descending, chains with tvlUsd > 0 only) */
+  topTvl: ReadonlyArray<ChainTvl>;
 }
 
-// ─── Workflow implementation ──────────────────────────────────────────────────
+// ─── Cron trigger ─────────────────────────────────────────────────────────────
 
-async function initWorkflow(runtime: Runtime, config: Config) {
-  const cron = new CronCapability(runtime);
-  const http = new HTTPClient(runtime);
+const cron = new CronCapability();
 
-  cron.on(config.schedule, async (nodeRuntime: NodeRuntime) => {
-    /**
-     * Each DON node fetches independently. Then consensus is applied:
-     * - prices: median aggregation (robust to outlier nodes)
-     * - TVL rankings: identical aggregation (all nodes must agree on order)
-     */
+// ─── Workflow handler ─────────────────────────────────────────────────────────
 
-    // Step 1: Fetch prices from CoinGecko (per node)
-    const prices = await nodeRuntime.runInNodeMode(
-      async (): Promise<AssetPrice[]> => {
-        const ids = config.assets.join(",");
-        const url = `${config.coingeckoApiUrl}/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
+const marketDataHandler = handler(
+  // The actual schedule comes from config.staging.json / config.production.json
+  // at deploy time. The value here is a compile-time placeholder.
+  cron.trigger({ schedule: "*/5 * * * *" }),
 
-        const response = await http.get(url, {
-          headers: { Accept: "application/json" },
-        });
+  async (runtime: Runtime<Config>): Promise<MarketDataReport> => {
+    const { coingeckoApiUrl, defillamaApiUrl, assets, tvlChains } =
+      runtime.config;
 
-        if (!response.ok) {
-          throw new Error(`CoinGecko returned HTTP ${response.status}`);
-        }
+    // ── Step 1: Fetch CoinGecko prices on every DON node ─────────────────────
+    // runInNodeMode() returns a zero-arg function that, when called, executes
+    // the inner function on each DON node and applies consensus aggregation.
+    // consensusIdenticalAggregation requires all nodes to return the same value.
+    const fetchPrices = runtime.runInNodeMode(
+      async (_nr: NodeRuntime<Config>): Promise<AssetPrice[]> => {
+        const ids = assets.join(",");
+        const url =
+          `${coingeckoApiUrl}/simple/price` +
+          `?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
 
-        const data = response.json() as Record<string, { usd: number; usd_24h_change?: number }>;
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
 
-        return config.assets.map((id) => ({
+        const data = (await res.json()) as Record<
+          string,
+          { usd?: number; usd_24h_change?: number }
+        >;
+
+        return assets.map((id) => ({
           id,
           usdPrice: data[id]?.usd ?? 0,
           change24h: data[id]?.usd_24h_change ?? null,
         }));
       },
-      // Median aggregation: consensus on the median price across nodes
-      consensusMedianAggregation({
-        keyPath: (item: AssetPrice) => item.id,
-        valuePath: (item: AssetPrice) => item.usdPrice,
-      }),
+      consensusIdenticalAggregation<Promise<AssetPrice[]>>(),
     );
 
-    // Step 2: Fetch TVL from DeFiLlama (per node)
-    const tvlData = await nodeRuntime.runInNodeMode(
-      async (): Promise<ChainTvl[]> => {
-        const url = `${config.defillamaApiUrl}/v2/chains`;
-
-        const response = await http.get(url, {
+    // ── Step 2: Fetch DeFiLlama TVL on every DON node ────────────────────────
+    const fetchTvl = runtime.runInNodeMode(
+      async (_nr: NodeRuntime<Config>): Promise<ChainTvl[]> => {
+        const res = await fetch(`${defillamaApiUrl}/v2/chains`, {
           headers: { Accept: "application/json" },
         });
+        if (!res.ok) throw new Error(`DeFiLlama HTTP ${res.status}`);
 
-        if (!response.ok) {
-          throw new Error(`DeFiLlama returned HTTP ${response.status}`);
-        }
+        const allChains = (await res.json()) as Array<{
+          name: string;
+          tvl: number;
+        }>;
 
-        const allChains = response.json() as Array<{ name: string; tvl: number }>;
-
-        return config.tvlChains
+        return tvlChains
           .map((chainName) => {
             const found = allChains.find(
               (c) => c.name.toLowerCase() === chainName.toLowerCase(),
@@ -140,28 +151,24 @@ async function initWorkflow(runtime: Runtime, config: Config) {
           .filter((c) => c.tvlUsd > 0)
           .sort((a, b) => b.tvlUsd - a.tvlUsd);
       },
-      // Identical aggregation: all nodes must return the same TVL ranking
-      consensusIdenticalAggregation(),
+      consensusIdenticalAggregation<Promise<ChainTvl[]>>(),
     );
 
-    // Step 3: Assemble final report
-    const report: MarketDataReport = {
+    // ── Step 3: Execute and assemble ─────────────────────────────────────────
+    // Calling the returned functions triggers node execution + consensus.
+    const prices = await fetchPrices().result();
+    const topTvl = await fetchTvl().result();
+
+    return {
       fetchedAtMs: Date.now(),
       prices,
-      topTvl: tvlData,
+      topTvl,
     };
+  },
+);
 
-    // Step 4: Emit report as workflow output
-    // In a full integration, this would write to an on-chain contract or
-    // a verified data feed. For the NV Agent integration, a listening
-    // webhook or polling endpoint on the app server would consume this.
-    runtime.emit("market_data_report", report);
-  });
-}
+// ─── Workflow export ──────────────────────────────────────────────────────────
+// CRE expects the default export to be an array of handler entries.
 
-// ─── Entry point ─────────────────────────────────────────────────────────────
-
-export async function main() {
-  const runner = await Runner.newRunner<Config>({ configSchema });
-  await runner.run(initWorkflow);
-}
+export default [marketDataHandler];
+export { configSchema };

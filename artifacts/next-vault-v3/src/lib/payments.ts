@@ -126,6 +126,41 @@ export interface PurchaseState {
   productId: string | null;
 }
 
+// ── Module-level payment state observable ────────────────────────────────
+// Allows the NV Agent context to read the current payment state without
+// prop-drilling. Components that own payment state call notifyPaymentState()
+// whenever the state changes (e.g. after each step of executePayment).
+
+let _currentPaymentState: PurchaseState = {
+  status: "idle",
+  txHash: null,
+  error: null,
+  productId: null,
+};
+const _paymentListeners: Array<(s: PurchaseState) => void> = [];
+
+/** Read the current payment state snapshot (for the agent context). */
+export function getPaymentState(): PurchaseState {
+  return _currentPaymentState;
+}
+
+/** Notify the module that payment state has changed (call from UI components). */
+export function notifyPaymentState(state: PurchaseState): void {
+  _currentPaymentState = state;
+  for (const fn of _paymentListeners) {
+    try { fn(state); } catch { /* ignore listener errors */ }
+  }
+}
+
+/** Subscribe to payment state changes. Returns an unsubscribe function. */
+export function subscribePaymentState(fn: (s: PurchaseState) => void): () => void {
+  _paymentListeners.push(fn);
+  return () => {
+    const idx = _paymentListeners.indexOf(fn);
+    if (idx !== -1) _paymentListeners.splice(idx, 1);
+  };
+}
+
 export interface PurchaseRecord {
   id: string;
   wallet_address: string;

@@ -5,7 +5,8 @@
     "moduleResolution": "bundler",
     "strict": true,
     "lib": ["ES2020"],
-    "types": []
+    "types": [],
+    "skipLibCheck": true
   },
   "include": ["*.ts"]
 }
