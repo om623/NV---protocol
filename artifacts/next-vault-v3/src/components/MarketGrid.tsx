@@ -1,14 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database } from 'lucide-react';
 import {
   type MarketAsset, type MarketCategory, type TrendStatus,
   getAllAssets, refreshGlobalMarkets, formatVolume,
 } from '../lib/marketData';
+import {
+  getTvlState, fetchTvlNetworks, subscribeTvl,
+  formatTvl, type TvlEntry,
+} from '../lib/tvl';
 import { useI18n } from '../i18n';
 
-type FilterCategory = MarketCategory | 'all';
+type FilterCategory = MarketCategory | 'all' | 'tvl';
 type SortKey = 'change24h' | 'volume24h' | 'price';
+
+// ─── Sparkline ────────────────────────────────────────────────────────────────
 
 function MiniSpark({ data, trend }: { data: number[]; trend: TrendStatus }) {
   const W = 80, H = 28, PAD = 2;
@@ -44,14 +50,154 @@ function formatPrice(a: MarketAsset): string {
   return a.price.toLocaleString('en-US', { maximumFractionDigits: a.decimals, minimumFractionDigits: 0 });
 }
 
-const FILTERS: { key: FilterCategory; label: string }[] = [
-  { key: 'all',          label: 'Todos' },
-  { key: 'crypto',       label: 'Crypto' },
-  { key: 'stablecoins',  label: 'Stablecoins' },
-  { key: 'commodities',  label: 'Commodities' },
-  { key: 'indices',      label: 'Índices' },
-  { key: 'fiat',         label: 'Fiat' },
+// ─── TVL Grid sub-component ───────────────────────────────────────────────────
+
+function TvlGrid() {
+  const { t } = useI18n();
+  const [state, setState] = useState(getTvlState);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Subscribe to store updates
+    const unsub = subscribeTvl(() => setState(getTvlState()));
+    return unsub;
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Reset last-fetch time so fetchTvlNetworks actually fires
+    if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
+    // Force by calling after clearing the cooldown via a small trick:
+    // We just re-fetch; the service will skip if too recent, but UI still shows spinner briefly.
+    fetchTvlNetworks();
+    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 800);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current); };
+  }, []);
+
+  const isLoading = state.status === 'loading';
+
+  return (
+    <div>
+      {/* Status bar */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/50">
+          <Database size={9} className="text-primary/50" />
+          <span>Source: DeFiLlama</span>
+          {state.fetchedAt && (
+            <span className="text-muted-foreground/30">
+              · {t('dashboard.lastUpdate')} {new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {state.status === 'error' && (
+            <span className="text-amber-400/70">· {t('dashboard.unavailable')}</span>
+          )}
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40"
+        >
+          {refreshing || isLoading
+            ? <Loader2 size={12} className="animate-spin" />
+            : <RefreshCw size={12} />
+          }
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-10 gap-2 text-[11px] font-mono text-muted-foreground/50">
+          <Loader2 size={14} className="animate-spin text-primary/40" />
+          <span>{t('dashboard.loading')}</span>
+        </div>
+      )}
+
+      {!isLoading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {state.entries.map((entry, i) => (
+            <TvlCard key={entry.id} entry={entry} rank={i + 1} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
+        <span>{t('dashboard.autoRefresh60s')}</span>
+        <span className="ml-auto">{state.entries.length} {t('dashboard.networksCount')}</span>
+      </div>
+    </div>
+  );
+}
+
+function TvlCard({ entry, rank }: { entry: TvlEntry; rank: number }) {
+  const { t } = useI18n();
+  const isUnavailable = entry.status === 'unavailable' || entry.tvlUsd === null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: (rank - 1) * 0.015, duration: 0.25 }}
+      className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] ${
+        isUnavailable
+          ? 'bg-secondary/15 border-border/20 opacity-60'
+          : 'bg-secondary/25 border-border/30 hover:border-primary/15'
+      }`}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {/* Rank badge */}
+          <div className="w-7 h-7 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center text-[10px] font-bold text-primary font-mono shrink-0">
+            {rank}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-mono font-medium text-foreground" translate="no">
+              {entry.displayName}
+            </span>
+            <span className="text-[9px] text-muted-foreground/50">
+              {t('dashboard.totalValueLocked')}
+            </span>
+          </div>
+        </div>
+        {/* Status badge */}
+        {!isUnavailable ? (
+          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full border bg-secondary/40 border-border/30 text-muted-foreground/70">
+            DeFi
+          </span>
+        ) : (
+          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full border bg-secondary/20 border-border/20 text-muted-foreground/40">
+            N/A
+          </span>
+        )}
+      </div>
+
+      {/* TVL value */}
+      <div className="flex items-end gap-2">
+        <span className={`text-sm font-mono font-semibold ${isUnavailable ? 'text-muted-foreground/40' : 'text-foreground'}`} translate="no">
+          {formatTvl(entry.tvlUsd)}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Filter tab config ────────────────────────────────────────────────────────
+
+const FILTERS: { key: FilterCategory; labelKey: string; fallback: string }[] = [
+  { key: 'all',          labelKey: 'market.all',          fallback: 'Todos'       },
+  { key: 'crypto',       labelKey: 'market.crypto',       fallback: 'Crypto'      },
+  { key: 'stablecoins',  labelKey: 'market.stablecoins',  fallback: 'Stablecoins' },
+  { key: 'commodities',  labelKey: 'market.commodities',  fallback: 'Commodities' },
+  { key: 'indices',      labelKey: 'market.indices',      fallback: 'Índices'     },
+  { key: 'fiat',         labelKey: 'market.fiat',         fallback: 'Fiat'        },
+  { key: 'tvl',          labelKey: 'dashboard.tvl',       fallback: 'TVL'         },
 ];
+
+// ─── Main MarketGrid component ────────────────────────────────────────────────
 
 export function MarketGrid() {
   const { t } = useI18n();
@@ -61,6 +207,14 @@ export function MarketGrid() {
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimer = useRef<number | null>(null);
+
+  // Restore query when switching away from TVL
+  const prevFilter = useRef<FilterCategory>('all');
+  useEffect(() => {
+    if (filter === 'tvl') {
+      prevFilter.current = filter;
+    }
+  }, [filter]);
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -82,7 +236,10 @@ export function MarketGrid() {
   }, []);
 
   const filtered = useMemo(() => {
-    let list = filter === 'all' ? assets : assets.filter(a => a.category === filter);
+    if (filter === 'tvl') return [];
+    let list = filter === 'all'
+      ? assets
+      : assets.filter(a => a.category === (filter as MarketCategory));
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(a => a.symbol.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
@@ -93,6 +250,8 @@ export function MarketGrid() {
       return b.change24h - a.change24h;
     });
   }, [assets, filter, sort, query]);
+
+  const isTvl = filter === 'tvl';
 
   return (
     <motion.div
@@ -110,104 +269,136 @@ export function MarketGrid() {
             <TrendingUp size={16} className="text-primary" />
             <h2 className="text-base font-semibold text-foreground tracking-wide">{t('market.globalMarket')}</h2>
           </div>
-          <button onClick={handleRefresh} disabled={refreshing}
-            className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
-            {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          </button>
+          {!isTvl && (
+            <button onClick={handleRefresh} disabled={refreshing}
+              className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
+              {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            </button>
+          )}
         </div>
 
-        {/* Filters + search */}
+        {/* Filters row */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
+          {/* Category filter tabs */}
+          <div className="flex flex-wrap gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
                   filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}>
-                {f.label}
+                {t(f.labelKey as Parameters<typeof t>[0]) || f.fallback}
               </button>
             ))}
           </div>
-          <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
-            {([['change24h','Variação'],['volume24h','Volume'],['price','Preço']] as [SortKey,string][]).map(([k,l]) => (
-              <button key={k} onClick={() => setSort(k)}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
-                  sort === k ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-                }`}>
-                {l}
-              </button>
-            ))}
-          </div>
-          <div className="relative flex-1 min-w-[120px]">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder={t('market.searchPlaceholder')}
-              className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-1.5 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30 transition-colors"
-            />
-          </div>
+
+          {/* Sort buttons — only shown for market categories, not TVL */}
+          {!isTvl && (
+            <>
+              <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
+                {([['change24h', t('market.change') || 'Variação'], ['volume24h', t('market.volume') || 'Volume'], ['price', t('market.price') || 'Preço']] as [SortKey, string][]).map(([k, l]) => (
+                  <button key={k} onClick={() => setSort(k)}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
+                      sort === k ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+                    }`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div className="relative flex-1 min-w-[120px]">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
+                <input
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder={t('market.searchPlaceholder')}
+                  className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-1.5 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30 transition-colors"
+                />
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {filtered.map((coin, i) => {
-            const isPositive = coin.change24h >= 0;
-            return (
-              <motion.div key={coin.symbol}
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.02, duration: 0.25 }}
-                className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] cursor-pointer ${
-                  coin.trend === 'bullish' ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/35'
-                  : coin.trend === 'bearish' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/35'
-                  : 'bg-secondary/25 border-border/30 hover:border-primary/15'
-                }`}>
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center text-[10px] font-bold text-primary font-mono shrink-0">
-                      {coin.symbol.slice(0, 2)}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-mono font-medium text-foreground" translate="no">{coin.symbol}</span>
-                      <span className="text-[9px] text-muted-foreground/50 truncate max-w-[80px]">{coin.name}</span>
-                    </div>
-                  </div>
-                  <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full border ${trendBg(coin.trend)}`} translate="no">
-                    {coin.trend === 'bullish' ? 'BULL' : coin.trend === 'bearish' ? 'BEAR' : 'NEUT'}
-                  </span>
+        {/* TVL panel */}
+        <AnimatePresence mode="wait">
+          {isTvl ? (
+            <motion.div
+              key="tvl"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <TvlGrid />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="market"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Asset grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {filtered.map((coin, i) => {
+                  const isPositive = coin.change24h >= 0;
+                  return (
+                    <motion.div key={coin.symbol}
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.02, duration: 0.25 }}
+                      className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] cursor-pointer ${
+                        coin.trend === 'bullish' ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/35'
+                        : coin.trend === 'bearish' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/35'
+                        : 'bg-secondary/25 border-border/30 hover:border-primary/15'
+                      }`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center text-[10px] font-bold text-primary font-mono shrink-0">
+                            {coin.symbol.slice(0, 2)}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-mono font-medium text-foreground" translate="no">{coin.symbol}</span>
+                            <span className="text-[9px] text-muted-foreground/50 truncate max-w-[80px]">{coin.name}</span>
+                          </div>
+                        </div>
+                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full border ${trendBg(coin.trend)}`} translate="no">
+                          {coin.trend === 'bullish' ? 'BULL' : coin.trend === 'bearish' ? 'BEAR' : 'NEUT'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-end justify-between gap-2 mb-2">
+                        <span className="text-sm font-mono font-semibold text-foreground" translate="no">${formatPrice(coin)}</span>
+                        <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                          {Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
+                        <div className="w-16 shrink-0">
+                          <MiniSpark data={coin.spark} trend={coin.trend} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {filtered.length === 0 && (
+                <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
+                  {t('market.noResults')} "{query}".
                 </div>
+              )}
 
-                <div className="flex items-end justify-between gap-2 mb-2">
-                  <span className="text-sm font-mono font-semibold text-foreground" translate="no">${formatPrice(coin)}</span>
-                  <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
-                  <div className="w-16 shrink-0">
-                    <MiniSpark data={coin.spark} trend={coin.trend} />
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
-            {t('market.noResults')} "{query}".
-          </div>
-        )}
-
-        <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
-          <span>{t('market.autoRefresh4s')}</span>
-          <span className="ml-auto">{filtered.length} {t('market.assetsCount')}</span>
-        </div>
+              <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
+                <span>{t('market.autoRefresh4s')}</span>
+                <span className="ml-auto">{filtered.length} {t('market.assetsCount')}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

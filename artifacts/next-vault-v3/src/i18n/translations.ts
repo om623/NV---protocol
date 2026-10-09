@@ -154,6 +154,21 @@ const ptBR: Dict = {
   'market.noResults': 'Nenhum ativo encontrado para',
   'market.autoRefresh4s': 'Auto-atualização a cada 4s',
   'market.assetsCount': 'ativos',
+  'market.stablecoins': 'Stablecoins',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'Rede',
+  'dashboard.totalValueLocked': 'Total Value Locked',
+  'dashboard.change1d': 'Var. 1D',
+  'dashboard.change7d': 'Var. 7D',
+  'dashboard.lastUpdate': 'Atualizado',
+  'dashboard.source': 'Fonte',
+  'dashboard.noData': 'Sem dados',
+  'dashboard.unavailable': 'Indisponível',
+  'dashboard.loading': 'Carregando…',
+  'dashboard.autoRefresh60s': 'Auto-atualização a cada 60s',
+  'dashboard.networksCount': 'redes',
 
   // Wallet
   'wallet.myWallet': 'Minha Carteira',
@@ -589,6 +604,21 @@ const en: Dict = {
   'market.noResults': 'No asset found for',
   'market.autoRefresh4s': 'Auto-refresh every 4s',
   'market.assetsCount': 'assets',
+  'market.stablecoins': 'Stablecoins',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'Network',
+  'dashboard.totalValueLocked': 'Total Value Locked',
+  'dashboard.change1d': '1D Change',
+  'dashboard.change7d': '7D Change',
+  'dashboard.lastUpdate': 'Updated',
+  'dashboard.source': 'Source',
+  'dashboard.noData': 'No data',
+  'dashboard.unavailable': 'Unavailable',
+  'dashboard.loading': 'Loading…',
+  'dashboard.autoRefresh60s': 'Auto-refresh every 60s',
+  'dashboard.networksCount': 'networks',
 
   'wallet.myWallet': 'My Wallet',
   'wallet.notConnected': 'Wallet not connected',
@@ -1007,6 +1037,21 @@ const es: Dict = {
   'market.noResults': 'Ningún activo encontrado para',
   'market.autoRefresh4s': 'Auto-actualización cada 4s',
   'market.assetsCount': 'activos',
+  'market.stablecoins': 'Stablecoins',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'Red',
+  'dashboard.totalValueLocked': 'Valor Total Bloqueado',
+  'dashboard.change1d': 'Cambio 1D',
+  'dashboard.change7d': 'Cambio 7D',
+  'dashboard.lastUpdate': 'Actualizado',
+  'dashboard.source': 'Fuente',
+  'dashboard.noData': 'Sin datos',
+  'dashboard.unavailable': 'No disponible',
+  'dashboard.loading': 'Cargando…',
+  'dashboard.autoRefresh60s': 'Auto-actualización cada 60s',
+  'dashboard.networksCount': 'redes',
 
   'wallet.myWallet': 'Mi Cartera',
   'wallet.notConnected': 'Cartera no conectada',
@@ -1324,6 +1369,21 @@ const fr: Dict = {
   'market.noResults': 'Aucun actif trouvé pour',
   'market.autoRefresh4s': 'Auto-rafraîchissement toutes les 4s',
   'market.assetsCount': 'actifs',
+  'market.stablecoins': 'Stablecoins',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'Réseau',
+  'dashboard.totalValueLocked': 'Valeur Totale Verrouillée',
+  'dashboard.change1d': 'Var. 1J',
+  'dashboard.change7d': 'Var. 7J',
+  'dashboard.lastUpdate': 'Mis à jour',
+  'dashboard.source': 'Source',
+  'dashboard.noData': 'Aucune donnée',
+  'dashboard.unavailable': 'Indisponible',
+  'dashboard.loading': 'Chargement…',
+  'dashboard.autoRefresh60s': 'Actualisation auto toutes les 60s',
+  'dashboard.networksCount': 'réseaux',
 
   'wallet.myWallet': 'Mon Portefeuille',
   'wallet.notConnected': 'Portefeuille non connecté',
@@ -1644,6 +1704,36 @@ const zh: Dict = {
   'common.unavailable': '数据不可用',
   'settings.language': '语言',
   'settings.selectLanguage': '选择语言',
+
+  // Market
+  'market.globalMarket': '全球市场',
+  'market.all': '全部',
+  'market.crypto': '加密货币',
+  'market.stablecoins': '稳定币',
+  'market.commodities': '大宗商品',
+  'market.indices': '指数',
+  'market.fiat': '法币',
+  'market.change': '涨跌',
+  'market.volume': '成交量',
+  'market.price': '价格',
+  'market.searchPlaceholder': '搜索资产…',
+  'market.noResults': '未找到资产',
+  'market.autoRefresh4s': '每4秒自动刷新',
+  'market.assetsCount': '项资产',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': '网络',
+  'dashboard.totalValueLocked': '总锁仓量',
+  'dashboard.change1d': '1日变化',
+  'dashboard.change7d': '7日变化',
+  'dashboard.lastUpdate': '更新时间',
+  'dashboard.source': '来源',
+  'dashboard.noData': '暂无数据',
+  'dashboard.unavailable': '不可用',
+  'dashboard.loading': '加载中…',
+  'dashboard.autoRefresh60s': '每60秒自动刷新',
+  'dashboard.networksCount': '个网络',
 };
 
 // ─── Japanese ─────────────────────────────────────────────────────────────────
@@ -1786,6 +1876,36 @@ const ja: Dict = {
   'common.unavailable': 'データ利用不可',
   'settings.language': '言語',
   'settings.selectLanguage': '言語を選択',
+
+  // Market
+  'market.globalMarket': 'グローバル市場',
+  'market.all': 'すべて',
+  'market.crypto': '暗号資産',
+  'market.stablecoins': 'ステーブルコイン',
+  'market.commodities': 'コモディティ',
+  'market.indices': '株価指数',
+  'market.fiat': '法定通貨',
+  'market.change': '変動',
+  'market.volume': '取引量',
+  'market.price': '価格',
+  'market.searchPlaceholder': '資産を検索…',
+  'market.noResults': '該当資産なし',
+  'market.autoRefresh4s': '4秒ごとに自動更新',
+  'market.assetsCount': '銘柄',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'ネットワーク',
+  'dashboard.totalValueLocked': '総ロック価値',
+  'dashboard.change1d': '1日変化',
+  'dashboard.change7d': '7日変化',
+  'dashboard.lastUpdate': '更新',
+  'dashboard.source': 'ソース',
+  'dashboard.noData': 'データなし',
+  'dashboard.unavailable': '利用不可',
+  'dashboard.loading': '読み込み中…',
+  'dashboard.autoRefresh60s': '60秒ごとに自動更新',
+  'dashboard.networksCount': 'ネットワーク',
 };
 
 // ─── Korean ───────────────────────────────────────────────────────────────────
@@ -1928,6 +2048,36 @@ const ko: Dict = {
   'common.unavailable': '데이터 없음',
   'settings.language': '언어',
   'settings.selectLanguage': '언어 선택',
+
+  // Market
+  'market.globalMarket': '글로벌 시장',
+  'market.all': '전체',
+  'market.crypto': '암호화폐',
+  'market.stablecoins': '스테이블코인',
+  'market.commodities': '원자재',
+  'market.indices': '지수',
+  'market.fiat': '법정화폐',
+  'market.change': '변동',
+  'market.volume': '거래량',
+  'market.price': '가격',
+  'market.searchPlaceholder': '자산 검색…',
+  'market.noResults': '해당 자산 없음',
+  'market.autoRefresh4s': '4초마다 자동 새로 고침',
+  'market.assetsCount': '종목',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': '네트워크',
+  'dashboard.totalValueLocked': '총 예치 자산',
+  'dashboard.change1d': '1일 변화',
+  'dashboard.change7d': '7일 변화',
+  'dashboard.lastUpdate': '업데이트',
+  'dashboard.source': '출처',
+  'dashboard.noData': '데이터 없음',
+  'dashboard.unavailable': '사용 불가',
+  'dashboard.loading': '로딩 중…',
+  'dashboard.autoRefresh60s': '60초마다 자동 새로 고침',
+  'dashboard.networksCount': '개 네트워크',
 };
 
 // ─── Hindi ────────────────────────────────────────────────────────────────────
@@ -2070,6 +2220,36 @@ const hi: Dict = {
   'common.unavailable': 'डेटा अनुपलब्ध',
   'settings.language': 'भाषा',
   'settings.selectLanguage': 'भाषा चुनें',
+
+  // Market
+  'market.globalMarket': 'वैश्विक बाज़ार',
+  'market.all': 'सभी',
+  'market.crypto': 'क्रिप्टो',
+  'market.stablecoins': 'स्टेबलकॉइन',
+  'market.commodities': 'कमोडिटी',
+  'market.indices': 'सूचकांक',
+  'market.fiat': 'फिएट',
+  'market.change': 'बदलाव',
+  'market.volume': 'वॉल्यूम',
+  'market.price': 'मूल्य',
+  'market.searchPlaceholder': 'संपत्ति खोजें…',
+  'market.noResults': 'कोई संपत्ति नहीं मिली',
+  'market.autoRefresh4s': 'हर 4 सेकंड में स्वतः ताज़ा',
+  'market.assetsCount': 'संपत्तियां',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'नेटवर्क',
+  'dashboard.totalValueLocked': 'कुल लॉक्ड वैल्यू',
+  'dashboard.change1d': '1 दिन बदलाव',
+  'dashboard.change7d': '7 दिन बदलाव',
+  'dashboard.lastUpdate': 'अपडेट',
+  'dashboard.source': 'स्रोत',
+  'dashboard.noData': 'डेटा नहीं',
+  'dashboard.unavailable': 'उपलब्ध नहीं',
+  'dashboard.loading': 'लोड हो रहा है…',
+  'dashboard.autoRefresh60s': 'हर 60 सेकंड में स्वतः ताज़ा',
+  'dashboard.networksCount': 'नेटवर्क',
 };
 
 // ─── Arabic ───────────────────────────────────────────────────────────────────
@@ -2212,6 +2392,36 @@ const ar: Dict = {
   'common.unavailable': 'البيانات غير متاحة',
   'settings.language': 'اللغة',
   'settings.selectLanguage': 'اختر اللغة',
+
+  // Market
+  'market.globalMarket': 'السوق العالمي',
+  'market.all': 'الكل',
+  'market.crypto': 'كريبتو',
+  'market.stablecoins': 'عملات مستقرة',
+  'market.commodities': 'سلع',
+  'market.indices': 'مؤشرات',
+  'market.fiat': 'عملات ورقية',
+  'market.change': 'تغيير',
+  'market.volume': 'حجم',
+  'market.price': 'سعر',
+  'market.searchPlaceholder': 'بحث عن أصل…',
+  'market.noResults': 'لم يُعثر على أصل',
+  'market.autoRefresh4s': 'تحديث تلقائي كل 4 ثوانٍ',
+  'market.assetsCount': 'أصول',
+
+  // TVL
+  'dashboard.tvl': 'TVL',
+  'dashboard.network': 'الشبكة',
+  'dashboard.totalValueLocked': 'إجمالي القيمة المقفلة',
+  'dashboard.change1d': 'تغيير 1 يوم',
+  'dashboard.change7d': 'تغيير 7 أيام',
+  'dashboard.lastUpdate': 'تحديث',
+  'dashboard.source': 'المصدر',
+  'dashboard.noData': 'لا توجد بيانات',
+  'dashboard.unavailable': 'غير متاح',
+  'dashboard.loading': 'جارٍ التحميل…',
+  'dashboard.autoRefresh60s': 'تحديث تلقائي كل 60 ثانية',
+  'dashboard.networksCount': 'شبكة',
 };
 
 // ─── NV Intelligence keys injected into existing 4 locales ───────────────────
