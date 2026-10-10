@@ -9,6 +9,8 @@ import {
   getTvlState, fetchTvlNetworks, subscribeTvl,
   formatTvl, type TvlEntry,
 } from '../lib/tvl';
+import { subscribeFiat } from '../lib/fiat';
+import { subscribeIndices } from '../lib/indices';
 import { useI18n } from '../i18n';
 
 type FilterCategory = MarketCategory | 'all' | 'tvl';
@@ -48,6 +50,21 @@ function formatPrice(a: MarketAsset): string {
   if (a.price < 0.01) return a.price.toFixed(6);
   if (a.price < 1) return a.price.toFixed(4);
   return a.price.toLocaleString('en-US', { maximumFractionDigits: a.decimals, minimumFractionDigits: 0 });
+}
+
+/** Returns the prefix symbol for the price — "$" for USD assets, empty for local-currency indices/fiat */
+function pricePrefix(a: MarketAsset): string {
+  if (a.category === 'fiat') return '';        // fiat shows "1 USD = X units" label, no $ prefix
+  if (a.category === 'indices') return '';     // index levels shown without currency prefix — currency in unit/source badge
+  return '$';
+}
+
+function StaleChip() {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[7px] font-mono px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400/80 shrink-0">
+      ⚠ stale
+    </span>
+  );
 }
 
 // ─── TVL Grid sub-component ───────────────────────────────────────────────────
@@ -217,12 +234,17 @@ export function MarketGrid() {
   }, [filter]);
 
   useEffect(() => {
+    // Re-render when fiat or index real data arrives
+    const unsubFiat = subscribeFiat(() => setAssets([...getAllAssets()]));
+    const unsubIdx  = subscribeIndices(() => setAssets([...getAllAssets()]));
     const iv = setInterval(() => {
       refreshGlobalMarkets();
       setAssets([...getAllAssets()]);
     }, 4000);
     return () => {
       clearInterval(iv);
+      unsubFiat();
+      unsubIdx();
       if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
     };
   }, []);
@@ -366,16 +388,41 @@ export function MarketGrid() {
                         </span>
                       </div>
 
-                      <div className="flex items-end justify-between gap-2 mb-2">
-                        <span className="text-sm font-mono font-semibold text-foreground" translate="no">${formatPrice(coin)}</span>
-                        <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <div className="flex items-end justify-between gap-2 mb-1.5">
+                        <div className="flex items-baseline gap-1 min-w-0">
+                          <span className="text-sm font-mono font-semibold text-foreground" translate="no">
+                            {pricePrefix(coin)}{formatPrice(coin)}
+                          </span>
+                          {coin.priceCurrency && coin.category !== 'crypto' && coin.category !== 'stablecoins' && (
+                            <span className="text-[8px] font-mono text-muted-foreground/40 shrink-0" translate="no">
+                              {coin.priceCurrency}
+                            </span>
+                          )}
+                        </div>
+                        <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                           {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                          {Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
+                          {/* Fiat has no intraday change — show daily-ref label instead */}
+                          {coin.category === 'fiat'
+                            ? <span className="text-[8px] text-muted-foreground/40">daily ref</span>
+                            : Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
                         </div>
                       </div>
 
+                      {/* Unit label for commodities + fiat */}
+                      {coin.unit && (
+                        <div className="text-[8px] font-mono text-muted-foreground/40 mb-1 truncate" translate="no">
+                          {coin.unit}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          {coin.dataSource
+                            ? <span className="text-[8px] font-mono text-muted-foreground/35 truncate" translate="no">{coin.dataSource}</span>
+                            : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
+                          }
+                          {!coin.isLive && (coin.category === 'fiat' || coin.category === 'indices' || coin.category === 'commodities') && <StaleChip />}
+                        </div>
                         <div className="w-16 shrink-0">
                           <MiniSpark data={coin.spark} trend={coin.trend} />
                         </div>

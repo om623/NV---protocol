@@ -5,6 +5,8 @@ import {
   fetchCryptoPrices, fetchGlobalMarket, fetchFearGreed, fetchTotalTvl,
 } from './api';
 import { fetchCommodityPrices } from './commodities';
+import { fetchFiatRates, FIAT_CURRENCIES } from './fiat';
+import { fetchAllIndices } from './indices';
 
 export type MarketCategory = 'fiat' | 'commodities' | 'indices' | 'crypto' | 'stablecoins';
 
@@ -25,6 +27,14 @@ export interface MarketAsset {
   rsi: number;
   /** Whether the current price comes from a real API (true) or simulated fallback (false) */
   isLive: boolean;
+  /** Display unit for the price e.g. "USD/troy oz", "USD/bbl", "1 USD =" */
+  unit?: string;
+  /** Data source name e.g. "Yahoo Finance", "Coinbase", "open.er-api.com" */
+  dataSource?: string;
+  /** ms timestamp of the most recent real data point */
+  lastUpdated?: number;
+  /** ISO 4217 display currency for this asset */
+  priceCurrency?: string;
 }
 
 export interface MarketGroup {
@@ -124,63 +134,63 @@ interface BaseAsset {
   change7d: number;
   /** CoinGecko coin id for real price fetch (crypto/stablecoins only) */
   coinGeckoId?: string;
+  /** Display unit (commodities) */
+  unit?: string;
 }
 
 const BASE_ASSETS: BaseAsset[] = [
-  // FIAT
-  { symbol: 'USD', name: 'US Dollar',       category: 'fiat', price: 1.0,    decimals: 4, change7d: 0 },
-  { symbol: 'EUR', name: 'Euro',            category: 'fiat', price: 1.087,  decimals: 4, change7d: 0.8 },
-  { symbol: 'BRL', name: 'Brazilian Real',  category: 'fiat', price: 5.42,   decimals: 4, change7d: -1.2 },
-  { symbol: 'GBP', name: 'British Pound',   category: 'fiat', price: 1.273,  decimals: 4, change7d: 0.3 },
-  { symbol: 'JPY', name: 'Japanese Yen',    category: 'fiat', price: 0.0063, decimals: 6, change7d: -0.5 },
+  // FIAT — all 20 currencies; price = 1 USD = X units (shown as "1 USD = X")
+  // Seeds are approximate; overwritten on first successful fetchFiatRates()
+  { symbol: 'USD', name: 'US Dollar',          category: 'fiat', price: 1.0,      decimals: 4, change7d: 0 },
+  { symbol: 'EUR', name: 'Euro',               category: 'fiat', price: 0.921,    decimals: 4, change7d: 0 },
+  { symbol: 'BRL', name: 'Brazilian Real',     category: 'fiat', price: 5.68,     decimals: 4, change7d: 0 },
+  { symbol: 'GBP', name: 'British Pound',      category: 'fiat', price: 0.786,    decimals: 4, change7d: 0 },
+  { symbol: 'JPY', name: 'Japanese Yen',       category: 'fiat', price: 148.5,    decimals: 2, change7d: 0 },
+  { symbol: 'CHF', name: 'Swiss Franc',        category: 'fiat', price: 0.899,    decimals: 4, change7d: 0 },
+  { symbol: 'CAD', name: 'Canadian Dollar',    category: 'fiat', price: 1.367,    decimals: 4, change7d: 0 },
+  { symbol: 'AUD', name: 'Australian Dollar',  category: 'fiat', price: 1.528,    decimals: 4, change7d: 0 },
+  { symbol: 'NZD', name: 'New Zealand Dollar', category: 'fiat', price: 1.671,    decimals: 4, change7d: 0 },
+  { symbol: 'CNY', name: 'Chinese Yuan',       category: 'fiat', price: 7.243,    decimals: 4, change7d: 0 },
+  { symbol: 'HKD', name: 'Hong Kong Dollar',   category: 'fiat', price: 7.774,    decimals: 4, change7d: 0 },
+  { symbol: 'SGD', name: 'Singapore Dollar',   category: 'fiat', price: 1.342,    decimals: 4, change7d: 0 },
+  { symbol: 'MXN', name: 'Mexican Peso',       category: 'fiat', price: 19.87,    decimals: 4, change7d: 0 },
+  { symbol: 'ARS', name: 'Argentine Peso',     category: 'fiat', price: 1056.0,   decimals: 2, change7d: 0 },
+  { symbol: 'CLP', name: 'Chilean Peso',       category: 'fiat', price: 958.0,    decimals: 2, change7d: 0 },
+  { symbol: 'COP', name: 'Colombian Peso',     category: 'fiat', price: 4218.0,   decimals: 2, change7d: 0 },
+  { symbol: 'INR', name: 'Indian Rupee',       category: 'fiat', price: 84.07,    decimals: 4, change7d: 0 },
+  { symbol: 'KRW', name: 'South Korean Won',   category: 'fiat', price: 1343.0,   decimals: 2, change7d: 0 },
+  { symbol: 'TRY', name: 'Turkish Lira',       category: 'fiat', price: 34.27,    decimals: 4, change7d: 0 },
+  { symbol: 'ZAR', name: 'South African Rand', category: 'fiat', price: 17.84,    decimals: 4, change7d: 0 },
 
-  { symbol: 'CHF', name: 'Swiss Franc',     category: 'fiat', price: 1.11,   decimals: 4, change7d: 0.2 },
-  { symbol: 'CAD', name: 'Canadian Dollar',  category: 'fiat', price: 0.73,   decimals: 4, change7d: -0.4 },
-  { symbol: 'AUD', name: 'Australian Dollar',category: 'fiat', price: 0.66,   decimals: 4, change7d: 0.5 },
-  { symbol: 'CNY', name: 'Chinese Yuan',     category: 'fiat', price: 0.138,  decimals: 5, change7d: -0.2 },
-  { symbol: 'HKD', name: 'Hong Kong Dollar', category: 'fiat', price: 0.128,  decimals: 5, change7d: 0.1 },
-  { symbol: 'SGD', name: 'Singapore Dollar', category: 'fiat', price: 0.75,   decimals: 4, change7d: 0.3 },
-  { symbol: 'MXN', name: 'Mexican Peso',     category: 'fiat', price: 0.055,  decimals: 5, change7d: -0.7 },
- 
-  // COMMODITIES
-  { symbol: 'XAU', name: 'Gold',          category: 'commodities', price: 2412.55, decimals: 2, change7d: 2.1 },
-  { symbol: 'XAG', name: 'Silver',        category: 'commodities', price: 29.84,   decimals: 2, change7d: 3.4 },
-  { symbol: 'WTI', name: 'Oil (WTI)',     category: 'commodities', price: 78.92,   decimals: 2, change7d: -1.8 },
-  { symbol: 'NG',  name: 'Natural Gas',   category: 'commodities', price: 2.34,    decimals: 4, change7d: -3.2 },
-  { symbol: 'COP', name: 'Copper',        category: 'commodities', price: 4.52,    decimals: 3, change7d: 1.1 },
+  // COMMODITIES — seeds are last-known approximate values; overwritten by fetchCommodityPrices()
+  // Precious metals (via YF GC=F / SI=F / PL=F / PA=F, with Coinbase fallback)
+  { symbol: 'XAU',   name: 'Gold',          category: 'commodities', price: 2650,   decimals: 2, change7d: 0, unit: 'USD/troy oz' },
+  { symbol: 'XAG',   name: 'Silver',        category: 'commodities', price: 31.5,   decimals: 2, change7d: 0, unit: 'USD/troy oz' },
+  { symbol: 'XPT',   name: 'Platinum',      category: 'commodities', price: 990,    decimals: 2, change7d: 0, unit: 'USD/troy oz' },
+  { symbol: 'XPD',   name: 'Palladium',     category: 'commodities', price: 1050,   decimals: 2, change7d: 0, unit: 'USD/troy oz' },
+  // Energy (via YF CL=F / BZ=F / NG=F)
+  { symbol: 'WTI',   name: 'WTI Crude Oil', category: 'commodities', price: 74,     decimals: 2, change7d: 0, unit: 'USD/bbl' },
+  { symbol: 'BRENT', name: 'Brent Crude',   category: 'commodities', price: 78,     decimals: 2, change7d: 0, unit: 'USD/bbl' },
+  { symbol: 'NG',    name: 'Natural Gas',   category: 'commodities', price: 2.7,    decimals: 4, change7d: 0, unit: 'USD/MMBtu' },
+  // Base metals (via YF HG=F)
+  { symbol: 'HG',    name: 'Copper',        category: 'commodities', price: 4.3,    decimals: 3, change7d: 0, unit: 'USD/lb' },
+  // Agricultural (via YF ZC=F / ZW=F / ZS=F — YF returns USX, divided by 100)
+  { symbol: 'ZC',    name: 'Corn',          category: 'commodities', price: 4.25,   decimals: 3, change7d: 0, unit: 'USD/bu' },
+  { symbol: 'ZW',    name: 'Wheat',         category: 'commodities', price: 5.60,   decimals: 3, change7d: 0, unit: 'USD/bu' },
+  { symbol: 'ZS',    name: 'Soybeans',      category: 'commodities', price: 10.20,  decimals: 3, change7d: 0, unit: 'USD/bu' },
 
-  { symbol: 'BRENT', name: 'Brent Crude', category: 'commodities', price: 82.15, decimals: 2, change7d: -1.2 },
-  { symbol: 'PL',    name: 'Platinum',    category: 'commodities', price: 985.40, decimals: 2, change7d: 1.8 },
-  { symbol: 'PA',    name: 'Palladium',   category: 'commodities', price: 925.60, decimals: 2, change7d: -0.9 },
-  { symbol: 'AL',    name: 'Aluminum',    category: 'commodities', price: 2.34,   decimals: 3, change7d: 0.6 },
-  { symbol: 'NI',    name: 'Nickel',      category: 'commodities', price: 16.85,  decimals: 2, change7d: -1.4 },
-
-  // AGRICULTURAL COMMODITIES
-  { symbol: 'ZC', name: 'Corn',          category: 'commodities', price: 522.25, decimals: 2, change7d: 0.05 },
-  { symbol: 'ZW', name: 'Wheat',         category: 'commodities', price: 695.25, decimals: 2, change7d: 0.36 },
-  { symbol: 'ZS', name: 'Soybeans',      category: 'commodities', price: 1300.50,decimals: 2, change7d: 0.21 },
-  { symbol: 'KC', name: 'Coffee',        category: 'commodities', price: 292.70, decimals: 2, change7d: 1.12 },
-  { symbol: 'SB', name: 'Sugar',         category: 'commodities', price: 18.84,  decimals: 2, change7d: 0.0  },
-  { symbol: 'CT', name: 'Cotton',        category: 'commodities', price: 78.86,  decimals: 2, change7d: -4.83 },
-  { symbol: 'CC', name: 'Cocoa',         category: 'commodities', price: 5354.0, decimals: 0, change7d: -1.0 },
-  { symbol: 'OJ', name: 'Orange Juice',  category: 'commodities', price: 153.55, decimals: 2, change7d: -0.03 },
-  { symbol: 'LE', name: 'Live Cattle',   category: 'commodities', price: 220.90, decimals: 2, change7d: 0.05 },
-  { symbol: 'HE', name: 'Lean Hogs',     category: 'commodities', price: 69.68,  decimals: 2, change7d: 1.86 },
-
-    // ÍNDICES
-  { symbol: 'SPX',  name: 'S&P 500',           category: 'indices', price: 5464.32,  decimals: 2, change7d: 1.4 },
-  { symbol: 'NDX',  name: 'Nasdaq 100',        category: 'indices', price: 19842.71, decimals: 2, change7d: 2.6 },
-  { symbol: 'DXY',  name: 'Dollar Index',      category: 'indices', price: 104.38,   decimals: 2, change7d: -0.4 },
-  { symbol: 'VIX',  name: 'Volatility Index',  category: 'indices', price: 14.27,    decimals: 2, change7d: -5.2 },
-
-  { symbol: 'DJI',  name: 'Dow Jones',         category: 'indices', price: 39150.20, decimals: 2, change7d: 1.1 },
-  { symbol: 'RUT',  name: 'Russell 2000',      category: 'indices', price: 2035.40,  decimals: 2, change7d: 0.8 },
-  { symbol: 'FTSE', name: 'FTSE 100',          category: 'indices', price: 8235.40,  decimals: 2, change7d: 0.9 },
-  { symbol: 'DAX',  name: 'DAX',               category: 'indices', price: 18450.30, decimals: 2, change7d: 1.7 },
-  { symbol: 'CAC',  name: 'CAC 40',            category: 'indices', price: 7580.20,  decimals: 2, change7d: 1.2 },
-  { symbol: 'N225', name: 'Nikkei 225',        category: 'indices', price: 38600.50, decimals: 2, change7d: 2.3 },
-  { symbol: 'HSI',  name: 'Hang Seng',         category: 'indices', price: 18120.40, decimals: 2, change7d: -0.6 },
-  { symbol: 'IBOV', name: 'Ibovespa',          category: 'indices', price: 127450.00,decimals: 2, change7d: 1.5 },
+  // ÍNDICES — seeds overwritten by fetchAllIndices() on first load
+  { symbol: 'IBOV',   name: 'Ibovespa',             category: 'indices', price: 127000, decimals: 0, change7d: 0 },
+  { symbol: 'SPX',    name: 'S&P 500',              category: 'indices', price: 5700,   decimals: 2, change7d: 0 },
+  { symbol: 'NDX',    name: 'Nasdaq Composite',     category: 'indices', price: 18000,  decimals: 2, change7d: 0 },
+  { symbol: 'DJI',    name: 'Dow Jones',            category: 'indices', price: 42000,  decimals: 2, change7d: 0 },
+  { symbol: 'RUT',    name: 'Russell 2000',         category: 'indices', price: 2200,   decimals: 2, change7d: 0 },
+  { symbol: 'DAX',    name: 'DAX',                  category: 'indices', price: 19000,  decimals: 2, change7d: 0 },
+  { symbol: 'FTSE',   name: 'FTSE 100',             category: 'indices', price: 8300,   decimals: 2, change7d: 0 },
+  { symbol: 'CAC',    name: 'CAC 40',               category: 'indices', price: 7500,   decimals: 2, change7d: 0 },
+  { symbol: 'N225',   name: 'Nikkei 225',           category: 'indices', price: 38000,  decimals: 0, change7d: 0 },
+  { symbol: 'HSI',    name: 'Hang Seng',            category: 'indices', price: 21000,  decimals: 0, change7d: 0 },
+  { symbol: 'SHCOMP', name: 'Shanghai Composite',   category: 'indices', price: 3200,   decimals: 2, change7d: 0 },
  
     // CRYPTO
   { symbol: 'BTC',    name: 'Bitcoin',          category: 'crypto', price: 67432.18, decimals: 2, change7d: 4.2,  coinGeckoId: 'bitcoin' },
@@ -229,7 +239,9 @@ const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
 
 function seedAssets(): MarketAsset[] {
   return BASE_ASSETS.map(a => {
-    const change = rngChange(0, TYPICAL_VOLATILITY[a.category]);
+    // Fiat and indices start with change24h=0 and no simulated drift until real data arrives
+    const isStaticSeed = a.category === 'fiat' || a.category === 'indices';
+    const change = isStaticSeed ? 0 : rngChange(0, TYPICAL_VOLATILITY[a.category]);
     const vol = baseVolume(a.category) * (0.7 + Math.random() * 0.6);
     return {
       symbol: a.symbol,
@@ -245,6 +257,7 @@ function seedAssets(): MarketAsset[] {
       change7d: a.change7d,
       rsi: genRsi(),
       isLive: false,
+      unit: a.unit,
     };
   });
 }
@@ -275,12 +288,13 @@ export async function refreshFromApis(): Promise<void> {
     .map(a => a.symbol);
 
   try {
-    const [priceMap, global, fng, tvl, commodityMap] = await Promise.all([
+    const [priceMap, global, fng, tvl, commodityMap, indicesMap] = await Promise.all([
       fetchCryptoPrices(),
       fetchGlobalMarket(),
       fetchFearGreed(),
       fetchTotalTvl(),
       fetchCommodityPrices(commoditySymbols),
+      fetchAllIndices(),
     ]);
 
     // Merge real crypto prices into assets
@@ -293,12 +307,10 @@ export async function refreshFromApis(): Promise<void> {
         asset.volume24h = coin.total_volume ?? asset.volume24h;
         asset.marketCap = coin.market_cap ?? asset.marketCap;
         if (coin.sparkline_in_7d?.price?.length) {
-          // Take last 24 points for 24h sparkline
           const spark = coin.sparkline_in_7d.price;
           asset.spark = spark.slice(-24);
         }
         asset.trend = deriveTrend(asset.change24h);
-        // Approximate RSI from recent sparkline direction
         if (asset.spark.length >= 14) {
           const recent = asset.spark.slice(-14);
           const gains = recent.slice(1).filter((v, i) => v > recent[i]);
@@ -309,22 +321,61 @@ export async function refreshFromApis(): Promise<void> {
           asset.rsi = Math.round(Math.max(15, Math.min(85, 100 - 100 / (1 + rs))));
         }
         asset.isLive = true;
+        asset.dataSource = 'CoinGecko';
+        asset.lastUpdated = Date.now();
       }
     }
 
-    // Merge real commodity prices into assets
+    // Merge real commodity prices
     for (const asset of CURRENT_ASSETS) {
       if (asset.category !== 'commodities') continue;
       const quote = commodityMap.get(asset.symbol);
       if (quote) {
         asset.price = quote.price;
-        asset.change24h = quote.changePercent;
+        asset.change24h = quote.changePercent ?? 0;
         if (typeof quote.volume === 'number' && Number.isFinite(quote.volume) && quote.volume > 0) {
           asset.volume24h = quote.volume;
         }
         asset.spark = [...asset.spark.slice(1), asset.price];
         asset.trend = deriveTrend(asset.change24h);
         asset.isLive = true;
+        asset.unit = quote.unit;
+        asset.priceCurrency = quote.currency;
+        asset.dataSource = quote.exchange ?? 'Yahoo Finance';
+        asset.lastUpdated = quote.dataTimestamp;
+      }
+    }
+
+    // Merge real index quotes
+    for (const asset of CURRENT_ASSETS) {
+      if (asset.category !== 'indices') continue;
+      const quote = indicesMap.get(asset.symbol);
+      if (quote) {
+        asset.price = quote.price;
+        asset.change24h = quote.changePercent ?? 0;
+        asset.spark = [...asset.spark.slice(1), asset.price];
+        asset.trend = deriveTrend(asset.change24h);
+        asset.isLive = true;
+        asset.priceCurrency = quote.currency;
+        asset.dataSource = 'Yahoo Finance';
+        asset.lastUpdated = quote.dataTimestamp;
+      }
+    }
+
+    // Merge real fiat rates — always re-fetch from module state (fiat.ts has its own auto-refresh)
+    const fiatState = (await import('./fiat')).getFiatState();
+    for (const asset of CURRENT_ASSETS) {
+      if (asset.category !== 'fiat') continue;
+      const rate = fiatState.rates.get(asset.symbol);
+      if (rate) {
+        // price = 1 USD = X units (ratePerUsd)
+        asset.price = rate.ratePerUsd;
+        asset.change24h = 0; // daily-reference: no intraday change available
+        asset.isLive = true;
+        asset.unit = `1 USD = ${rate.symbol}`;
+        asset.dataSource = 'open.er-api.com';
+        asset.lastUpdated = rate.fetchedAt;
+        asset.priceCurrency = 'USD';
       }
     }
 
@@ -370,9 +421,11 @@ export function getAsset(symbol: string): MarketAsset | undefined {
 }
 
 export function refreshGlobalMarkets(): MarketAsset[] {
-  // Light simulated drift for non-live assets (keeds UI animated between API refreshes)
+  // Light simulated drift ONLY for non-live crypto/commodities (keeps UI animated between API refreshes)
+  // Fiat and indices never drift — they stay at seed values until real data arrives, never fake-animate
   for (const a of CURRENT_ASSETS) {
     if (a.isLive) continue;
+    if (a.category === 'fiat' || a.category === 'indices') continue;
     const drift = (Math.random() - 0.48) * 0.012;
     a.price = Math.max(0.0001, +(a.price * (1 + drift)).toFixed(a.decimals));
     a.change24h = Math.max(-15, Math.min(15, +(a.change24h + drift * 100).toFixed(2)));

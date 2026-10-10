@@ -37,6 +37,17 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      // Proxy Yahoo Finance chart API to avoid CORS — no API key required
+      '/yf-proxy': {
+        target: 'https://query1.finance.yahoo.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/yf-proxy/, ''),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      },
+    },
   },
   preview: {
     port,
