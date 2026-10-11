@@ -2,10 +2,13 @@
 //
 // Data sources (real, no fabrication):
 //   • brapi.dev/api/quote/{tickers}  — Brazilian stocks and FIIs, free, no key
-//   • Yahoo Finance via Supabase proxy (VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY)
-//       for US/global equities — same proxy pattern as commodities
-//   • If neither source is configured/available, EquityQuote.isLive = false
+//   • Yahoo Finance via Vite dev-proxy /yf-proxy → query1.finance.yahoo.com
+//       for US/global equities — no key, no Supabase required
+//   • If a source is unavailable, EquityQuote.isLive = false
 //     and the ticker shows the symbol + "—" change (no fabricated numbers).
+//
+// Known unavailable: FAB.AD, EMAAR.DU, DIB.DU (Abu Dhabi/Dubai — Yahoo returns
+//   no result for ADX/DFM tickers; shown as N/A in the tape).
 //
 // Locale-to-market editorial mapping mirrors LOCALE_EDITORIAL_FOCUS in intelligence.ts
 // so that selecting pt-BR → Brazilian equities, en → US equities, etc.
@@ -285,45 +288,62 @@ async function fetchBrapi(apiSymbols: string[]): Promise<Map<string, BrapiQuote>
   return map;
 }
 
-// ─── Yahoo Finance via Supabase proxy (same pattern as commodities.ts) ────────
+// ─── Yahoo Finance via Vite dev-proxy (/yf-proxy → query1.finance.yahoo.com) ──
+// Same proxy pattern used by commodities.ts and indices.ts.
+// Each symbol is fetched individually via /v8/finance/chart — no auth required.
+// Symbols that return empty results (e.g. some ADX/DFM tickers) set isLive=false.
 
-interface YahooProxyResponse {
-  data?: Record<string, {
-    symbol: string;
-    price: number;
-    changePercent: number;
-    currency?: string;
-  }>;
-  error?: string;
+interface YfChartMeta {
+  regularMarketPrice?: number;
+  previousClose?: number;
+  chartPreviousClose?: number;
+  currency?: string;
+  exchangeName?: string;
+}
+interface YfChartResponse {
+  chart?: { result?: Array<{ meta: YfChartMeta }> | null; error?: unknown };
 }
 
-async function fetchYahooViaProxy(apiSymbols: string[]): Promise<Map<string, { price: number; changePercent: number; currency?: string }>> {
-  const map = new Map<string, { price: number; changePercent: number; currency?: string }>();
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || apiSymbols.length === 0) return map;
-
-  const url = `${SUPABASE_URL}/functions/v1/commodities-proxy?symbols=${apiSymbols.join(',')}`;
+async function fetchYahooSingle(
+  apiSymbol: string,
+): Promise<{ price: number; changePercent: number; currency?: string } | null> {
   try {
+    const url = `/yf-proxy/v8/finance/chart/${encodeURIComponent(apiSymbol)}?interval=1d&range=2d`;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'X-Client-Info': 'next-vault-v3-equities',
-      },
-    });
+    const timer = setTimeout(() => ctrl.abort(), 8_000);
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
     clearTimeout(timer);
-    if (!res.ok) return map;
-    const json = (await res.json()) as YahooProxyResponse;
-    for (const [sym, q] of Object.entries(json.data ?? {})) {
-      if (typeof q.price === 'number' && Number.isFinite(q.price)) {
-        map.set(sym, { price: q.price, changePercent: q.changePercent, currency: q.currency });
-      }
-    }
+    if (!res.ok) return null;
+    const json = (await res.json()) as YfChartResponse;
+    const result = json?.chart?.result;
+    if (!result || result.length === 0) return null;
+    const meta = result[0].meta;
+    const price = meta.regularMarketPrice;
+    if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return null;
+    const prev = meta.previousClose ?? meta.chartPreviousClose;
+    const changePercent =
+      typeof prev === 'number' && prev > 0
+        ? +((price - prev) / prev * 100).toFixed(2)
+        : 0;
+    return { price, changePercent, currency: meta.currency };
   } catch {
-    // Proxy unavailable — caller uses isLive=false stubs
+    return null;
+  }
+}
+
+async function fetchYahooViaProxy(
+  apiSymbols: string[],
+): Promise<Map<string, { price: number; changePercent: number; currency?: string }>> {
+  const map = new Map<string, { price: number; changePercent: number; currency?: string }>();
+  if (apiSymbols.length === 0) return map;
+
+  // Fetch all symbols in parallel — Yahoo v8/chart allows one symbol per request.
+  // Rate-limit is generous for a small list (~8–15 symbols), parallel is fine.
+  const results = await Promise.all(
+    apiSymbols.map(async sym => ({ sym, q: await fetchYahooSingle(sym) })),
+  );
+  for (const { sym, q } of results) {
+    if (q) map.set(sym, q);
   }
   return map;
 }
