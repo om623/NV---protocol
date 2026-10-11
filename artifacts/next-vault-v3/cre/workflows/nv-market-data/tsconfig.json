@@ -6,7 +6,17 @@
     "strict": true,
     "lib": ["ES2020"],
     "types": [],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // node_modules/@chainlink/cre-sdk/dist/sdk/types/global.d.ts has circular
+    // type aliases (ExistingGlobal<T>) that are a bug in cre-sdk v1.23.0 —
+    // filed upstream.  skipLibCheck covers .d.ts files in node_modules.
+    // ox and viem are transitive deps that reference DOM types (CryptoKey,
+    // AbortSignal, WebSocket) not present in lib:ES2020; they are only used
+    // by @chainlink/cre-sdk-javy-plugin, not by our workflow code.
+    // skipLibCheck suppresses all of these without hiding errors in main.ts.
+    "noUnusedLocals": true,
+    "noUnusedParameters": false
   },
-  "include": ["*.ts"]
+  "include": ["main.ts"],
+  "exclude": ["node_modules"]
 }

@@ -12,6 +12,7 @@ import {
   getLimitStatus,
   syncServerTime,
   retryVerification,
+  notifyPaymentState,
 } from "../lib/payments";
 
 interface UsePurchasesParams {
@@ -34,6 +35,12 @@ export function usePurchases({ walletAddress, onSkinUnlocked, onXpGranted }: Use
 
   // Prevent duplicate in-flight purchases for the same product
   const inflightRef = useRef<Set<string>>(new Set());
+
+  // Bridge local purchaseState into the module-level pub-sub so that
+  // NVIntelligence / NV Agent can observe payment events without prop-drilling.
+  useEffect(() => {
+    notifyPaymentState(purchaseState);
+  }, [purchaseState]);
 
   // Sync entitlements + purchases + server time when wallet connects
   const syncAll = useCallback(async (addr: string) => {
