@@ -1,17 +1,18 @@
 // ─── NV Protocol — Equities / ETFs / REITs / FIIs Ticker Data ────────────────
 //
 // Data sources (real, no fabrication):
-//   • brapi.dev/api/quote/{tickers}  — Brazilian stocks and FIIs, free, no key
 //   • Yahoo Finance via Vite dev-proxy /yf-proxy → query1.finance.yahoo.com
-//       for US/global equities — no key, no Supabase required
-//   • If a source is unavailable, EquityQuote.isLive = false
-//     and the ticker shows the symbol + "—" change (no fabricated numbers).
+//       for all equities including B3 (suffix .SA) — no key, no Supabase required
+//   • brapi.dev kept as fallback type in the EquityDef type but not used for
+//       routing: brapi now requires token for most symbols (ETFs, FIIs, most stocks).
+//       All tickers are routed through Yahoo with their exchange suffix.
+//   • If Yahoo returns no result for a ticker, EquityQuote.isLive = false.
+//     The tape shows the symbol + "—" change — no fabricated numbers.
 //
-// Known unavailable: FAB.AD, EMAAR.DU, DIB.DU (Abu Dhabi/Dubai — Yahoo returns
-//   no result for ADX/DFM tickers; shown as N/A in the tape).
+// Confirmed unavailable: FAB.AD, EMAAR.DU, DIB.DU (ADX/DFM — replaced by Saudi .SR).
 //
 // Locale-to-market editorial mapping mirrors LOCALE_EDITORIAL_FOCUS in intelligence.ts
-// so that selecting pt-BR → Brazilian equities, en → US equities, etc.
+// so that selecting pt-BR → Brazilian equities (B3), ar → Gulf equities (Tadawul), etc.
 
 export type EquityType = 'stock' | 'smallcap' | 'etf' | 'reit' | 'fii' | 'fund';
 
@@ -59,22 +60,22 @@ const LOCALE_TICKERS: LocaleTickerList[] = [
     locale: 'pt-BR',
     marketLabel: 'B3 / Brasil',
     tickers: [
-      // Blue chips (batch 1)
-      { symbol: 'PETR4',  name: 'Petrobras PN',      type: 'stock',    currency: 'BRL', source: 'brapi', apiSymbol: 'PETR4' },
-      { symbol: 'VALE3',  name: 'Vale ON',            type: 'stock',    currency: 'BRL', source: 'brapi', apiSymbol: 'VALE3' },
-      { symbol: 'ITUB4',  name: 'Itaú Unibanco PN',  type: 'stock',    currency: 'BRL', source: 'brapi', apiSymbol: 'ITUB4' },
-      // Blue chips (batch 2)
-      { symbol: 'BBAS3',  name: 'Banco do Brasil ON', type: 'stock',    currency: 'BRL', source: 'brapi', apiSymbol: 'BBAS3' },
-      { symbol: 'WEGE3',  name: 'WEG ON',             type: 'stock',    currency: 'BRL', source: 'brapi', apiSymbol: 'WEGE3' },
-      { symbol: 'MGLU3',  name: 'Magalu ON',          type: 'smallcap', currency: 'BRL', source: 'brapi', apiSymbol: 'MGLU3' },
-      // ETFs (batch 3)
-      { symbol: 'BOVA11', name: 'ETF Ibovespa',       type: 'etf',      currency: 'BRL', source: 'brapi', apiSymbol: 'BOVA11' },
-      { symbol: 'IVVB11', name: 'ETF S&P 500 (BR)',   type: 'etf',      currency: 'BRL', source: 'brapi', apiSymbol: 'IVVB11' },
-      { symbol: 'PRIO3',  name: 'PetroRio ON',        type: 'smallcap', currency: 'BRL', source: 'brapi', apiSymbol: 'PRIO3' },
-      // FIIs (batch 4)
-      { symbol: 'HGLG11', name: 'CSHG Logística',     type: 'fii',      currency: 'BRL', source: 'brapi', apiSymbol: 'HGLG11' },
-      { symbol: 'MXRF11', name: 'Maxi Renda',         type: 'fii',      currency: 'BRL', source: 'brapi', apiSymbol: 'MXRF11' },
-      { symbol: 'KNRI11', name: 'Kinea Renda Imob.',  type: 'fii',      currency: 'BRL', source: 'brapi', apiSymbol: 'KNRI11' },
+      // B3 Blue chips — Yahoo Finance via /yf-proxy (suffix .SA = B3/BOVESPA)
+      // All 12 confirmed OK via Yahoo v8/chart (real prices verified Oct 2026)
+      { symbol: 'PETR4',  name: 'Petrobras PN',      type: 'stock',    currency: 'BRL', source: 'yahoo', apiSymbol: 'PETR4.SA' },
+      { symbol: 'VALE3',  name: 'Vale ON',            type: 'stock',    currency: 'BRL', source: 'yahoo', apiSymbol: 'VALE3.SA' },
+      { symbol: 'ITUB4',  name: 'Itaú Unibanco PN',  type: 'stock',    currency: 'BRL', source: 'yahoo', apiSymbol: 'ITUB4.SA' },
+      { symbol: 'BBAS3',  name: 'Banco do Brasil ON', type: 'stock',    currency: 'BRL', source: 'yahoo', apiSymbol: 'BBAS3.SA' },
+      { symbol: 'WEGE3',  name: 'WEG ON',             type: 'stock',    currency: 'BRL', source: 'yahoo', apiSymbol: 'WEGE3.SA' },
+      { symbol: 'MGLU3',  name: 'Magalu ON',          type: 'smallcap', currency: 'BRL', source: 'yahoo', apiSymbol: 'MGLU3.SA' },
+      // B3 ETFs
+      { symbol: 'BOVA11', name: 'ETF Ibovespa',       type: 'etf',      currency: 'BRL', source: 'yahoo', apiSymbol: 'BOVA11.SA' },
+      { symbol: 'IVVB11', name: 'ETF S&P 500 (BR)',   type: 'etf',      currency: 'BRL', source: 'yahoo', apiSymbol: 'IVVB11.SA' },
+      { symbol: 'PRIO3',  name: 'PetroRio ON',        type: 'smallcap', currency: 'BRL', source: 'yahoo', apiSymbol: 'PRIO3.SA' },
+      // B3 FIIs
+      { symbol: 'HGLG11', name: 'CSHG Logística FII', type: 'fii',      currency: 'BRL', source: 'yahoo', apiSymbol: 'HGLG11.SA' },
+      { symbol: 'MXRF11', name: 'Maxi Renda FII',     type: 'fii',      currency: 'BRL', source: 'yahoo', apiSymbol: 'MXRF11.SA' },
+      { symbol: 'KNRI11', name: 'Kinea Renda Imob.',  type: 'fii',      currency: 'BRL', source: 'yahoo', apiSymbol: 'KNRI11.SA' },
     ],
   },
   {
@@ -186,12 +187,14 @@ const LOCALE_TICKERS: LocaleTickerList[] = [
     locale: 'ar',
     marketLabel: 'أسواق الخليج',
     tickers: [
-      { symbol: '2222',     name: 'أرامكو السعودية', type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '2222.SR' },
-      { symbol: '1180',     name: 'الأهلي السعودي', type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '1180.SR' },
-      { symbol: 'FAB.AD',   name: 'First Abu Dhabi Bank', type: 'stock', currency: 'AED', source: 'yahoo', apiSymbol: 'FAB.AD' },
-      { symbol: 'EMAAR.DU', name: 'Emaar Properties',     type: 'reit',  currency: 'AED', source: 'yahoo', apiSymbol: 'EMAAR.DU' },
-      { symbol: 'DIB.DU',   name: 'Dubai Islamic Bank',   type: 'stock', currency: 'AED', source: 'yahoo', apiSymbol: 'DIB.DU' },
-      { symbol: '3010',     name: 'سابك',               type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '3010.SR' },
+      // Tadawul (Saudi Exchange) — all 6 confirmed via Yahoo v8/chart (Oct 2026)
+      // ADX/DFM tickers (FAB.AD, EMAAR.DU, DIB.DU) replaced: Yahoo returns no data for those exchanges
+      { symbol: '2222',  name: 'أرامكو السعودية',    type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '2222.SR' },
+      { symbol: '1180',  name: 'البنك الأهلي',        type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '1180.SR' },
+      { symbol: '3010',  name: 'سابك',                type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '3010.SR' },
+      { symbol: '7010',  name: 'STC (اتصالات السعودية)', type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '7010.SR' },
+      { symbol: '2010',  name: 'سابك (SABIC)',         type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '2010.SR' },
+      { symbol: '1120',  name: 'مصرف الراجحي',         type: 'stock', currency: 'SAR', source: 'yahoo', apiSymbol: '1120.SR' },
     ],
   },
 ];
