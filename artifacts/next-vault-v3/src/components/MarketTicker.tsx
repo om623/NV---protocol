@@ -119,8 +119,17 @@ export function MarketTicker() {
       setQuotes(q);
       setLastFetch(Date.now());
       setError(null);
-    } catch {
-      setError(t('ticker.errorLoad'));
+      // Surface proxy errors: if every quote is non-live AND we have a console-visible reason
+      if (q.length > 0 && q.every(x => !x.isLive)) {
+        // Probe the proxy with one known-good symbol to get the real HTTP status
+        fetch('/yf-proxy/v8/finance/chart/AAPL?interval=1d&range=1d')
+          .then(r => {
+            if (!r.ok) setError(`${t('ticker.proxyError')} (HTTP ${r.status})`);
+          })
+          .catch(e => setError(`${t('ticker.proxyError')}: ${(e as Error).message}`));
+      }
+    } catch (e) {
+      setError(`${t('ticker.errorLoad')}: ${(e as Error).message ?? ''}`);
     } finally {
       setLoading(false);
     }
