@@ -1,5 +1,11 @@
 {
   "buildCommand": "pnpm build",
   "outputDirectory": "dist/public",
-  "framework": "vite"
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/yf-proxy/:path*",
+      "destination": "/api/yf-proxy?path=/:path*"
+    }
+  ]
 }
