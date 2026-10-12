@@ -1,5 +1,5 @@
 # NV Agent — Architecture Audit & CRE Integration Plan
-*Last updated: October 2026 — Phases 1, 2, 3 implemented; CRE workflow typechecks clean; payment pub-sub wired*
+*Last updated: October 2026 — Phases 1–3 implemented; CRE workflow typechecks clean; payment pub-sub wired; Vercel proxy reviewed and validated*
 
 ---
 
@@ -171,6 +171,38 @@ No changes to the existing agent pipeline, intent routing, or UI are needed.
 
 ---
 
+## 5b. Vercel Production Proxy — Review & Validation
+
+### Problem (root cause)
+Vite `server.proxy` only runs during `vite dev` / `vite preview`. The built static output has no proxy server — every `fetch('/yf-proxy/...')` on Vercel returned a 404 HTML page, silently parsed as non-JSON, causing all equities, commodities, and indices to show `—`.
+
+### Fix applied
+| File | Change |
+|---|---|
+| `api/yf-proxy.ts` | New Vercel serverless function — proxies `query1.finance.yahoo.com` server-side, no API key, typed without `@vercel/node` dependency, path whitelist enforced |
+| `vercel.json` | Added `rewrites: [{ source: "/yf-proxy/:path*", destination: "/api/yf-proxy?path=/:path*" }]` |
+
+### Security review (verified in sandbox)
+- **Path whitelist**: only `/v8/finance/chart/`, `/v7/finance/quote`, `/v10/finance/` allowed. `/etc/passwd`, `https://evil.com`, `/../../../admin` all blocked (403).
+- **Query param whitelist**: only `interval`, `range`, `period1`, `period2`, `events`, `includePrePost`, `useYfid`, `corsDomain`, `crumb` forwarded. No auth headers, no cookies.
+- **Open proxy**: not possible — upstream URL always starts with `https://query1.finance.yahoo.com` + whitelisted prefix.
+- **Timeout**: 10 second AbortController timeout on upstream fetch.
+- **Non-JSON responses**: `arrayBuffer()` + `Content-Type` forwarded as-is; 502 returned on upstream failure.
+- **URL encoding**: `GC=F` → `GC%3DF` in browser path; Yahoo Finance accepts both forms (verified).
+
+### Live upstream tests (from this sandbox, same upstream the Vercel function calls)
+| Asset | Symbol | Price | Currency |
+|---|---|---|---|
+| Brazilian equity | PETR4.SA | R$ 56.00 | BRL |
+| Saudi equity | 2222.SR | SAR 25.60 | SAR |
+| Commodity (Gold) | GC=F | $4,196.50 | USD |
+| Index (S&P 500) | ^GSPC | 7,811.54 | USD |
+
+### What still requires deploy
+The fix is in the repo but **not yet on Vercel**. The function at `api/yf-proxy.ts` will be picked up automatically on the next Vercel deploy (no manual configuration needed — Vercel auto-discovers `api/*.ts` files). Until deploy happens, production still shows `—`.
+
+---
+
 ## 6. Tests Executed
 
 | Test | Result |
@@ -193,6 +225,13 @@ No changes to the existing agent pipeline, intent routing, or UI are needed.
 | Payment pub-sub: `notifyPaymentState` called | ✅ wired in `usePurchases.ts` useEffect |
 | Payment pub-sub: `subscribePaymentState` receives updates | ✅ wired in `NVIntelligence.tsx` |
 | CRE `simulate` | ⛔ Not run — CLI not installed in sandbox |
+| Proxy: PETR4.SA real price via upstream | ✅ R$ 56.00 BRL confirmed |
+| Proxy: 2222.SR real price via upstream | ✅ SAR 25.60 confirmed |
+| Proxy: GC=F (Gold) via upstream | ✅ $4,196.50 confirmed |
+| Proxy: ^GSPC (S&P 500) via upstream | ✅ 7,811.54 confirmed |
+| Proxy: path whitelist blocks /etc/passwd | ✅ returns 403 |
+| Proxy: path whitelist blocks https://evil.com | ✅ returns 403 |
+| Proxy: production deploy | ⏳ requires push/deploy — fix is local only |
 
 ---
 
