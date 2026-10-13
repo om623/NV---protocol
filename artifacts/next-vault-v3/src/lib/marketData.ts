@@ -336,7 +336,12 @@ export async function refreshFromApis(): Promise<void> {
         if (typeof quote.volume === 'number' && Number.isFinite(quote.volume) && quote.volume > 0) {
           asset.volume24h = quote.volume;
         }
-        asset.spark = [...asset.spark.slice(1), asset.price];
+        // Use real 5-day history for mini-chart if available, else append one point
+        if (quote.spark && quote.spark.length > 1) {
+          asset.spark = quote.spark;
+        } else {
+          asset.spark = [...asset.spark.slice(1), asset.price];
+        }
         asset.trend = deriveTrend(asset.change24h);
         asset.isLive = true;
         asset.unit = quote.unit;
@@ -353,7 +358,12 @@ export async function refreshFromApis(): Promise<void> {
       if (quote) {
         asset.price = quote.price;
         asset.change24h = quote.changePercent ?? 0;
-        asset.spark = [...asset.spark.slice(1), asset.price];
+        // Use real 5-day history for mini-chart if available, else append one point
+        if (quote.spark && quote.spark.length > 1) {
+          asset.spark = quote.spark;
+        } else {
+          asset.spark = [...asset.spark.slice(1), asset.price];
+        }
         asset.trend = deriveTrend(asset.change24h);
         asset.isLive = true;
         asset.priceCurrency = quote.currency;

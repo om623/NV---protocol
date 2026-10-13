@@ -22,6 +22,8 @@ export interface IndexQuote {
   dataTimestamp: number;
   /** true = fetched from API this session */
   isLive: boolean;
+  /** 5-day daily close prices for mini-chart — empty if unavailable */
+  spark: number[];
 }
 
 // ─── Index configuration ──────────────────────────────────────────────────────
@@ -60,6 +62,9 @@ interface YFChartResult {
         exchangeName: string;
         regularMarketTime?: number;
       };
+      indicators: {
+        quote: Array<{ close: (number | null)[] }>;
+      };
     }> | null;
     error?: { code: string; description: string } | null;
   };
@@ -80,6 +85,11 @@ async function fetchYFIndex(def: IndexDef): Promise<IndexQuote | null> {
     const price = meta.regularMarketPrice;
     const prevClose = meta.chartPreviousClose;
     const changePercent = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null;
+    // Extract 5-day daily close prices for mini-chart
+    const rawCloses = result.indicators?.quote?.[0]?.close ?? [];
+    const spark = rawCloses
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+      .slice(-24); // cap at 24 points
     return {
       symbol: def.symbol,
       name: def.name,
@@ -91,6 +101,7 @@ async function fetchYFIndex(def: IndexDef): Promise<IndexQuote | null> {
       exchange: meta.exchangeName,
       dataTimestamp: (meta.regularMarketTime ?? 0) * 1000 || Date.now(),
       isLive: true,
+      spark,
     };
   } catch {
     return null;

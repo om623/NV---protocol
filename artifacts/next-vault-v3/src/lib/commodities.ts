@@ -22,6 +22,8 @@ export interface CommodityQuote {
   dataTimestamp: number;
   /** true = live quote from API, false = could not fetch */
   isLive: boolean;
+  /** 5-day daily close prices for mini-chart — empty if unavailable */
+  spark: number[];
 }
 
 // ─── Yahoo Finance symbol mapping ─────────────────────────────────────────────
@@ -36,8 +38,8 @@ const YF_MAP: Record<string, { yfSym: string; unit: string; currency: string }> 
   WTI:   { yfSym: 'CL=F',      unit: 'USD/bbl',       currency: 'USD' },
   BRENT: { yfSym: 'BZ=F',      unit: 'USD/bbl',       currency: 'USD' },
   NG:    { yfSym: 'NG=F',      unit: 'USD/MMBtu',     currency: 'USD' },
-  // Base metals
-  COP:   { yfSym: 'HG=F',      unit: 'USD/lb',        currency: 'USD' },
+  // Base metals — internal symbol is 'HG' (matches marketData.ts BASE_ASSETS)
+  HG:    { yfSym: 'HG=F',      unit: 'USD/lb',        currency: 'USD' },
   // Agricultural — note YF returns these in USX (US cents); we convert to USD
   ZC:    { yfSym: 'ZC=F',      unit: 'USD/bu',        currency: 'USD' },
   ZW:    { yfSym: 'ZW=F',      unit: 'USD/bu',        currency: 'USD' },
@@ -69,6 +71,9 @@ interface YFChartResult {
         regularMarketVolume?: number;
         regularMarketTime?: number;
       };
+      indicators: {
+        quote: Array<{ close: (number | null)[] }>;
+      };
     }> | null;
     error?: { code: string; description: string } | null;
   };
@@ -97,6 +102,12 @@ async function fetchYFQuote(
     const price = rawPrice / divisor;
     const prev = prevClose / divisor;
     const changePercent = prev > 0 ? ((price - prev) / prev) * 100 : null;
+    // Extract 5-day daily close prices for mini-chart
+    const rawCloses = result.indicators?.quote?.[0]?.close ?? [];
+    const spark = rawCloses
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+      .map(v => v / divisor)
+      .slice(-24);
     return {
       symbol: nvSym,
       price,
@@ -108,6 +119,7 @@ async function fetchYFQuote(
       exchange: meta.exchangeName,
       dataTimestamp: (meta.regularMarketTime ?? 0) * 1000 || Date.now(),
       isLive: true,
+      spark,
     };
   } catch {
     return null;
@@ -178,6 +190,7 @@ export async function fetchCommodityPrices(
             exchange: 'Coinbase',
             dataTimestamp: Date.now(),
             isLive: true,
+            spark: [],
           });
         }
       }
