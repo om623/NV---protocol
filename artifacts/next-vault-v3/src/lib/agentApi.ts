@@ -327,10 +327,13 @@ function answerPaymentInfo(
   const evmConnected = evm?.connected && Boolean(evm.address);
   const payment = ctx.payment;
 
+  // Use actual connected network from context; fall back to display default
+  const networkLabel = evm?.network ?? 'Base Mainnet';
+
   const lines: string[] = [
     t('intel.agentPaymentInfo'),
     '',
-    `Network: Base Mainnet (chain 8453)`,
+    `Network: ${networkLabel}`,
     `Token: USDC`,
     '',
   ];

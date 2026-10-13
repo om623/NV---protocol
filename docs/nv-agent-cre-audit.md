@@ -1,5 +1,5 @@
 # NV Agent — Architecture Audit & CRE Integration Plan
-*Last updated: October 2026 — Phases 1–3 implemented; CRE workflow typechecks clean; payment pub-sub wired; Vercel proxy reviewed and validated*
+*Last updated: October 2026 — Phases 1–3 implemented; CRE workflow typechecks + compiles (JS step); payment pub-sub verified correct; Vercel proxy security-reviewed; CRE WASM step blocked on full cre-cli*
 
 ---
 
@@ -224,7 +224,9 @@ The fix is in the repo but **not yet on Vercel**. The function at `api/yf-proxy.
 | News corpus fallback | ✅ `answerFromNews()` always available |
 | Payment pub-sub: `notifyPaymentState` called | ✅ wired in `usePurchases.ts` useEffect |
 | Payment pub-sub: `subscribePaymentState` receives updates | ✅ wired in `NVIntelligence.tsx` |
-| CRE `simulate` | ⛔ Not run — CLI not installed in sandbox |
+| CRE `cre-compile` JS bundling step | ✅ EXIT:0 — `main.js` (0.58 MB) produced |
+| CRE `cre-compile` WASM step | ⛔ Javy: "JS module does not export main" — requires full `cre-cli` wrapper |
+| CRE `simulate` | ⛔ Not run — `cre` CLI not installed in sandbox |
 | Proxy: PETR4.SA real price via upstream | ✅ R$ 56.00 BRL confirmed |
 | Proxy: 2222.SR real price via upstream | ✅ SAR 25.60 confirmed |
 | Proxy: GC=F (Gold) via upstream | ✅ $4,196.50 confirmed |
@@ -239,7 +241,7 @@ The fix is in the repo but **not yet on Vercel**. The function at `api/yf-proxy.
 
 1. **CRE simulation not verified** — `cre workflow simulate` was not run. The workflow typechecks but end-to-end simulation requires the `cre-cli` installed outside this sandbox.
 
-2. **CRE WASM compilation not verified** — `cre-compile` exists in `.bin/` but was not invoked. The compiled output has not been inspected.
+2. **CRE WASM compilation blocked** — `cre-compile` JS bundling step passes (produces `main.js` 0.58 MB). The WASM step fails with `"JS module does not export main"` — this is a Javy constraint: it expects a bare `main()` export, but the CRE SDK's `handler()` pattern exports an array. The full `cre-cli` tool wraps the bundle with the correct entry point before handing it to Javy. This is not a bug in our code — it is an expected blocker on `cre-cli`.
 
 3. **Bridge state not yet piped** — `NVAgentContext.bridge` is defined but always null. The agent reports routes and wallet state but not live bridge tx progress. Fix: same pub-sub pattern as payments, in `cctpBridgeExecutor.ts`.
 

@@ -63,6 +63,7 @@ import type { NVAgentContext } from '../lib/agentContext';
 import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
 import { getPaymentState, subscribePaymentState } from '../lib/payments';
+import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 
@@ -1036,6 +1037,12 @@ export function NVIntelligence() {
     return subscribePaymentState(s => setPaymentState(s));
   }, []);
 
+  // Bridge state — subscribe to live updates from bridgeState.ts pub-sub
+  const [bridgeState, setBridgeStateLocal] = useState(getBridgeState);
+  useEffect(() => {
+    return subscribeBridgeState(s => setBridgeStateLocal(s));
+  }, []);
+
   const loadNews = useCallback(async () => {
     try {
       const { items, clusters: c } = await fetchAllNewsWithClusters();
@@ -1089,9 +1096,11 @@ export function NVIntelligence() {
       evmNetwork: evmWallet.networkName,
       evmUsdcBalance: evmWallet.usdcBalance,
       payment,
+      // Pass bridge state — null when step is null (idle)
+      bridge: bridgeState.step !== null ? bridgeState : null,
       locale,
     });
-  }, [news, newsFetchedAt, tvlState, paymentState, solanaAgentCtx, evmWallet, locale]);
+  }, [news, newsFetchedAt, tvlState, paymentState, bridgeState, solanaAgentCtx, evmWallet, locale]);
 
   useEffect(() => {
     loadNews();

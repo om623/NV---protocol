@@ -20,6 +20,7 @@ import { useSolanaWallet } from '../lib/useSolanaWallet';
 import { executeSolanaToEvmBridge, type BridgeStepState } from '../lib/cctpSolanaExecutor';
 import { isSolCctpReady } from '../lib/cctpSolana';
 import { truncateSolAddress, formatSol } from '../lib/solana';
+import { notifyBridgeStep, resetBridgeState } from '../lib/bridgeState';
 import type { Eip1193Provider } from '../lib/arc';
 
 // ─── EVM destination networks available for Solana → EVM ─────────────────────
@@ -161,6 +162,16 @@ export function SolanaBridgePanel({ evmProvider, evmAddress }: SolanaBridgePanel
       onStep: (state) => {
         console.log('[NV SolanaBridge] step:', state.step, state.progressMessage);
         setBridgeState(state);
+        // Publish to NV Agent bridge pub-sub
+        const destName = SOLANA_BRIDGE_DESTINATIONS.find(d => d.id === destId)?.name ?? destId;
+        notifyBridgeStep({
+          step: state.step === 'idle' ? null : state.step,
+          txHash: state.solanaTxSignature ?? null,
+          evmTxHash: state.evmTxHash ?? null,
+          error: state.errorMessage ?? null,
+          fromNetwork: 'Solana',
+          toNetwork: destName,
+        });
       },
     });
 
@@ -171,6 +182,8 @@ export function SolanaBridgePanel({ evmProvider, evmAddress }: SolanaBridgePanel
   function reset() {
     setBridgeState({ step: 'idle' });
     setAmount('');
+    // Delay reset so NV Agent can report the final status for 5 s
+    setTimeout(resetBridgeState, 5_000);
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
