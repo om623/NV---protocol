@@ -99,11 +99,23 @@ export interface AgentMessage {
   content: string;
   sources?: { title: string; url: string; source: string; publishedAt: string }[];
   timestamp: number;
+  /** Action card — only on assistant messages from action intents */
+  action?: AgentAction;
+}
+
+export interface AgentAction {
+  type: 'transfer' | 'bridge' | 'swap' | 'payment';
+  /** Sidebar view to navigate to */
+  navigateTo: string;
+  /** Pre-filled parameters parsed from the message */
+  params?: Record<string, string | number | null>;
 }
 
 export interface AgentResponse {
   answer: string;
   sources: { title: string; url: string; source: string; publishedAt: string }[];
+  /** When set, the UI renders a NavigateCard with a button to open the target view */
+  action?: AgentAction;
 }
 
 // NV News infrastructure — ready for voice layer

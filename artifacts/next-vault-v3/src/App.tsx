@@ -58,6 +58,7 @@ import { NVIntelligence } from './components/NVIntelligence';
 import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
+import { subscribeNavigation } from './lib/navigationStore';
 
 
 const queryClient = new QueryClient();
@@ -680,6 +681,13 @@ function Home() {
   const [envMode,       setEnvMode]       = useState<EnvMode>('testnet');
   const [activeNetwork, setActiveNetwork] = useState<NetworkConfig>(DEFAULT_TESTNET);
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
+
+  // ── Subscribe to NV Agent navigation requests ───────────────────────────────
+  useEffect(() => subscribeNavigation((view) => {
+    // Only navigate to views that actually exist in the sidebar
+    const valid: SidebarView[] = ['dashboard', 'carteira', 'bridge', 'intelligence', 'solana', 'simulacao', 'historico', 'relatorios', 'pools', 'perfil', 'configuracoes', 'ajuda'];
+    if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
+  }), []);
 
   // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
   const setNVEvmWallet = useSetNVEvmWallet();

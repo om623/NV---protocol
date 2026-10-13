@@ -12,7 +12,7 @@
 //     that have not been migrated to NVAgentContext yet.
 
 import { answerFromNews, formatRelativeTime } from './intelligence';
-import type { NewsItem, AgentResponse }        from './intelligence';
+import type { NewsItem, AgentResponse, AgentAction } from './intelligence';
 import type { NVAgentContext }                 from './agentContext';
 import type { MarketAsset }                    from './marketData';
 import type { TvlEntry }                       from './tvl';
@@ -23,16 +23,20 @@ export type { AgentResponse } from './intelligence';
 // ─── Intent detection ─────────────────────────────────────────────────────────
 
 type QueryIntent =
-  | 'market_price'   // specific asset price query
-  | 'market_top'     // top assets by market cap
-  | 'tvl_chain'      // TVL for a specific chain
-  | 'tvl_top'        // top chains by TVL
-  | 'wallet_evm'     // EVM wallet info
-  | 'wallet_solana'  // Solana wallet info
-  | 'payment_info'   // questions about sending/paying
-  | 'bridge_info'    // questions about bridging
-  | 'news'           // news/events query
-  | 'unknown';       // fallback → news
+  | 'market_price'    // specific asset price query
+  | 'market_top'      // top assets by market cap
+  | 'tvl_chain'       // TVL for a specific chain
+  | 'tvl_top'         // top chains by TVL
+  | 'wallet_evm'      // EVM wallet info
+  | 'wallet_solana'   // Solana wallet info
+  | 'payment_info'    // questions about the payment system
+  | 'bridge_info'     // questions about the bridge system
+  | 'action_transfer' // user wants to send/transfer USDC/tokens
+  | 'action_bridge'   // user wants to execute a bridge
+  | 'action_swap'     // user wants to execute a swap
+  | 'action_payment'  // user wants to make a gamification purchase
+  | 'news'            // news/events query
+  | 'unknown';        // fallback → news
 
 // Keyword lists — order matters: more specific first in detectIntent()
 const WALLET_SOL_KW = [
@@ -65,6 +69,30 @@ const BRIDGE_KW = [
   'cross chain transfer', 'interoperability',
 ];
 
+// Action-intent keywords — "I want to DO something now"
+const ACTION_TRANSFER_KW = [
+  'send usdc to', 'enviar usdc para', 'transfer usdc to', 'transferir usdc para',
+  'send to address', 'send to 0x', 'enviar para 0x', 'quero enviar', 'i want to send',
+  'make a transfer', 'fazer uma transferência', 'send tokens',
+];
+
+const ACTION_BRIDGE_KW = [
+  'bridge usdc from', 'bridge from', 'executar bridge', 'fazer bridge', 'quero fazer bridge',
+  'move usdc from', 'mover usdc de', 'i want to bridge', 'start bridge', 'iniciar bridge',
+];
+
+const ACTION_SWAP_KW = [
+  'swap usdc', 'swap from', 'executar swap', 'fazer swap', 'quero fazer swap',
+  'swap tokens', 'i want to swap', 'start a swap', 'iniciar swap',
+  'swap usdc to', 'swap eth for',
+];
+
+const ACTION_PAYMENT_KW = [
+  'buy skin', 'comprar skin', 'buy xp', 'comprar xp', 'purchase item', 'comprar item',
+  'unlock feature', 'desbloquear', 'buy with usdc', 'comprar com usdc',
+  'make a purchase', 'fazer uma compra',
+];
+
 const TVL_KW = [
   'tvl', 'total value locked', 'defi tvl', 'chain tvl', 'valor bloqueado',
   'locked value', 'protocol tvl', 'rede tvl', 'blockchain tvl',
@@ -85,20 +113,32 @@ const PRICE_KW = [
 ];
 
 // Well-known asset names/symbols — used to detect price intent even without
-// an explicit price keyword (e.g. "bitcoin" alone → price)
+// an explicit price keyword (e.g. "bitcoin" alone → price).
+// Also includes category terms so "top cryptocurrencies" → market_top.
 const KNOWN_ASSETS = [
+  // individual coins
   'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'usdc', 'usdt',
   'bnb', 'xrp', 'ada', 'avax', 'matic', 'polygon', 'dot', 'link', 'atom',
   'near', 'apt', 'arb', 'op', 'sui', 'sei', 'tia', 'doge', 'shib',
   'wbtc', 'dai', 'gold', 'silver', 'oil', 'brent', 'wti', 'ibovespa',
   's&p', 'sp500', 'nasdaq', 'dow', 'nikkei', 'euro', 'eur', 'usd', 'brl',
+  // category terms — so "top cryptos", "ranking cripto", "biggest altcoins" etc. → market_top
+  'crypto', 'cripto', 'criptos', 'cryptocurrency', 'cryptocurrencies',
+  'criptomoeda', 'criptomoedas', 'altcoin', 'altcoins', 'coin', 'coins',
+  'token', 'tokens', 'stablecoin', 'stablecoins',
 ];
 
 function detectIntent(q: string): QueryIntent {
   const lq = q.toLowerCase().replace(/[?!.,;:]/g, ' ');
   const words = lq.split(/\s+/);
 
-  // Most specific first
+  // Action intents — checked FIRST (they have specific multi-word phrases)
+  if (ACTION_TRANSFER_KW.some(kw => lq.includes(kw))) return 'action_transfer';
+  if (ACTION_BRIDGE_KW.some(kw => lq.includes(kw)))   return 'action_bridge';
+  if (ACTION_SWAP_KW.some(kw => lq.includes(kw)))     return 'action_swap';
+  if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw)))  return 'action_payment';
+
+  // Query intents — most specific first
   if (WALLET_SOL_KW.some(kw => lq.includes(kw))) return 'wallet_solana';
   if (WALLET_EVM_KW.some(kw => lq.includes(kw))) return 'wallet_evm';
   if (BRIDGE_KW.some(kw => lq.includes(kw)))     return 'bridge_info';
@@ -413,6 +453,189 @@ function answerBridgeInfo(
   return { answer: lines.join('\n'), sources: [] };
 }
 
+// ─── Action handlers ──────────────────────────────────────────────────────────
+// These handlers return an AgentResponse with an `action` field that the UI
+// renders as a NavigateCard. They NEVER initiate a transaction themselves.
+
+function parseAmount(q: string): number | null {
+  const m = q.match(/(\d+(?:[.,]\d+)?)\s*(?:usdc|usd|eth|sol|matic|avax)?/i);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function parseAddress(q: string): string | null {
+  // EVM address
+  const evm = q.match(/0x[0-9a-fA-F]{40}/);
+  if (evm) return evm[0];
+  // Solana address (base58, 32-44 chars)
+  const sol = q.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+  if (sol) return sol[0];
+  return null;
+}
+
+function answerActionTransfer(
+  question: string,
+  ctx: NVAgentContext,
+  t: (k: string) => string,
+): AgentResponse {
+  const evm = ctx.evmWallet;
+  const amount = parseAmount(question);
+  const recipient = parseAddress(question);
+
+  const lines = [t('agent.action.transferTitle'), ''];
+
+  if (!evm?.connected || !evm.address) {
+    lines.push(t('intel.agentEvmNotConnected'));
+    lines.push(''); lines.push(t('agent.action.connectFirst'));
+  } else {
+    lines.push(`From: ${evm.address}`);
+    if (evm.network) lines.push(`Network: ${evm.network}`);
+    if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
+    if (amount !== null) lines.push(`Amount: ${amount} USDC`);
+    if (recipient) lines.push(`To: ${recipient}`);
+    lines.push('');
+    lines.push(t('agent.action.reviewInWallet'));
+  }
+
+  lines.push(''); lines.push(t('agent.action.noAutoExecute'));
+
+  const action: AgentAction = {
+    type: 'transfer',
+    navigateTo: 'carteira',
+    params: {
+      amount: amount ?? null,
+      recipient: recipient ?? null,
+      token: 'USDC',
+    },
+  };
+
+  return { answer: lines.join('\n'), sources: [], action };
+}
+
+function answerActionBridge(
+  question: string,
+  ctx: NVAgentContext,
+  t: (k: string) => string,
+): AgentResponse {
+  const evm = ctx.evmWallet;
+  const sol = ctx.solanaWallet;
+  const amount = parseAmount(question);
+
+  const lq = question.toLowerCase();
+  const isSolanaSource =
+    lq.includes('solana') || lq.includes('from sol') || lq.includes('de solana');
+
+  const lines = [t('agent.action.bridgeTitle'), ''];
+
+  // Supported routes
+  lines.push('Supported routes:');
+  lines.push('  • EVM ↔ EVM via CCTP V2 (Arc, Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche +18)');
+  lines.push('  • Solana → EVM via CCTP V2 (Arc, Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche)');
+  lines.push('');
+
+  if (isSolanaSource) {
+    if (sol?.walletState.status === 'connected') {
+      const { address } = sol.walletState as { status: 'connected'; address: string };
+      lines.push(`From: Solana (${address})`);
+      if (sol.usdcBalanceState.status === 'loaded') {
+        const usdc = (sol.usdcBalanceState as { status: 'loaded'; usdc: number }).usdc;
+        lines.push(`Solana USDC: ${usdc.toFixed(2)}`);
+      }
+    } else {
+      lines.push(t('intel.agentSolNotConnected'));
+    }
+  } else {
+    if (evm?.connected && evm.address) {
+      lines.push(`From: ${evm.network ?? 'EVM'} (${evm.address})`);
+      if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
+    } else {
+      lines.push(t('intel.agentEvmNotConnected'));
+    }
+  }
+
+  if (amount !== null) lines.push(`Amount: ${amount} USDC`);
+  lines.push('');
+  lines.push(t('agent.action.reviewInWallet'));
+  lines.push(''); lines.push(t('agent.action.noAutoExecute'));
+
+  const action: AgentAction = {
+    type: 'bridge',
+    navigateTo: 'bridge',
+    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0 },
+  };
+
+  return { answer: lines.join('\n'), sources: [], action };
+}
+
+function answerActionSwap(
+  question: string,
+  ctx: NVAgentContext,
+  t: (k: string) => string,
+): AgentResponse {
+  const evm = ctx.evmWallet;
+  const amount = parseAmount(question);
+
+  const lines = [t('agent.action.swapTitle'), ''];
+  lines.push(t('agent.action.swapDescription'));
+  lines.push('');
+
+  if (evm?.connected && evm.address) {
+    lines.push(`Wallet: ${evm.address}`);
+    if (evm.network) lines.push(`Network: ${evm.network}`);
+    if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
+  } else {
+    lines.push(t('intel.agentEvmNotConnected'));
+  }
+
+  if (amount !== null) lines.push(`Amount: ${amount} USDC`);
+  lines.push('');
+  lines.push(t('agent.action.reviewInWallet'));
+  lines.push(''); lines.push(t('agent.action.noAutoExecute'));
+
+  // Swap in NV Protocol = CCTP cross-chain transfer (no DEX)
+  const action: AgentAction = {
+    type: 'swap',
+    navigateTo: 'bridge',
+    params: { amount: amount ?? null },
+  };
+
+  return { answer: lines.join('\n'), sources: [], action };
+}
+
+function answerActionPayment(
+  question: string,
+  ctx: NVAgentContext,
+  t: (k: string) => string,
+): AgentResponse {
+  const evm = ctx.evmWallet;
+
+  const lines = [t('agent.action.paymentTitle'), ''];
+  lines.push(t('agent.action.paymentDescription'));
+  lines.push('');
+  lines.push('Network: Base Mainnet · Token: USDC');
+
+  if (evm?.connected && evm.address) {
+    lines.push(`Wallet: ${evm.address}`);
+    if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
+  } else {
+    lines.push(t('intel.agentEvmNotConnected'));
+    lines.push(t('agent.action.connectFirst'));
+  }
+
+  lines.push('');
+  lines.push(t('agent.action.reviewInWallet'));
+  lines.push(''); lines.push(t('agent.action.noAutoExecute'));
+
+  const action: AgentAction = {
+    type: 'payment',
+    navigateTo: 'perfil',
+    params: {},
+  };
+
+  return { answer: lines.join('\n'), sources: [], action };
+}
+
 // ─── Main export: pure agentQuery() ──────────────────────────────────────────
 
 export interface AgentQueryOptions {
@@ -470,6 +693,18 @@ export function agentQuery(
 
     case 'bridge_info':
       return answerBridgeInfo(ctx, t);
+
+    case 'action_transfer':
+      return answerActionTransfer(question, ctx, t);
+
+    case 'action_bridge':
+      return answerActionBridge(question, ctx, t);
+
+    case 'action_swap':
+      return answerActionSwap(question, ctx, t);
+
+    case 'action_payment':
+      return answerActionPayment(question, ctx, t);
 
     case 'tvl_top':
       if (ctx.tvl?.entries.length) return answerTvlTop(ctx.tvl.entries, t);

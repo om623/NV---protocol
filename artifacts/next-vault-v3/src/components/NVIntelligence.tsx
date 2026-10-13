@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Users,
   Zap,
+  ArrowRight,
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/context';
@@ -64,6 +65,7 @@ import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
 import { getPaymentState, subscribePaymentState } from '../lib/payments';
 import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
+import { requestNavigation } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 
@@ -775,10 +777,11 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     setLoading(true);
     await new Promise(r => setTimeout(r, 350));
     // Use full context when available; fall back to news-only for backward compat
-    const { answer, sources } = agentCtx
+    const response = agentCtx
       ? agentQuery(question, agentCtx, { locale, t })
       : agentQuery(question, news, locale, t);
-    setMessages(prev => [...prev, { role: 'assistant', content: answer, sources, timestamp: Date.now() }]);
+    const { answer, sources, action } = response;
+    setMessages(prev => [...prev, { role: 'assistant', content: answer, sources, action, timestamp: Date.now() }]);
     setLoading(false);
   }
 
@@ -835,6 +838,19 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
               }`}
             >
               {msg.content}
+              {/* NavigateCard — shown for action intents */}
+              {msg.role === 'assistant' && msg.action?.navigateTo && (
+                <div className="mt-2 pt-2 border-t border-primary/20">
+                  <button
+                    type="button"
+                    onClick={() => requestNavigation(msg.action!.navigateTo)}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-primary/10 border border-primary/25 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-all cursor-pointer"
+                  >
+                    <ArrowRight size={10} />
+                    {t('agent.action.goTo')} {msg.action.navigateTo}
+                  </button>
+                </div>
+              )}
               {msg.sources && msg.sources.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border/20 space-y-1">
                   <div className="text-[9px] text-muted-foreground/50 font-mono uppercase tracking-wider">
