@@ -5,6 +5,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/yf-proxy/:path*",
+      "destination": "/api/yf-proxy?path=/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
