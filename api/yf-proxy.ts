@@ -12,20 +12,17 @@
 //
 // vercel.json rewrites /yf-proxy/:path* → /api/yf-proxy?path=/:path*
 // so all existing fetch('/yf-proxy/...') calls work identically in dev and prod.
-//
-// Types are inlined to avoid a hard dependency on @vercel/node in the app bundle.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type VercelRequest = {
-  query: Record<string, string | string[]>;
-  method?: string;
-  headers: Record<string, string | string[] | undefined>;
-};
-type VercelResponse = {
-  status(code: number): VercelResponse;
+import type { IncomingMessage, ServerResponse } from 'http';
+
+type Req = IncomingMessage & { query: Record<string, string | string[]> };
+type Res = ServerResponse & {
+  status(code: number): Res;
   json(body: unknown): void;
   send(body: unknown): void;
-  setHeader(name: string, value: string): void;
+  end(body?: Buffer | string): void;
+  setHeader(name: string, value: string | number | readonly string[]): void;
 };
 
 const YAHOO_BASE = 'https://query1.finance.yahoo.com';
@@ -43,10 +40,7 @@ const ALLOWED_PREFIXES = [
   '/v10/finance/',
 ];
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse,
-): Promise<void> {
+export default async function handler(req: Req, res: Res): Promise<void> {
   // Extract path from rewrite: /yf-proxy/v8/finance/chart/AAPL → path=/v8/finance/chart/AAPL
   const rawPath = (req.query['path'] as string | undefined) ?? '';
   if (!rawPath) {
@@ -95,7 +89,8 @@ export default async function handler(
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.status(upstreamRes.status).send(new Uint8Array(body));
+    // Buffer.from(ArrayBuffer) sends raw bytes — Uint8Array would be JSON-serialised as {"0":...}
+    res.status(upstreamRes.status).end(Buffer.from(body));
   } catch (err: any) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(502).json({ error: 'upstream request failed', detail: message });
