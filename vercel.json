@@ -2,7 +2,6 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/next-vault-v3 run build",
   "outputDirectory": "artifacts/next-vault-v3/dist/public",
-  "framework": "vite",
   "rewrites": [
     {
       "source": "/yf-proxy/:path*",
