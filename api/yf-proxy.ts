@@ -95,7 +95,7 @@ export default async function handler(
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.status(upstreamRes.status).send(Buffer.from(body));
+    res.status(upstreamRes.status).send(new Uint8Array(body));
   } catch (err: any) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(502).json({ error: 'upstream request failed', detail: message });
