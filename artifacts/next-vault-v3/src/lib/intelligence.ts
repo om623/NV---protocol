@@ -283,6 +283,7 @@ export function sortNews(items: NewsItem[]): NewsItem[] {
 
 const RSS2JSON_BASE = 'https://api.rss2json.com/v1/api.json?rss_url=';
 const RSS_TTL = 60_000;
+const RSS_REQUEST_TIMEOUT_MS = 5_500;
 
 interface Rss2JsonItem {
   title: string;
@@ -301,6 +302,104 @@ interface Rss2JsonResponse {
 
 const rssCache = new Map<string, { data: NewsItem[]; ts: number }>();
 
+type ParsedRssEntry = {
+  title: string;
+  link: string;
+  publishedAt: string;
+  description: string;
+  categories: string[];
+  guid: string;
+};
+
+function cleanFeedText(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Parse standard RSS 2.0 and Atom XML without relying on a single conversion API. */
+function parseRssXml(xmlText: string): ParsedRssEntry[] {
+  if (typeof DOMParser === 'undefined') return [];
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (doc.querySelector('parsererror')) return [];
+
+  const nodes = Array.from(doc.getElementsByTagName('item'));
+  const atomEntries = Array.from(doc.getElementsByTagName('entry'));
+  const entries = nodes.length ? nodes : atomEntries;
+
+  return entries.slice(0, 30).map(node => {
+    const childText = (...names: string[]) => {
+      for (const name of names) {
+        const el = node.getElementsByTagName(name)[0];
+        if (el?.textContent?.trim()) return el.textContent.trim();
+      }
+      return '';
+    };
+    const atomLink = node.getElementsByTagName('link')[0];
+    const title = cleanFeedText(childText('title'));
+    const link = atomLink?.getAttribute('href') || childText('link', 'guid', 'id');
+    const publishedAt = childText('pubDate', 'published', 'updated', 'date') || new Date().toISOString();
+    const description = cleanFeedText(childText('description', 'summary', 'content:encoded', 'content'));
+    const categories = Array.from(node.getElementsByTagName('category'))
+      .map(el => cleanFeedText(el.getAttribute('term') || el.textContent || ''))
+      .filter(Boolean);
+    const guid = childText('guid', 'id') || link || title;
+    return { title, link, publishedAt, description, categories, guid };
+  }).filter(item => item.title && item.link && /^https?:\/\//i.test(item.link));
+}
+
+function normaliseRssItems(
+  entries: ParsedRssEntry[],
+  provider: string,
+  sourceName: string,
+  sourceUrl: string,
+  region: MarketRegion,
+  country: CountryMarket,
+  language: string,
+  defaultCategory?: NewsCategory,
+): NewsItem[] {
+  const now = Date.now();
+  return entries.filter(item => item.title && item.link).map(item => {
+    const tags = item.categories;
+    return {
+      id: item.link || (provider + ':' + (item.guid || item.title.slice(0, 40))),
+      title: item.title.trim(),
+      summary: item.description.slice(0, 240),
+      category: defaultCategory ?? guessCategory(item.title, tags),
+      priority: classifyPriority(item.title, tags),
+      publishedAt: item.publishedAt,
+      publishedMs: safeDate(item.publishedAt),
+      collectedAt: now,
+      source: sourceName,
+      sourceUrl,
+      url: item.link,
+      tags,
+      provider,
+      region,
+      country,
+      originalLanguage: language,
+    };
+  });
+}
+
+/**
+ * Resilient multi-route RSS retrieval:
+ * 1) rss2json conversion API
+ * 2) AllOrigins raw proxy (parse RSS/Atom XML locally)
+ * 3) corsproxy.io (independent proxy route)
+ * 4) direct RSS as a final attempt where the host permits CORS
+ * Last-known-good data is retained even when every route is temporarily down.
+ */
 async function fetchRss(
   feedUrl: string,
   provider: string,
@@ -314,52 +413,59 @@ async function fetchRss(
   const cached = rssCache.get(feedUrl);
   if (cached && Date.now() - cached.ts < RSS_TTL) return cached.data;
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const url = RSS2JSON_BASE + encodeURIComponent(feedUrl);
-    const ctrl = new AbortController();
-    timer = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = (await res.json()) as Rss2JsonResponse;
-    if (json.status !== 'ok' || !json.items?.length) return cached?.data ?? [];
+  const routes: { name: string; url: string; kind: 'json' | 'xml' }[] = [
+    { name: 'rss2json', url: RSS2JSON_BASE + encodeURIComponent(feedUrl), kind: 'json' },
+    { name: 'allorigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl), kind: 'xml' },
+    { name: 'corsproxy', url: 'https://corsproxy.io/?url=' + encodeURIComponent(feedUrl), kind: 'xml' },
+    { name: 'direct', url: feedUrl, kind: 'xml' },
+  ];
 
-    const now = Date.now();
-    const items: NewsItem[] = json.items.slice(0, 30).map(item => {
-      const tags = item.categories ?? [];
-      const cat = defaultCategory ?? guessCategory(item.title, tags);
-      const ms = safeDate(item.pubDate);
-      return {
-        id: item.link || (provider + ':' + (item.guid ?? item.title.slice(0, 40))),
-        title: item.title.trim(),
-        summary: item.description
-          ? item.description.replace(/<[^>]*>/g, '').slice(0, 240).trim()
-          : '',
-        category: cat,
-        priority: classifyPriority(item.title, tags),
-        publishedAt: item.pubDate,
-        publishedMs: ms,
-        collectedAt: now,
-        source: sourceName,
-        sourceUrl,
-        url: item.link,
-        tags,
-        provider,
-        region,
-        country,
-        originalLanguage: language,
-      };
-    });
+  for (const route of routes) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const ctrl = new AbortController();
+      timer = setTimeout(() => ctrl.abort(), RSS_REQUEST_TIMEOUT_MS);
+      const res = await fetch(route.url, {
+        signal: ctrl.signal,
+        headers: { Accept: route.kind === 'json' ? 'application/json' : 'application/rss+xml, application/atom+xml, application/xml, text/xml, text/plain;q=0.9, */*;q=0.8' },
+      });
+      if (!res.ok) throw new Error(route.name + ' HTTP ' + res.status);
 
-    rssCache.set(feedUrl, { data: items, ts: now });
-    return items;
-  } catch (err) {
-    console.warn('[NV Intelligence] RSS fetch failed:', feedUrl, err);
-    // Keep the last successful snapshot visible when the proxy/feed is down.
-    return cached?.data ?? [];
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
+      let entries: ParsedRssEntry[] = [];
+      if (route.kind === 'json') {
+        const json = (await res.json()) as Rss2JsonResponse;
+        if (json.status === 'ok' && json.items?.length) {
+          entries = json.items.slice(0, 30).map(item => ({
+            title: cleanFeedText(item.title || ''),
+            link: item.link || '',
+            publishedAt: item.pubDate || new Date().toISOString(),
+            description: cleanFeedText(item.description || ''),
+            categories: item.categories ?? [],
+            guid: item.guid || item.link || item.title || '',
+          }));
+        }
+      } else {
+        entries = parseRssXml(await res.text());
+      }
+
+      const items = normaliseRssItems(entries, provider, sourceName, sourceUrl, region, country, language, defaultCategory);
+      if (items.length > 0) {
+        rssCache.set(feedUrl, { data: items, ts: Date.now() });
+        if (route.name !== 'rss2json') {
+          console.info('[NV Intelligence] RSS recovered via ' + route.name + ': ' + provider + ' (' + items.length + ' items)');
+        }
+        return items;
+      }
+      throw new Error(route.name + ' returned no valid RSS entries');
+    } catch (err) {
+      console.warn('[NV Intelligence] RSS route failed (' + route.name + '):', feedUrl, err);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
   }
+
+  // Keep the last successful snapshot visible even when every route is down.
+  return cached?.data ?? [];
 }
 
 // ─── Provider registry ────────────────────────────────────────────────────────
