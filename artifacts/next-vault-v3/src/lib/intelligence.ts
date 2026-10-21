@@ -314,12 +314,12 @@ async function fetchRss(
   const cached = rssCache.get(feedUrl);
   if (cached && Date.now() - cached.ts < RSS_TTL) return cached.data;
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const url = RSS2JSON_BASE + encodeURIComponent(feedUrl);
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
+    timer = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
-    clearTimeout(timer);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = (await res.json()) as Rss2JsonResponse;
     if (json.status !== 'ok' || !json.items?.length) return cached?.data ?? [];
@@ -355,7 +355,10 @@ async function fetchRss(
     return items;
   } catch (err) {
     console.warn('[NV Intelligence] RSS fetch failed:', feedUrl, err);
+    // Keep the last successful snapshot visible when the proxy/feed is down.
     return cached?.data ?? [];
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
