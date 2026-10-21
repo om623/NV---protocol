@@ -109,7 +109,7 @@ const PRICE_KW = [
   'price', 'preço', 'precio', 'prix', 'valor', 'vale', 'custo', 'cotação',
   'how much', 'quanto', 'cuánto', 'combien', '価格', '가격', '价格',
   'worth', 'cost', 'rate', 'trading at', 'market price', 'current price',
-  'what is', 'what\'s', 'o que é', 'que es', 'qu\'est',
+  'o que é', 'que es', 'qu\'est',
 ];
 
 // Well-known asset names/symbols — used to detect price intent even without
@@ -149,8 +149,9 @@ function detectIntent(q: string): QueryIntent {
   }
 
   // Price intent: either explicit price keyword OR a lone well-known asset name
-  const hasPriceKw   = PRICE_KW.some(kw => lq.includes(kw));
-  const hasAssetName = KNOWN_ASSETS.some(a => words.includes(a) || lq.includes(a));
+  const hasPriceKw = PRICE_KW.some(kw => lq.includes(kw));
+  // Match complete tokens only; substring checks can mistake words such as "solution" for SOL.
+  const hasAssetName = KNOWN_ASSETS.some(a => words.includes(a));
 
   if (hasPriceKw || hasAssetName) {
     return TOP_KW.some(kw => lq.includes(kw)) ? 'market_top' : 'market_price';
