@@ -57,6 +57,8 @@ import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
 import { subscribeNavigation } from './lib/navigationStore';
+import { HistoryModule, ReportsModule, SettingsModule, HelpModule, logNVModuleView } from './components/ProtocolModules';
+import { logNVActivity } from './lib/activityLog';
 
 
 const queryClient = new QueryClient();
@@ -93,14 +95,14 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
   { key: 'nav.swap',           Icon: ArrowDown,       view: 'swap'           },
   { key: 'nav.intelligence',  Icon: Newspaper,       view: 'intelligence'   },
-  { key: 'nav.history',       Icon: History,         view: 'historico',     comingSoon: true },
-  { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
+  { key: 'nav.history',       Icon: History,         view: 'historico' },
+  { key: 'nav.reports',       Icon: FileText,        view: 'relatorios' },
   { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge'         },
   { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
   { key: 'nav.solana',        Icon: Zap,             view: 'solana'         },
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
-  { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes', comingSoon: true },
-  { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda',         comingSoon: true },
+  { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes' },
+  { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -481,6 +483,7 @@ function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
+  useEffect(() => { logNVModuleView(activeView); }, [activeView]);
 
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
@@ -731,6 +734,7 @@ function Home() {
         n,
       );
       setSwapCctpBurnTx(burnTx);
+      logNVActivity({ category: 'bridge', action: 'USDC burn enviado', details: `Destino: ${destCctp.name}`, txHash: burnTx, network: sourceCctp.name });
       toast({
         title: `USDC burned`,
         description: `TX: ${burnTx.slice(0, 18)}… — ${sourceCctp.explorerUrl}/tx/${burnTx}`,
@@ -763,6 +767,7 @@ function Home() {
         attestation,
       );
       setSwapCctpMintTx(mintTx);
+      logNVActivity({ category: 'bridge', action: 'USDC mint enviado', details: `Origem: ${sourceCctp.name}`, txHash: mintTx, network: destCctp.name });
 
       // Wait for mint confirmation
       step('Waiting for destination confirmation…');
@@ -1107,6 +1112,11 @@ function Home() {
           {/* ── Main scroll area ────────────────────────────────────────── */}
           <main className="flex-1 overflow-y-auto">
             <div className="max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5">
+
+              {activeView === 'historico' && <HistoryModule />}
+              {activeView === 'relatorios' && <ReportsModule />}
+              {activeView === 'configuracoes' && <SettingsModule />}
+              {activeView === 'ajuda' && <HelpModule />}
 
               {/* ── Wallet View ────────────────────────────────────────────── */}
               {activeView === 'carteira' && (
