@@ -48,7 +48,6 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
     context.isWalletConnected,
     context.networkOnline,
     context.recentSwapActivity,
-    context.simulationRunning,
     locale,
   ]);
 
