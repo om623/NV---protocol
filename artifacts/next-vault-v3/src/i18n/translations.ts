@@ -5,6 +5,7 @@ type Dict = Record<string, string>;
 const ptBR: Dict = {
   // Navigation
   'nav.dashboard': 'Dashboard',
+  'nav.swap': 'Swap',
   'nav.simulation': 'Simulação',
   'nav.intelligence': 'Inteligência',
   'nav.history': 'Histórico',
@@ -482,6 +483,7 @@ const ptBR: Dict = {
 
 const en: Dict = {
   'nav.dashboard': 'Dashboard',
+  'nav.swap': 'Swap',
   'nav.simulation': 'Simulation',
   'nav.intelligence': 'Intelligence',
   'nav.history': 'History',
@@ -935,6 +937,7 @@ const en: Dict = {
 
 const es: Dict = {
   'nav.dashboard': 'Panel',
+  'nav.swap': 'Swap',
   'nav.simulation': 'Simulación',
   'nav.intelligence': 'Inteligencia',
   'nav.history': 'Historial',
@@ -1267,6 +1270,7 @@ const es: Dict = {
 
 const fr: Dict = {
   'nav.dashboard': 'Tableau de bord',
+  'nav.swap': 'Swap',
   'nav.simulation': 'Simulation',
   'nav.intelligence': 'Intelligence',
   'nav.history': 'Historique',
@@ -1608,6 +1612,7 @@ const fr: Dict = {
 // ─── Chinese (Simplified) ─────────────────────────────────────────────────────
 const zh: Dict = {
   'nav.dashboard': '仪表板',
+  'nav.swap': 'Swap',
   'nav.simulation': '模拟',
   'nav.intelligence': '情报',
   'nav.history': '历史',
@@ -1801,6 +1806,7 @@ const zh: Dict = {
 // ─── Japanese ─────────────────────────────────────────────────────────────────
 const ja: Dict = {
   'nav.dashboard': 'ダッシュボード',
+  'nav.swap': 'Swap',
   'nav.simulation': 'シミュレーション',
   'nav.intelligence': 'インテリジェンス',
   'nav.history': '履歴',
@@ -1994,6 +2000,7 @@ const ja: Dict = {
 // ─── Korean ───────────────────────────────────────────────────────────────────
 const ko: Dict = {
   'nav.dashboard': '대시보드',
+  'nav.swap': 'Swap',
   'nav.simulation': '시뮬레이션',
   'nav.intelligence': '인텔리전스',
   'nav.history': '기록',
@@ -2187,6 +2194,7 @@ const ko: Dict = {
 // ─── Hindi ────────────────────────────────────────────────────────────────────
 const hi: Dict = {
   'nav.dashboard': 'डैशबोर्ड',
+  'nav.swap': 'Swap',
   'nav.simulation': 'सिमुलेशन',
   'nav.intelligence': 'इंटेलिजेंस',
   'nav.history': 'इतिहास',
@@ -2380,6 +2388,7 @@ const hi: Dict = {
 // ─── Arabic ───────────────────────────────────────────────────────────────────
 const ar: Dict = {
   'nav.dashboard': 'لوحة التحكم',
+  'nav.swap': 'Swap',
   'nav.simulation': 'المحاكاة',
   'nav.intelligence': 'الذكاء',
   'nav.history': 'السجل',
