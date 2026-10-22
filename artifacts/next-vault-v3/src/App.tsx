@@ -30,14 +30,11 @@ import { ProfileView } from './components/ProfileView';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { BridgeView } from './components/BridgeView';
-import { PoolsView } from './components/PoolsView';
 import { WalletView } from './components/WalletView';
-import { SimAdvancedMetrics } from './components/SimAdvancedMetrics';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { MarketGrid } from './components/MarketGrid';
 import { MarketTicker } from './components/MarketTicker';
 import { PortfolioCharts } from './components/PortfolioCharts';
-import { IntelligenceColumn } from './components/IntelligenceColumn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -65,21 +62,6 @@ const queryClient = new QueryClient();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface SimHistoryItem {
-  id: string;
-  datetime: string;
-  roi: number;
-  risk: number;
-  duration: number;
-  strategy: string;
-  pools: number;
-  opportunities: number;
-  fromToken: string;
-  toToken: string;
-}
-
-interface RoiPoint { t: number; roi: number; }
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_TOKENS = [
@@ -87,8 +69,6 @@ const DEFAULT_TOKENS = [
   { symbol: 'EURC', name: 'Euro Coin' },
   { symbol: 'ETH',  name: 'Ethereum' },
 ];
-
-const MOCK_BALANCES: Record<string, number> = { USDC: 5420.18, EURC: 3200.50, ETH: 12.48 };
 
 // Live exchange rates are derived from real CoinGecko prices via getAsset().
 // Falls back to reasonable defaults if the API hasn't loaded yet.
@@ -99,61 +79,20 @@ function livePrice(symbol: string): number {
   return Number.isFinite(p) ? p : (FALLBACK_PRICES[symbol] ?? 1);
 }
 
-const INITIAL_TRANSACTIONS = [
-  { id: '1', fromToken: 'USDC', toToken: 'EURC', fromAmount: 500, toAmount: 460.0, time: '2 min ago', status: 'Success' },
-  { id: '2', fromToken: 'EURC', toToken: 'USDC', fromAmount: 200, toAmount: 217.4, time: '1 hr ago', status: 'Success' },
-  { id: '3', fromToken: 'USDC', toToken: 'ETH', fromAmount: 1000, toAmount: 0.3112, time: '3 hrs ago', status: 'Success' }
-];
+const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fromAmount: number; toAmount: number; time: string; status: string }[] = [];
 
 // Network lists live in ./networks.ts — imported above.
 
-const PIPELINE_STEPS = [
-  { labelKey: 'sim.step.connecting',          Icon: Wallet },
-  { labelKey: 'sim.step.validating',          Icon: Shield },
-  { labelKey: 'sim.step.readingBalance',      Icon: Database },
-  { labelKey: 'sim.step.scanningPools',       Icon: Activity },
-  { labelKey: 'sim.step.analyzingOpps',       Icon: TrendingUp },
-  { labelKey: 'sim.step.calculatingRisk',     Icon: AlertTriangle },
-  { labelKey: 'sim.step.selectingStrategy',   Icon: Target },
-  { labelKey: 'sim.step.simulating',          Icon: Cpu },
-  { labelKey: 'sim.step.confirming',          Icon: Check },
-  { labelKey: 'sim.step.finished',            Icon: CheckCircle2 },
-];
-
-const CONSOLE_SCRIPT: { type: 'info' | 'success' | 'warn'; text: string; delay: number }[] = [
-  { type: 'info',    text: 'Wallet connected',         delay: 350  },
-  { type: 'info',    text: 'Reading balances...',      delay: 1400 },
-  { type: 'warn',    text: 'High volatility detected', delay: 2400 },
-  { type: 'info',    text: '23 pools analyzed',        delay: 3500 },
-  { type: 'info',    text: '7 opportunities found',    delay: 5000 },
-  { type: 'info',    text: 'Best ROI selected',        delay: 6700 },
-  { type: 'info',    text: 'Running final checks...',  delay: 7900 },
-  { type: 'success', text: 'Simulation completed',     delay: 8900 },
-];
-
-const BADGES = [
-  { label: 'Secure Wallet',       color: 'text-cyan-400',    border: 'border-cyan-400/30',    bg: 'bg-cyan-400/8'    },
-  { label: 'AI Strategy',         color: 'text-violet-400',  border: 'border-violet-400/30',  bg: 'bg-violet-400/8'  },
-  { label: 'Smart Routing',       color: 'text-blue-400',    border: 'border-blue-400/30',    bg: 'bg-blue-400/8'    },
-  { label: 'Simulation Complete', color: 'text-emerald-400', border: 'border-emerald-400/30', bg: 'bg-emerald-400/8' },
-];
-
-const SIM_TOTAL_MS = 9700;
-const ROI_START_MS = 6700;
-const ROI_DURATION_MS = 1400;
-const ROI_TARGET = 8.47;
-
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'simulacao' | 'historico' | 'relatorios' | 'pools' | 'carteira' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'historico' | 'relatorios' | 'swap' | 'carteira' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
-  { key: 'nav.simulation',    Icon: Activity,        view: 'simulacao'      },
   { key: 'nav.intelligence',  Icon: Newspaper,       view: 'intelligence'   },
   { key: 'nav.history',       Icon: History,         view: 'historico',     comingSoon: true },
   { key: 'nav.reports',       Icon: FileText,        view: 'relatorios',    comingSoon: true },
-  { key: 'nav.pools',         Icon: Database,        view: 'pools'          },
+  { key: 'swap.title',         Icon: ArrowDown,       view: 'swap'            },
   { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge'         },
   { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
   { key: 'nav.solana',        Icon: Zap,             view: 'solana'         },
@@ -177,181 +116,7 @@ const formatRate = (rate: number) => {
   return rate < 0.01 ? rate.toFixed(6) : rate < 1 ? rate.toFixed(4) : rate.toFixed(2);
 };
 
-function getNextSimId(): string {
-  try {
-    const count = parseInt(localStorage.getItem('vault-sim-count') || '0') + 1;
-    localStorage.setItem('vault-sim-count', String(count));
-    const d = new Date();
-    const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    return `SIM-${ds}-${String(count).padStart(4, '0')}`;
-  } catch { return `SIM-${Date.now()}`; }
-}
-
-function formatDateTime(d: Date): string {
-  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function generateReportHtml(data: {
-  simId: string; datetime: string; wallet: string;
-  fromToken: string; toToken: string; fromAmount: number; toAmount: number;
-  totalTime: number; roi: number; risk: number;
-  strategy: string; pools: number; opportunities: number;
-}): string {
-  return `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<title>Relatório — ${data.simId}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#070c18;color:#c8d8e8;padding:0}
-.page{max-width:680px;margin:0 auto;padding:52px 44px}
-.brand{display:flex;align-items:center;gap:12px;margin-bottom:36px}
-.brand-icon{width:36px;height:36px;background:rgba(0,229,188,.15);border:1px solid rgba(0,229,188,.3);border-radius:10px;display:flex;align-items:center;justify-content:center}
-.brand-name{font-size:14px;font-weight:700;letter-spacing:4px;color:#e2e8f0}
-.brand-sub{font-size:9px;color:#00e5bc;letter-spacing:3px;text-transform:uppercase;margin-top:3px}
-.divider{height:1px;background:linear-gradient(to right,rgba(0,229,188,.4),transparent);margin:24px 0}
-.title{font-size:22px;font-weight:700;color:#f8fafc;margin-bottom:6px}
-.sim-id{font-size:11px;color:#00e5bc;letter-spacing:1px;margin-bottom:4px}
-.dt{font-size:11px;color:#64748b}
-.section-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#475569;margin:28px 0 12px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.field{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px 16px}
-.field-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#475569;margin-bottom:6px}
-.field-value{font-size:14px;color:#e2e8f0}
-.field-value.accent{color:#00e5bc}
-.field-value.green{color:#34d399}
-.field-value.yellow{color:#fbbf24}
-.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
-.badge{display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,188,.08);border:1px solid rgba(0,229,188,.2);border-radius:999px;padding:5px 12px;font-size:10px;color:#00e5bc}
-.footer{margin-top:48px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:#1e293b;display:flex;justify-content:space-between}
-@media print{body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
-</style></head><body><div class="page">
-<div class="brand">
-  <div class="brand-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00e5bc" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-  <div><div class="brand-name">NV PROTOCOL</div><div class="brand-sub">Protocol V3 · Simulation Report</div></div>
-</div>
-<div class="divider"></div>
-<div class="title">Relatório de Simulação</div>
-<div class="sim-id">${data.simId}</div>
-<div class="dt">Executado em: ${data.datetime}</div>
-
-<div class="section-title">Identificação</div>
-<div class="grid">
-  <div class="field"><div class="field-label">ID da Simulação</div><div class="field-value accent">${data.simId}</div></div>
-  <div class="field"><div class="field-label">Carteira Conectada</div><div class="field-value">${data.wallet}</div></div>
-</div>
-
-<div class="section-title">Operação</div>
-<div class="grid">
-  <div class="field"><div class="field-label">Token Origem</div><div class="field-value">${data.fromToken} &nbsp;(${data.fromAmount.toFixed(4)})</div></div>
-  <div class="field"><div class="field-label">Token Destino</div><div class="field-value">${data.toToken} &nbsp;(${data.toAmount.toFixed(4)})</div></div>
-</div>
-
-<div class="section-title">Métricas</div>
-<div class="grid">
-  <div class="field"><div class="field-label">Tempo de Execução</div><div class="field-value">${data.totalTime.toFixed(2)}s</div></div>
-  <div class="field"><div class="field-label">ROI Estimado</div><div class="field-value green">+${data.roi.toFixed(2)}%</div></div>
-  <div class="field"><div class="field-label">Risco</div><div class="field-value yellow">${data.risk.toFixed(1)}% (Moderado)</div></div>
-  <div class="field"><div class="field-label">Estratégia</div><div class="field-value">${data.strategy}</div></div>
-  <div class="field"><div class="field-label">Pools Analisados</div><div class="field-value">${data.pools}</div></div>
-  <div class="field"><div class="field-label">Oportunidades</div><div class="field-value">${data.opportunities}</div></div>
-</div>
-
-<div class="section-title">Verificações de Segurança</div>
-<div class="badges">
-  <span class="badge">✓ Secure Wallet</span>
-  <span class="badge">✓ AI Strategy</span>
-  <span class="badge">✓ Smart Routing</span>
-  <span class="badge">✓ Simulation Complete</span>
-</div>
-<div class="footer">
-  <span>NV Protocol V3</span>
-  <span>Gerado em ${data.datetime}</span>
-</div>
-</div>
-<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),800))</script>
-</body></html>`;
-}
-
 // ─── RoiChart ─────────────────────────────────────────────────────────────────
-
-function RoiChart({ points, isComplete = false }: { points: RoiPoint[]; isComplete?: boolean }) {
-  const { t } = useI18n();
-  const W = 400; const H = 90;
-  const PAD = { t: 10, b: 12, l: 6, r: 40 };
-  const cW = W - PAD.l - PAD.r;
-  const cH = H - PAD.t - PAD.b;
-  const maxRoi = ROI_TARGET;
-
-  const toX = (t: number) => PAD.l + (Math.min(t, SIM_TOTAL_MS) / SIM_TOTAL_MS) * cW;
-  const toY = (roi: number) => PAD.t + cH - (Math.max(0, roi) / maxRoi) * cH;
-
-  if (points.length < 2) {
-    return (
-      <div className="w-full flex items-center justify-center" style={{ height: H }}>
-        <span className="text-[10px] font-mono text-muted-foreground/30 animate-pulse">{t('sim.waitingRoi')}</span>
-      </div>
-    );
-  }
-
-  const linePts = points.map(p => `${toX(p.t).toFixed(1)},${toY(p.roi).toFixed(1)}`).join(' ');
-  const last = points[points.length - 1];
-  const lx = toX(last.t);
-  const ly = toY(last.roi);
-  const areaBase = (PAD.t + cH).toFixed(1);
-  const areaPts = `${toX(points[0].t).toFixed(1)},${areaBase} ${linePts} ${lx.toFixed(1)},${areaBase}`;
-  const yTicks = [0.25, 0.5, 0.75, 1.0];
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="roiFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgb(0,229,188)" stopOpacity="0.22" />
-          <stop offset="85%" stopColor="rgb(0,229,188)" stopOpacity="0.02" />
-        </linearGradient>
-        <filter id="neon" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-
-      {yTicks.map(r => {
-        const y = toY(maxRoi * r);
-        return (
-          <g key={r}>
-            <line x1={PAD.l} y1={y} x2={W - PAD.r + 4} y2={y}
-              stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 5" />
-            <text x={W - PAD.r + 7} y={y + 4} fill="rgba(255,255,255,0.2)"
-              fontSize="7" fontFamily="monospace">{(maxRoi * r).toFixed(1)}%</text>
-          </g>
-        );
-      })}
-
-      <line x1={PAD.l} y1={PAD.t + cH} x2={W - PAD.r} y2={PAD.t + cH}
-        stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-
-      <polygon points={areaPts} fill="url(#roiFill)" />
-
-      <polyline points={linePts} fill="none"
-        stroke="rgb(0,229,188)" strokeWidth="1.8"
-        strokeLinecap="round" strokeLinejoin="round"
-        filter="url(#neon)" />
-
-      <circle cx={lx} cy={ly} r={isComplete ? 3.5 : 3} fill="rgb(0,229,188)"
-        style={{ filter: 'drop-shadow(0 0 5px rgb(0,229,188))' }}>
-        {!isComplete && (
-          <animate attributeName="r" values="2.5;4;2.5" dur="1.5s" repeatCount="indefinite" />
-        )}
-      </circle>
-
-      {last.roi > 0.05 && (
-        <text x={Math.min(lx + 5, W - PAD.r - 2)} y={Math.max(ly - 5, PAD.t + 8)}
-          fill="rgb(0,229,188)" fontSize="9" fontFamily="monospace" fontWeight="bold">
-          +{last.roi.toFixed(2)}%
-        </text>
-      )}
-    </svg>
-  );
-}
 
 // ─── Token Icons ──────────────────────────────────────────────────────────────
 
@@ -685,7 +450,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'carteira', 'bridge', 'intelligence', 'solana', 'simulacao', 'historico', 'relatorios', 'pools', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'carteira', 'bridge', 'intelligence', 'solana', 'swap', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
@@ -711,139 +476,12 @@ function Home() {
     onXpGranted: (xpAmount, txHash) => gamification.grantXp(xpAmount, txHash),
   });
   const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
-  const [swapModalOpen,  setSwapModalOpen]  = useState(false);
-  const [swapStep,       setSwapStep]       = useState(0);
-  const [pendingSwap,    setPendingSwap]    = useState<any>(null);
-
-  // ── Simulation state ────────────────────────────────────────────────────────
-  const [simId,        setSimId]        = useState('');
-  const [simDateTime,  setSimDateTime]  = useState('');
-  const [simStep,      setSimStep]      = useState(-1);
-  const [simProgress,  setSimProgress]  = useState(0);
-  const [consoleLogs,  setConsoleLogs]  = useState<{ type: 'info'|'success'|'warn'; text: string }[]>([]);
-  const [simPhase,     setSimPhase]     = useState<'pipeline'|'complete'>('pipeline');
-  const [simStats,     setSimStats]     = useState({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-  const [simTotalTime, setSimTotalTime] = useState(0);
-  const [roiPoints,    setRoiPoints]    = useState<RoiPoint[]>([]);
-  const [reportExported, setReportExported] = useState(false);
-  const [simHistory,   setSimHistory]   = useState<SimHistoryItem[]>(() => {
-    try { return JSON.parse(localStorage.getItem('vault-sim-history') || '[]'); } catch { return []; }
-  });
-  const [historyOpen,  setHistoryOpen]  = useState(false);
-
   // ── UI state (new) ──────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [simPaused,   setSimPaused]   = useState(false);
-
-  const consoleEndRef = useRef<HTMLDivElement>(null);
-  const simTimers = useRef<{ intervals: number[]; timeouts: number[] }>({ intervals: [], timeouts: [] });
-  const swapStepTimers = useRef<number[]>([]);
   const miscTimers = useRef<number[]>([]);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
-  useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
-
-  // Centralised unmount cleanup — clears every timer that escapes clearSim.
-  useEffect(() => {
-    return () => {
-      simTimers.current.intervals.forEach(t => window.clearInterval(t));
-      simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
-      swapStepTimers.current.forEach(t => window.clearTimeout(t));
-      miscTimers.current.forEach(t => window.clearTimeout(t));
-    };
-  }, []);
-
-  // ── Simulation engine (unchanged) ───────────────────────────────────────────
-
-  const clearSim = useCallback(() => {
-    simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
-    simTimers.current.intervals.forEach(t => window.clearInterval(t));
-    swapStepTimers.current.forEach(t => window.clearTimeout(t));
-    simTimers.current = { intervals: [], timeouts: [] };
-    swapStepTimers.current = [];
-  }, []);
-
-  const startSim = useCallback((id: string, dt: string) => {
-    const sto = (fn: () => void, ms: number) => {
-      const t = window.setTimeout(fn, ms);
-      simTimers.current.timeouts.push(t);
-    };
-    const sin = (fn: () => void, ms: number): number => {
-      const t = window.setInterval(fn, ms);
-      simTimers.current.intervals.push(t);
-      return t;
-    };
-    const animateTo = (setter: (v: number) => void, target: number, duration: number, round = false) => {
-      const s = Date.now();
-      const iv = sin(() => {
-        const t = Math.min(1, (Date.now() - s) / duration);
-        const e = 1 - Math.pow(1 - t, 3);
-        setter(round ? Math.round(target * e) : target * e);
-        if (t >= 1) { window.clearInterval(iv); simTimers.current.intervals = simTimers.current.intervals.filter(x => x !== iv); }
-      }, 30);
-    };
-
-    const startTime = Date.now();
-    PIPELINE_STEPS.forEach((_, i) => sto(() => setSimStep(i), i * 950));
-    CONSOLE_SCRIPT.forEach(({ type, text, delay }) =>
-      sto(() => setConsoleLogs(prev => [...prev, { type, text }]), delay));
-
-    const progIv = sin(() => {
-      setSimProgress(Math.min(100, ((Date.now() - startTime) / SIM_TOTAL_MS) * 100));
-    }, 50);
-    const execIv = sin(() => {
-      setSimStats(prev => ({ ...prev, execTime: (Date.now() - startTime) / 1000 }));
-    }, 100);
-
-    for (let ms = 0; ms <= SIM_TOTAL_MS; ms += 200) {
-      const scheduledMs = ms;
-      sto(() => {
-        const roiT = scheduledMs < ROI_START_MS ? 0 : Math.min(1, (scheduledMs - ROI_START_MS) / ROI_DURATION_MS);
-        const roiVal = ROI_TARGET * (1 - Math.pow(1 - roiT, 3));
-        setRoiPoints(prev => [...prev, { t: scheduledMs, roi: roiVal }]);
-      }, ms);
-    }
-
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, balance: v })), 46382.17, 2200), 1400);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, poolsAnalyzed: v })), 23, 1400, true), 3500);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, opportunities: v })), 7, 800, true), 5000);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, risk: v })), 12.3, 900), 5800);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, roi: v })), ROI_TARGET, 1400), ROI_START_MS);
-
-    sto(() => {
-      const total = parseFloat(((Date.now() - startTime) / 1000).toFixed(2));
-      window.clearInterval(progIv);
-      window.clearInterval(execIv);
-      simTimers.current.intervals = simTimers.current.intervals.filter(x => x !== progIv && x !== execIv);
-      setSimTotalTime(total);
-      setSimPhase('complete');
-      setSimProgress(100);
-      const item: SimHistoryItem = {
-        id, datetime: dt, roi: ROI_TARGET, risk: 12.3, duration: total,
-        strategy: 'Arbitrum Optimal Route v2', pools: 23, opportunities: 7,
-        fromToken: '', toToken: '',
-      };
-      setSimHistory(prev => {
-        const updated = [item, ...prev].slice(0, 10);
-        try { localStorage.setItem('vault-sim-history', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-    }, SIM_TOTAL_MS);
-  }, []);
-
-  useEffect(() => {
-    if (swapModalOpen) {
-      const id = getNextSimId();
-      const dt = formatDateTime(new Date());
-      setSimId(id); setSimDateTime(dt);
-      setSimStep(-1); setSimProgress(0); setConsoleLogs([]);
-      setSimPhase('pipeline'); setRoiPoints([]);
-      setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-      setSimTotalTime(0); setReportExported(false);
-      startSim(id, dt);
-    } else { clearSim(); }
-    return clearSim;
-  }, [swapModalOpen]);
+  useEffect(() => () => miscTimers.current.forEach(t => window.clearTimeout(t)), []);
 
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
@@ -1191,105 +829,24 @@ function Home() {
   }
 
   const handleSwap = () => {
-    if (isConnected && isRealSwap) {
-      handleRealSwap();
+    if (!isConnected) {
+      toast({ title: 'Connect wallet first', description: 'Connect a supported wallet before starting an on-chain operation.', variant: 'destructive' });
       return;
     }
-    const n = parseFloat(amount);
-    if (!n || n <= 0) return;
-    setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-    setSwapModalOpen(true); setSwapStep(0);
-    swapStepTimers.current.forEach(t => window.clearTimeout(t));
-    swapStepTimers.current = [];
-    [800, 2000, 3500, 5500].forEach((ms, i) => {
-      const t = window.setTimeout(() => setSwapStep(i + 1), ms);
-      swapStepTimers.current.push(t);
-    });
-  };
-
-  const closeSwapModal = () => {
-    setSwapModalOpen(false);
-    if (pendingSwap) {
-      const simTxId = Math.random().toString();
-      setTransactions(prev => [{
-        id: simTxId,
-        fromToken: pendingSwap.fromToken, toToken: pendingSwap.toToken,
-        fromAmount: pendingSwap.fromAmount, toAmount: pendingSwap.toAmount,
-        time: 'Just now', status: 'Success'
-      }, ...prev]);
-      const xpGained = gamification.recordSwap(simTxId);
-      toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
+    if (!isRealSwap) {
+      toast({ title: 'Unsupported route', description: 'This network is not configured for a supported CCTP USDC transfer.', variant: 'destructive' });
+      return;
     }
-    setAmount('');
-  };
-
-  const handleNovaSimulacao = () => {
-    const id = getNextSimId(); const dt = formatDateTime(new Date());
-    setSimId(id); setSimDateTime(dt);
-    clearSim();
-    setSimStep(-1); setSimProgress(0); setConsoleLogs([]);
-    setSimPhase('pipeline'); setRoiPoints([]);
-    setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-    setSimTotalTime(0); setReportExported(false);
-    const t = window.setTimeout(() => startSim(id, dt), 60);
-    simTimers.current.timeouts.push(t);
-  };
-
-  const handleExportReport = () => {
-    const html = generateReportHtml({
-      simId, datetime: simDateTime, wallet: '0x8F4A...91C2',
-      fromToken: pendingSwap?.fromToken || 'ETH',
-      toToken:   pendingSwap?.toToken   || 'USDC',
-      fromAmount: pendingSwap?.fromAmount || 0,
-      toAmount:   pendingSwap?.toAmount   || 0,
-      totalTime: simTotalTime,
-      roi: simStats.roi, risk: simStats.risk,
-      strategy: 'Arbitrum Optimal Route v2',
-      pools: simStats.poolsAnalyzed, opportunities: simStats.opportunities,
-    });
-    const win = window.open('', '_blank');
-    if (win) { win.document.write(html); win.document.close(); }
-    setReportExported(true);
-    const tm = window.setTimeout(() => setReportExported(false), 2500);
-    miscTimers.current.push(tm);
+    void handleRealSwap();
   };
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
   const handleMax = () => {
-    const raw = realBalances
-      ? (realBalances[sourceToken] ?? 0)
-      : MOCK_BALANCES[sourceToken];
-    const bal = safeBalance(raw);
-    setAmount(bal.toString());
-  };
-
-  // ── New action handlers ──────────────────────────────────────────────────────
-
-  const handleStartNewSim = () => {
-    setSimPaused(false);
-    if (!swapModalOpen) {
-      const n = parseFloat(amount) || 1;
-      setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-      setSwapModalOpen(true);
-    } else {
-      handleNovaSimulacao();
+    if (!isConnected || !realBalances) {
+      toast({ title: 'Wallet balance unavailable', description: 'Connect your wallet and refresh its balance first.', variant: 'destructive' });
+      return;
     }
-  };
-
-  const handlePause = () => {
-    if (!swapModalOpen || simPhase === 'complete') return;
-    if (simPaused) {
-      setSimPaused(false);
-      handleNovaSimulacao();
-    } else {
-      clearSim();
-      setSimPaused(true);
-    }
-  };
-
-  const handleCancel = () => {
-    setSimPaused(false);
-    closeSwapModal();
+    setAmount(safeBalance(realBalances[sourceToken] ?? 0).toString());
   };
 
   // ── Derived values ───────────────────────────────────────────────────────────
@@ -1308,18 +865,6 @@ function Home() {
   const destAmountNum = sourceAmountNum * rate;
   const sourceUsd = sourceAmountNum * getUsdRate(sourceToken);
   const destUsd   = destAmountNum   * getUsdRate(destToken);
-
-  const logColor = (type: string) => type === 'success' ? 'text-emerald-400' : type === 'warn' ? 'text-yellow-400' : 'text-cyan-300';
-  const logTag   = (type: string) => type === 'success' ? '[SUCCESS]' : type === 'warn' ? '[WARN]' : '[INFO]';
-
-  const statCards = [
-    { label: t('swap.balance'),   value: fmt.currency(simStats.balance, 'USD', 0), Icon: BarChart2,    color: 'text-cyan-400',    glow: 'hover:shadow-[0_0_14px_rgba(34,211,238,0.2)]'  },
-    { label: t('sim.estimatedRoi'),value: isValidNum(simStats.roi) ? `+${simStats.roi.toFixed(2)}%` : '—',  Icon: TrendingUp,   color: 'text-emerald-400', glow: 'hover:shadow-[0_0_14px_rgba(52,211,153,0.2)]'  },
-    { label: t('dash.risk'),   value: isValidNum(simStats.risk) ? `${simStats.risk.toFixed(1)}%` : '—',  Icon: AlertTriangle,color: 'text-yellow-400',  glow: 'hover:shadow-[0_0_14px_rgba(250,204,21,0.15)]' },
-    { label: t('sim.totalTime'),   value: isValidNum(simStats.execTime) ? `${simStats.execTime.toFixed(1)}s` : '—', Icon: Clock,     color: 'text-primary',     glow: 'hover:shadow-[0_0_14px_rgba(0,229,188,0.2)]'   },
-    { label: t('intel.pools'),   value: `${simStats.poolsAnalyzed}`,     Icon: Database,     color: 'text-violet-400',  glow: 'hover:shadow-[0_0_14px_rgba(167,139,250,0.2)]' },
-    { label: t('intel.opportunities'),  value: `${simStats.opportunities}`,     Icon: Target,       color: 'text-orange-400',  glow: 'hover:shadow-[0_0_14px_rgba(251,146,60,0.2)]'  },
-  ];
 
   // ── Dashboard context for Digital Presenter ─────────────────────────────────
   const dashboardContext: DashboardContext = useMemo(() => {
@@ -1346,9 +891,8 @@ function Home() {
       isWalletConnected: isConnected,
       networkOnline: true,
       recentSwapActivity: transactions.length > 0,
-      simulationRunning: swapModalOpen && !simPaused && simPhase === 'pipeline',
     };
-  }, [activeNetwork.name, isConnected, transactions.length, swapModalOpen, simPaused, simPhase]);
+  }, [activeNetwork.name, isConnected, transactions.length]);
 
   // ── Wallet event listeners (account / chain changes) ───────────────────────
   useEffect(() => {
@@ -1559,84 +1103,6 @@ function Home() {
           </AnimatePresence>
         </header>
 
-        {/* ── Action buttons bar ────────────────────────────────────────── */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/25 bg-background/50 overflow-x-auto scrollbar-hide">
-          {/* Nova Simulação */}
-          <button onClick={handleStartNewSim}
-            className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-[0_0_20px_rgba(0,229,188,0.3)] cursor-pointer shrink-0 active:scale-[0.97]">
-        {/* ── Simulation mode banner (shown when no wallet connected) ── */}
-        <AnimatePresence>
-          {!isConnected && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden border-b border-border/25 bg-gradient-to-r from-violet-500/8 via-blue-500/5 to-transparent"
-            >
-              <div className="flex items-center gap-3 px-4 py-2.5">
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-base leading-none">🧪</span>
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-violet-400">
-                    Simulation Mode
-                  </span>
-                </div>
-                <div className="w-px h-4 bg-border/40 shrink-0" />
-                <span className="text-[11px] font-mono text-muted-foreground/70 hidden sm:inline">
-                  Nenhuma carteira conectada — usando dados simulados. Nenhuma transação blockchain será enviada.
-                </span>
-                <span className="text-[11px] font-mono text-muted-foreground/70 sm:hidden">
-                  Dados simulados — sem transações reais.
-                </span>
-                <div className="ml-auto flex items-center gap-1.5 shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                  <span className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-wider hidden md:inline">
-                    {activeNetwork.shortName} Testnet
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-            <RefreshCw size={13} className={swapModalOpen && !simPaused && simPhase === 'pipeline' ? 'animate-spin' : ''} />
-            {t('action.newSimulation')}
-          </button>
-
-          {/* Pausar / Retomar */}
-          <button onClick={handlePause}
-            disabled={!swapModalOpen || simPhase === 'complete'}
-            className={`flex items-center gap-1.5 border px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-[0.97] disabled:opacity-35 disabled:cursor-not-allowed ${
-              simPaused
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15'
-                : 'bg-secondary/80 hover:bg-secondary border-border/50 text-foreground'
-            }`}>
-            <Pause size={13} className={simPaused ? 'text-emerald-400' : 'text-yellow-400'} />
-            {simPaused ? t('action.resume') : t('action.pause')}
-          </button>
-
-          {/* Cancelar */}
-          <button onClick={handleCancel}
-            disabled={!swapModalOpen}
-            className="flex items-center gap-1.5 bg-secondary/80 hover:bg-red-500/8 border border-border/50 hover:border-red-500/25 text-foreground hover:text-red-400 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-[0.97] disabled:opacity-35 disabled:cursor-not-allowed">
-            <X size={13} />
-            {t('action.cancel')}
-          </button>
-
-          <div className="w-px h-5 bg-border/50 shrink-0" />
-
-          {/* Exportar Relatório */}
-          <button onClick={handleExportReport}
-            disabled={!simId || simPhase !== 'complete'}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-[0.97] border disabled:opacity-35 disabled:cursor-not-allowed ${
-              reportExported
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : 'bg-secondary/80 hover:bg-primary/8 border-border/50 hover:border-primary/25 text-foreground hover:text-primary'
-            }`}>
-            {reportExported ? <CheckCircle2 size={13} /> : <Download size={13} />}
-            {reportExported ? t('action.exported') : t('action.exportReport')}
-          </button>
-        </div>
-
         {/* ── Content row ───────────────────────────────────────────────── */}
         <div className="flex flex-1 overflow-hidden">
 
@@ -1644,124 +1110,9 @@ function Home() {
           <main className="flex-1 overflow-y-auto">
             <div className="max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5">
 
-              {/* ── Pools View ─────────────────────────────────────────────── */}
-              {activeView === 'pools' && (
-                <PoolsView
-                  provider={provider}
-                  connectedAddress={connectedAddress}
-                  onAddLiquidity={() => setComingSoonFeature(t('action.addLiquidity'))}
-                />
-              )}
-
-              {/* ── Wallet View ────────────────────────────────────────────── */}
-              {activeView === 'carteira' && (
-                <WalletView
-                  provider={provider}
-                  connectedAddress={connectedAddress}
-                  onConnect={handleConnect}
-                  explorerUrl={activeNetwork.explorerUrl}
-                  activeNetwork={activeNetwork}
-                  walletName={activeWalletName}
-                />
-              )}
-
-              {/* ── Solana Wallet View ─────────────────────────────────── */}
-              {activeView === 'solana' && (
-                <SolanaWalletPanel />
-              )}
-
-              {/* ── Profile / Gamification View ─────────────────────────── */}
-              {activeView === 'perfil' && (
-                <ProfileView
-                  gamification={gamification.state}
-                  hasBoost={gamification.hasBoost}
-                  boostRemaining={gamification.boostRemaining}
-                  onEquipSkin={gamification.setEquippedSkin}
-                  onEquipTitle={gamification.setEquippedTitle}
-                  onActivateBoost={gamification.startBoost}
-                  walletAddress={connectedAddress}
-                  purchaseState={purchases.purchaseState}
-                  entitlements={purchases.entitlements}
-                  isSkinOwned={purchases.isSkinOwned}
-                  getLimit={purchases.getLimit}
-                  limits={purchases.limits}
-                  onBuySkin={(skinId) => {
-                    const skin = SKINS.find(s => s.id === skinId);
-                    if (!skin || !skin.premium) return;
-                    const prov = provider ?? getLegacyProvider();
-                    if (!prov) {
-                      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
-                      return;
-                    }
-                    purchases.buyProduct({
-                      provider: prov,
-                      productId: skinId,
-                      productType: 'skin',
-                      amountUsd: skin.price ?? 0,
-                    }).then(({ success, error }) => {
-                      if (success) toast({ title: t('purchase.confirmed'), description: t('skin.' + skinId) });
-                      else if (error) toast({ title: t('purchase.failed'), description: error, variant: 'destructive' });
-                    });
-                  }}
-                  onBuyXp={(packageId) => {
-                    const pkg = XP_PACKAGES.find(p => p.id === packageId);
-                    if (!pkg) return;
-                    const prov = provider ?? getLegacyProvider();
-                    if (!prov) {
-                      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
-                      return;
-                    }
-                    purchases.buyProduct({
-                      provider: prov,
-                      productId: packageId,
-                      productType: 'xp',
-                      amountUsd: pkg.price,
-                      xpAmount: pkg.xp,
-                    }).then(({ success, error }) => {
-                      if (success) toast({ title: t('purchase.confirmed'), description: `+${pkg.xp} XP` });
-                      else if (error) toast({ title: t('purchase.failed'), description: error, variant: 'destructive' });
-                    });
-                  }}
-                />
-              )}
-
-              {/* ── NV Intelligence View ────────────────────────────────────── */}
-              {activeView === 'intelligence' && (
-                <NVIntelligence />
-              )}
-
-              {/* ── Bridge View ─────────────────────────────────────────────── */}
-              {activeView === 'bridge' && (
-               <BridgeView
-                  provider={provider}
-                  connectedAddress={connectedAddress}
-                />
-              )}
-              
-              {/* ── Dashboard / Simulation View (default) ──────────────────── */}
-              {activeView === 'dashboard' && (
+              {/* ── Dedicated Swap View ────────────────────────────────────── */}
+              {activeView === 'swap' && (
                 <>
-
-              {/* ── Market Ticker Tape ────────────────────────────────── */}
-              <MarketTicker />
-
-              {/* ── Digital Presenter ─────────────────────────────────── */}
-              <DigitalPresenter context={dashboardContext} />
-
-              {/* ── Executive Dashboard ──────────────────────────────────── */}
-              <ExecutiveDashboard
-                envMode={envMode}
-                activeNetwork={activeNetwork}
-                realBalances={realBalances}
-                simStats={simStats}
-              />
-
-              {/* ── Market grid ──────────────────────────────────────── */}
-              <MarketGrid />
-
-              {/* ── Portfolio charts ──────────────────────────────────── */}
-              <PortfolioCharts />
-
               {/* ── Swap card ───────────────────────────────────────────── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.4 }}
                 className={nvCard}>
@@ -1785,7 +1136,7 @@ function Home() {
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${isValidNum(sourceUsd) ? sourceUsd.toFixed(2) : '—'}</span>
                         <span className="flex items-center gap-2">
-                          {t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[sourceToken]) : safeBalanceFmt(MOCK_BALANCES[sourceToken])}
+                          {t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[sourceToken]) : '—'}
                           <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">{t('action.max')}</button>
                         </span>
                       </div>
@@ -1806,7 +1157,7 @@ function Home() {
                       </div>
                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                         <span>${isValidNum(destUsd) ? destUsd.toFixed(2) : '—'}</span>
-                        <span>{t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[destToken]) : safeBalanceFmt(MOCK_BALANCES[destToken])}</span>
+                        <span>{t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[destToken]) : '—'}</span>
                       </div>
                     </div>
                   </div>
@@ -1911,7 +1262,7 @@ function Home() {
                           ? 'bg-secondary/40 text-muted-foreground/50 border-border/30 cursor-not-allowed'
                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                       }`}>
-                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> {t('action.simulateSwap')}</span>
+                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> {t('action.swap')}</span>
                       {amount && parseFloat(amount) > 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
                       )}
@@ -1978,322 +1329,125 @@ function Home() {
                 </div>
               </motion.div>
 
-              {/* ── Simulation History ──────────────────────────────────── */}
-              <AnimatePresence>
-                {simHistory.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                    className={nvCard + ' border-primary/8'}>
-                    <div className="p-5">
-                      <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/15 to-transparent mb-5 -mt-1" />
-                      <button onClick={() => setHistoryOpen(!historyOpen)}
-                        className="w-full flex items-center justify-between cursor-pointer group">
-                        <div className="flex items-center gap-2">
-                          <History size={13} className="text-primary" />
-                          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">{t('sim.simulationHistory')}</span>
-                          <span className="text-[9px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{simHistory.length}</span>
-                        </div>
-                        <ChevronUp size={14} className={`text-muted-foreground/50 transition-transform duration-200 ${historyOpen ? '' : 'rotate-180'}`} />
-                      </button>
-                      <AnimatePresence>
-                        {historyOpen && (
-                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                            <div className="mt-4 flex flex-col gap-1.5">
-                              {simHistory.map((item, i) => (
-                                <motion.div key={item.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                                  className="flex items-center justify-between bg-secondary/25 hover:bg-secondary/40 rounded-xl p-3 border border-border/30 hover:border-primary/10 transition-all duration-200 cursor-pointer">
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] font-mono text-primary">{item.id}</span>
-                                    <span className="text-[9px] text-muted-foreground/40">{item.datetime}</span>
-                                  </div>
-                                  <div className="flex items-center gap-3 text-right">
-                                    <div className="flex flex-col">
-                                      <span className="text-xs font-mono text-emerald-400">+{item.roi.toFixed(2)}%</span>
-                                      <span className="text-[9px] text-muted-foreground/40">{item.duration.toFixed(2)}s</span>
-                                    </div>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/50" />
-                                  </div>
-                                </motion.div>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+
+                </>
+              )}
+
+              {/* ── Wallet View ────────────────────────────────────────────── */}
+              {activeView === 'carteira' && (
+                <WalletView
+                  provider={provider}
+                  connectedAddress={connectedAddress}
+                  onConnect={handleConnect}
+                  explorerUrl={activeNetwork.explorerUrl}
+                  activeNetwork={activeNetwork}
+                  walletName={activeWalletName}
+                />
+              )}
+
+              {/* ── Solana Wallet View ─────────────────────────────────── */}
+              {activeView === 'solana' && (
+                <SolanaWalletPanel />
+              )}
+
+              {/* ── Profile / Gamification View ─────────────────────────── */}
+              {activeView === 'perfil' && (
+                <ProfileView
+                  gamification={gamification.state}
+                  hasBoost={gamification.hasBoost}
+                  boostRemaining={gamification.boostRemaining}
+                  onEquipSkin={gamification.setEquippedSkin}
+                  onEquipTitle={gamification.setEquippedTitle}
+                  onActivateBoost={gamification.startBoost}
+                  walletAddress={connectedAddress}
+                  purchaseState={purchases.purchaseState}
+                  entitlements={purchases.entitlements}
+                  isSkinOwned={purchases.isSkinOwned}
+                  getLimit={purchases.getLimit}
+                  limits={purchases.limits}
+                  onBuySkin={(skinId) => {
+                    const skin = SKINS.find(s => s.id === skinId);
+                    if (!skin || !skin.premium) return;
+                    const prov = provider ?? getLegacyProvider();
+                    if (!prov) {
+                      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
+                      return;
+                    }
+                    purchases.buyProduct({
+                      provider: prov,
+                      productId: skinId,
+                      productType: 'skin',
+                      amountUsd: skin.price ?? 0,
+                    }).then(({ success, error }) => {
+                      if (success) toast({ title: t('purchase.confirmed'), description: t('skin.' + skinId) });
+                      else if (error) toast({ title: t('purchase.failed'), description: error, variant: 'destructive' });
+                    });
+                  }}
+                  onBuyXp={(packageId) => {
+                    const pkg = XP_PACKAGES.find(p => p.id === packageId);
+                    if (!pkg) return;
+                    const prov = provider ?? getLegacyProvider();
+                    if (!prov) {
+                      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
+                      return;
+                    }
+                    purchases.buyProduct({
+                      provider: prov,
+                      productId: packageId,
+                      productType: 'xp',
+                      amountUsd: pkg.price,
+                      xpAmount: pkg.xp,
+                    }).then(({ success, error }) => {
+                      if (success) toast({ title: t('purchase.confirmed'), description: `+${pkg.xp} XP` });
+                      else if (error) toast({ title: t('purchase.failed'), description: error, variant: 'destructive' });
+                    });
+                  }}
+                />
+              )}
+
+              {/* ── NV Intelligence View ────────────────────────────────────── */}
+              {activeView === 'intelligence' && (
+                <NVIntelligence />
+              )}
+
+              {/* ── Bridge View ─────────────────────────────────────────────── */}
+              {activeView === 'bridge' && (
+               <BridgeView
+                  provider={provider}
+                  connectedAddress={connectedAddress}
+                />
+              )}
+              
+              {/* ── Dashboard / Simulation View (default) ──────────────────── */}
+              {activeView === 'dashboard' && (
+                <>
+
+              {/* ── Market Ticker Tape ────────────────────────────────── */}
+              <MarketTicker />
+
+              {/* ── Digital Presenter ─────────────────────────────────── */}
+              <DigitalPresenter context={dashboardContext} />
+
+              {/* ── Executive Dashboard ──────────────────────────────────── */}
+              <ExecutiveDashboard
+                envMode={envMode}
+                activeNetwork={activeNetwork}
+                realBalances={realBalances}
+              />
+
+              {/* ── Market grid ──────────────────────────────────────── */}
+              <MarketGrid />
+
+              {/* ── Portfolio charts ──────────────────────────────────── */}
+              <PortfolioCharts />
 
                 </>
               )}
             </div>
           </main>
 
-          {/* ── Intelligence column ──────────────────────────────────── */}
-          <IntelligenceColumn
-            envMode={envMode}
-            activeNetwork={activeNetwork}
-            simStats={simStats}
-            simPhase={simPhase}
-            simId={simId}
-            simHistory={simHistory}
-            simProgress={simProgress}
-          />
         </div>
       </div>
-
-      {/* ── Simulation Modal (logic + core layout unchanged, visual enhanced) ── */}
-      <AnimatePresence>
-        {swapModalOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-background/88 backdrop-blur-lg">
-            <motion.div
-              initial={{ scale: 0.94, opacity: 0, y: 24 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 24 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-              className="relative w-full max-w-3xl bg-card border border-border/60 shadow-[0_0_80px_rgba(0,255,200,0.06),0_0_0_1px_rgba(0,229,188,0.04)] rounded-[2rem] overflow-hidden max-h-[95vh] overflow-y-auto"
-            >
-              {/* Ambient glows */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-primary/6 blur-[60px] pointer-events-none" />
-              <div className="absolute bottom-0 right-0 w-64 h-32 bg-accent/4 blur-[50px] pointer-events-none" />
-              {/* Top neon line */}
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-
-              {/* Close */}
-              <button onClick={closeSwapModal}
-                className="absolute top-5 right-5 z-20 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-secondary cursor-pointer">
-                <X size={18} />
-              </button>
-
-              <AnimatePresence mode="wait">
-
-                {/* ── PIPELINE PHASE ──────────────────────────────────── */}
-                {simPhase === 'pipeline' && (
-                  <motion.div key="pipeline" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col">
-
-                    {/* Header + progress */}
-                    <div className="px-7 pt-7 pb-5 border-b border-border/40">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">{t('sim.inProgress')}</span>
-                        {simId && <span className="ml-auto text-[10px] font-mono text-primary/50">{simId}</span>}
-                      </div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-base font-medium text-foreground">{t('sim.executingPipeline')}</span>
-                        <span className="text-sm font-mono text-primary font-bold tabular-nums">{Math.round(simProgress)}%</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-secondary/60 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full rounded-full bg-gradient-to-r from-primary via-emerald-400 to-primary bg-[length:200%_100%] animate-gradient-border shadow-[0_0_8px_rgba(0,229,188,0.5)]"
-                          style={{ width: `${simProgress}%` }} transition={{ ease: 'linear' }} />
-                      </div>
-                    </div>
-
-                    {/* Body */}
-                    <div className="flex flex-col md:flex-row min-h-0">
-                      {/* Pipeline steps */}
-                      <div className="w-full md:w-[42%] p-6 border-b md:border-b-0 md:border-r border-border/40">
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">{t('sim.pipeline')}</div>
-                        <div className="flex flex-col gap-2.5">
-                          {PIPELINE_STEPS.map(({ labelKey, Icon }, i) => {
-                            const past   = simStep > i;
-                            const active = simStep === i;
-                            return (
-                              <div key={labelKey} className="flex items-center gap-3 relative">
-                                {i < PIPELINE_STEPS.length - 1 && (
-                                  <div className={`absolute left-[13px] top-7 w-[2px] h-3 rounded-full transition-colors duration-500 ${past ? 'bg-primary/40' : 'bg-border/20'}`} />
-                                )}
-                                <motion.div
-                                  animate={active ? { boxShadow: ['0 0 0px rgba(0,229,188,0)', '0 0 16px rgba(0,229,188,0.4)', '0 0 0px rgba(0,229,188,0)'] } : {}}
-                                  transition={{ duration: 1.4, repeat: Infinity }}
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all duration-400 ${
-                                    past   ? 'bg-primary/20 text-primary' :
-                                    active ? 'bg-primary/10 text-primary ring-2 ring-primary/35' :
-                                             'bg-secondary/50 text-muted-foreground/20'
-                                  }`}>
-                                  {past ? <Check size={12} /> : active ? <Loader2 size={12} className="animate-spin" /> : <Icon size={12} />}
-                                </motion.div>
-                                <span className={`text-[11px] font-mono transition-colors duration-400 truncate ${
-                                  past   ? 'text-muted-foreground/30 line-through decoration-primary/20' :
-                                  active ? 'text-foreground' : 'text-muted-foreground/20'
-                                }`}>{t(labelKey)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Terminal */}
-                      <div className="w-full md:flex-1 p-6 flex flex-col">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Terminal size={13} className="text-primary" />
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">{t('sim.console')}</span>
-                          <div className="ml-auto flex gap-1.5">
-                            {['bg-red-500/60','bg-yellow-500/60','bg-green-500/60'].map(c => <div key={c} className={`w-2.5 h-2.5 rounded-full ${c}`} />)}
-                          </div>
-                        </div>
-                        <div className="flex-1 bg-black/50 rounded-xl border border-border/30 p-4 font-mono text-xs space-y-1.5 overflow-y-auto max-h-44 md:max-h-56 scrollbar-hide" style={{ boxShadow: 'inset 0 0 24px rgba(0,0,0,0.4)' }}>
-                          <AnimatePresence>
-                            {consoleLogs.map((log, i) => (
-                              <motion.div key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.22 }} className="flex items-start gap-2">
-                                <span className="text-muted-foreground/25 shrink-0 select-none">›</span>
-                                <span className={`${logColor(log.type)} shrink-0 text-[10px]`}>{logTag(log.type)}</span>
-                                <span className="text-foreground/70">{log.text}</span>
-                              </motion.div>
-                            ))}
-                          </AnimatePresence>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground/25 select-none">›</span>
-                            <span className="w-1.5 h-3.5 bg-primary/80 rounded-sm animate-cursor" />
-                          </div>
-                          <div ref={consoleEndRef} />
-                        </div>
-
-                        {/* Mini ROI chart */}
-                        <div className="mt-4">
-                          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">{t('sim.realTimeRoi')}</div>
-                          <div className="bg-black/40 rounded-xl border border-border/25 px-3 py-2 overflow-hidden" style={{ boxShadow: 'inset 0 0 16px rgba(0,0,0,0.3)' }}>
-                            <RoiChart points={roiPoints} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="px-6 pb-6 pt-4 border-t border-border/40">
-                      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">{t('sim.realTimeMetrics')}</div>
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                        {statCards.map(({ label, value, Icon, color, glow }) => (
-                          <motion.div key={label}
-                            animate={simStats.execTime > 0 ? { borderColor: ['rgba(255,255,255,0.08)', 'rgba(0,229,188,0.1)', 'rgba(255,255,255,0.08)'] } : {}}
-                            transition={{ duration: 2, repeat: Infinity, delay: Math.random() * 1.5 }}
-                            className={`bg-secondary/30 border border-border/30 rounded-xl p-3 flex flex-col gap-1.5 transition-all duration-300 ${glow}`}>
-                            <div className="flex items-center gap-1.5">
-                              <Icon size={11} className={color} />
-                              <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50">{label}</span>
-                            </div>
-                            <div className={`text-sm font-mono font-bold ${color} tabular-nums`}>{value}</div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Advanced metrics: Liquidity / AI Confidence / Gas / Time / Route */}
-                    <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
-                  </motion.div>
-                )}
-
-                {/* ── COMPLETE PHASE ──────────────────────────────────── */}
-                {simPhase === 'complete' && (
-                  <motion.div key="complete" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}
-                    className="p-7 flex flex-col items-center">
-
-                    <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.08 }}
-                      className="w-[72px] h-[72px] rounded-full bg-primary/12 border-2 border-primary/35 flex items-center justify-center mb-5 relative">
-                      <div className="absolute inset-0 rounded-full bg-primary/8 blur-xl" />
-                      <CheckCircle2 size={36} className="text-primary relative z-10" />
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="text-center mb-5">
-                      <h2 className="text-2xl font-bold text-foreground mb-1">{t('sim.operationComplete')}</h2>
-                      <div className="flex items-center justify-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-primary bg-primary/8 px-2 py-0.5 rounded-full border border-primary/20">{simId}</span>
-                      </div>
-                      <p className="text-[11px] font-mono text-muted-foreground/50">{t('sim.executedAt')} {simDateTime}</p>
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-                      className="w-full bg-black/30 border border-border/35 rounded-2xl px-4 pt-3 pb-2 mb-5">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">{t('sim.roiEvolution')}</span>
-                        <span className="text-sm font-mono font-bold text-emerald-400">+{simStats.roi.toFixed(2)}%</span>
-                      </div>
-                      <RoiChart points={roiPoints} isComplete />
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }} className="grid grid-cols-3 gap-3 w-full mb-5">
-                      {[
-                        { label: t('sim.totalTime'), value: `${simTotalTime.toFixed(2)}s`, Icon: Clock, color: 'text-primary', shadow: '0 0 20px rgba(0,229,188,0.12)' },
-                        { label: t('sim.estimatedRoi'), value: `+${simStats.roi.toFixed(2)}%`, Icon: TrendingUp, color: 'text-emerald-400', shadow: '0 0 20px rgba(52,211,153,0.12)' },
-                        { label: t('dash.risk'), value: `${simStats.risk.toFixed(1)}%`, Icon: AlertTriangle, color: 'text-yellow-400', shadow: '0 0 20px rgba(250,204,21,0.08)' },
-                      ].map(({ label, value, Icon, color, shadow }) => (
-                        <div key={label} className="bg-secondary/40 border border-border/40 rounded-2xl p-4 flex flex-col items-center gap-2 transition-all duration-300 hover:scale-[1.02]" style={{ boxShadow: shadow }}>
-                          <Icon size={18} className={color} />
-                          <div className={`text-xl font-bold font-mono ${color} tabular-nums`}>{value}</div>
-                          <div className="text-[10px] text-muted-foreground/50 uppercase tracking-widest text-center leading-tight">{label}</div>
-                        </div>
-                      ))}
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="flex flex-wrap justify-center gap-2 w-full mb-5">
-                      {BADGES.map(({ label, color, border, bg }, i) => (
-                        <motion.span key={label} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.42 + i * 0.07, type: 'spring', stiffness: 300 }}
-                          className={`flex items-center gap-1.5 ${bg} border ${border} rounded-full px-3 py-1.5 text-[11px] font-mono ${color}`}>
-                          <Check size={10} />{label}
-                        </motion.span>
-                      ))}
-                    </motion.div>
-
-                    <SimAdvancedMetrics simProgress={simProgress} simPhase={simPhase} activeNetworkName={activeNetwork.shortName} />
-
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="w-full bg-secondary/25 border border-border/35 rounded-2xl p-4 mb-5">
-                      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-3">{t('sim.strategyUsed')}</div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Zap size={14} className="text-primary" />
-                          <span className="text-sm font-mono text-foreground">Arbitrum Optimal Route v2</span>
-                        </div>
-                        <span className="text-xs font-mono text-primary bg-primary/8 px-2 py-0.5 rounded-full">{simStats.poolsAnalyzed} pools</span>
-                      </div>
-                      {pendingSwap && (
-                        <div className="flex items-center justify-center gap-5 bg-background/40 rounded-xl p-3">
-                          <div className="flex flex-col items-center gap-1.5">
-                            <TokenCryptoIcon symbol={pendingSwap.fromToken} />
-                            <span className="font-mono text-sm text-foreground">{safeBalanceFmt(pendingSwap.fromAmount)}</span>
-                            <span className="text-[10px] text-muted-foreground/50">{pendingSwap.fromToken}</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <ArrowRight className="text-muted-foreground/50" size={16} />
-                            <span className="text-[10px] font-mono text-emerald-400">+{simStats.roi.toFixed(2)}% ROI</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1.5">
-                            <TokenCryptoIcon symbol={pendingSwap.toToken} />
-                            <span className="font-mono text-sm text-primary">{safeBalanceFmt(pendingSwap.toAmount)}</span>
-                            <span className="text-[10px] text-muted-foreground/50">{pendingSwap.toToken}</span>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex flex-col sm:flex-row gap-3 w-full">
-                      <button onClick={handleNovaSimulacao}
-                        className="flex-1 flex items-center justify-center gap-2 bg-secondary/80 hover:bg-secondary border border-border/50 hover:border-primary/20 text-foreground font-semibold py-3.5 rounded-2xl transition-all duration-200 cursor-pointer">
-                        <RefreshCw size={16} className="text-primary" /> {t('action.newSimulation')}
-                      </button>
-                      <button onClick={handleExportReport}
-                        className={`flex-1 flex items-center justify-center gap-2 font-semibold py-3.5 rounded-2xl transition-all duration-200 cursor-pointer border ${
-                          reportExported
-                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(0,255,200,0.25)] border-primary/20'
-                        }`}>
-                        {reportExported ? <CheckCircle2 size={16} /> : <Download size={16} />}
-                        {reportExported ? t('action.exported') : t('action.exportReport')}
-                      </button>
-                    </motion.div>
-
-                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-                      onClick={closeSwapModal}
-                      className="mt-4 text-sm text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer font-mono underline underline-offset-4">
-                      {t('action.close')}
-                    </motion.button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <ComingSoonModal
         open={comingSoonFeature !== null}
