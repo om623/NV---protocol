@@ -20,6 +20,8 @@ import {
   ChevronUp,
   Info,
   Mic,
+  Volume2,
+  VolumeX,
   Newspaper,
   MapPin,
   Tag,
@@ -708,6 +710,8 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const spokenMessageRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Suggested queries — locale-aware
@@ -758,6 +762,24 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Native speech queue: never cancel or interrupt an utterance already speaking.
+  // Muting affects only future replies; the current utterance is allowed to finish.
+  useEffect(() => {
+    if (!voiceEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const latest = [...messages].reverse().find(message => message.role === 'assistant');
+    if (!latest || spokenMessageRef.current === latest.timestamp) return;
+    spokenMessageRef.current = latest.timestamp;
+    const utterance = new SpeechSynthesisUtterance(latest.content);
+    const languageByLocale: Record<string, string> = {
+      'pt-BR': 'pt-BR', en: 'en-US', es: 'es-ES', fr: 'fr-FR', zh: 'zh-CN',
+      ja: 'ja-JP', ko: 'ko-KR', hi: 'hi-IN', ar: 'ar-SA',
+    };
+    utterance.lang = languageByLocale[locale] ?? 'en-US';
+    utterance.rate = 0.96;
+    utterance.pitch = 0.88;
+    window.speechSynthesis.speak(utterance);
+  }, [messages, voiceEnabled, locale]);
+
   // Reset greeting when locale changes
   useEffect(() => {
     setMessages([{
@@ -798,9 +820,20 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             {news.length} {t('intel.agentItems')}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-1 text-[9px] text-primary/50 font-mono">
-          <Bot size={9} />
-          {t('intel.agentItems')} {news.length > 0 ? '●' : '○'}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="flex items-center gap-1 text-[9px] text-primary/50 font-mono">
+            <Bot size={9} />
+            {t('intel.agentItems')} {news.length > 0 ? '●' : '○'}
+          </span>
+          <button
+            type="button"
+            aria-label={voiceEnabled ? 'Silêncio nas próximas respostas' : 'Ouvir próximas respostas'}
+            title={voiceEnabled ? 'Silêncio nas próximas respostas' : 'Ouvir próximas respostas'}
+            onClick={() => setVoiceEnabled(value => !value)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-border/40 text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
+          >
+            {voiceEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+          </button>
         </div>
       </div>
 
