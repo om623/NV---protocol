@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowUpRight, BookOpen, Check, ChevronRight, Clock3, Copy, Download, ExternalLink, FileText, Mail, Palette, Settings2, ShieldCheck, Sparkles, Trash2, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Activity, BookOpen, ChevronRight, Clock3, Copy, Download, ExternalLink, FileText, Mail, Palette, Settings2, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { clearNVActivity, logNVActivity, readNVActivity, type NVActivity } from '../lib/activityLog';
 
 const panel = 'rounded-2xl border border-border/60 bg-card/80 p-5 shadow-sm';
@@ -24,7 +25,7 @@ function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(timestamp);
 }
 
-function EmptyState({ children }: { children: React.ReactNode }) {
+function EmptyState({ children }: { children: ReactNode }) {
   return <div className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">{children}</div>;
 }
 
@@ -141,7 +142,9 @@ export function SettingsModule() {
     const styleId = 'nv-user-preferences-style';
     let style = document.getElementById(styleId) as HTMLStyleElement | null;
     if (!style) { style = document.createElement('style'); style.id = styleId; document.head.appendChild(style); }
-    style.textContent = settings.reducedMotion ? '*,*::before,*::after{scroll-behavior:auto!important;animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}' : '';
+    const compactCss = settings.compact ? 'html[data-nv-compact="true"] .p-5{padding:1rem!important}html[data-nv-compact="true"] .gap-5{gap:1rem!important}' : '';
+    const motionCss = settings.reducedMotion ? '*,*::before,*::after{scroll-behavior:auto!important;animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}' : '';
+    style.textContent = compactCss + motionCss;
   }, [settings]);
   const update = (key: keyof NVSettings, value: boolean) => setSettings(previous => ({ ...previous, [key]: value }));
   const Toggle = ({ label, description, value, onChange }: { label: string; description: string; value: boolean; onChange: (value: boolean) => void }) => (
@@ -157,8 +160,9 @@ export function SettingsModule() {
         <h2 className={titleClass}>Preferências de interface</h2>
         <Toggle label="Interface compacta" description="Reduz alguns espaços para mostrar mais conteúdo na tela." value={settings.compact} onChange={value => update('compact', value)}/>
         <Toggle label="Reduzir animações" description="Diminui movimentos e transições da interface." value={settings.reducedMotion} onChange={value => update('reducedMotion', value)}/>
-        <Toggle label="Confirmação antes de ações sensíveis" description="Preferência reservada para fluxos compatíveis; não substitui a confirmação da carteira." value={settings.confirmations} onChange={value => update('confirmations', value)}/>
+        <Toggle label="Mostrar lembretes de segurança" description="Exibe um lembrete de segurança nesta página de configurações." value={settings.confirmations} onChange={value => update('confirmations', value)}/>
       </div>
+      {settings.confirmations && <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-relaxed text-muted-foreground">Nunca compartilhe sua frase-semente ou chave privada. Confira os detalhes de cada transação antes de aprovar na carteira.</div>}
       <div className={panel}>
         <div className="flex items-center gap-3"><div className="rounded-xl bg-amber-500/10 p-3 text-amber-400"><Sparkles size={20}/></div><div><h2 className={titleClass}>Mode Goat</h2><p className={subtle + ' mt-1'}>Um modo especial está sendo preparado.</p></div></div>
         <button disabled className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-border bg-secondary/40 px-4 py-3 text-sm font-semibold text-muted-foreground opacity-60" aria-label="Mode Goat em breve"><Sparkles size={16}/> MODE GOAT <span className="rounded-full border border-border px-2 py-0.5 text-[10px]">EM BREVE</span></button>
