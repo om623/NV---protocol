@@ -889,7 +889,6 @@ function Home() {
       isWalletConnected: isConnected,
       networkOnline: true,
       recentSwapActivity: transactions.length > 0,
-      simulationRunning: false,
     };
   }, [activeNetwork.name, isConnected, transactions.length]);
 
