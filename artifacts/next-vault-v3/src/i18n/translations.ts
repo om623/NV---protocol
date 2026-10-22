@@ -2895,6 +2895,22 @@ Object.assign(fr, nvFr);
 
 const DICTS: Record<Locale, Dict> = { 'pt-BR': ptBR, en, es, fr, zh, ja, ko, hi, ar };
 
+// New NV-native achievement names, localized across all nine supported locales.
+const nvBadgeLabels: Record<Locale, Dict> = {
+  'pt-BR': { 'badge.nv-pioneer': 'Pioneiro NV', 'badge.nv-singularity': 'Singularidade NV' },
+  en: { 'badge.nv-pioneer': 'NV Pioneer', 'badge.nv-singularity': 'NV Singularity' },
+  es: { 'badge.nv-pioneer': 'Pionero NV', 'badge.nv-singularity': 'Singularidad NV' },
+  fr: { 'badge.nv-pioneer': 'Pionnier NV', 'badge.nv-singularity': 'Singularité NV' },
+  zh: { 'badge.nv-pioneer': 'NV 开拓者', 'badge.nv-singularity': 'NV 奇点' },
+  ja: { 'badge.nv-pioneer': 'NV パイオニア', 'badge.nv-singularity': 'NV シンギュラリティ' },
+  ko: { 'badge.nv-pioneer': 'NV 개척자', 'badge.nv-singularity': 'NV 특이점' },
+  hi: { 'badge.nv-pioneer': 'NV अग्रदूत', 'badge.nv-singularity': 'NV सिंगुलैरिटी' },
+  ar: { 'badge.nv-pioneer': 'رائد NV', 'badge.nv-singularity': 'تفرد NV' },
+};
+for (const locale of Object.keys(DICTS) as Locale[]) {
+  Object.assign(DICTS[locale], nvBadgeLabels[locale]);
+}
+
 export function getDict(locale: Locale): Dict {
   return DICTS[locale] ?? DICTS['pt-BR'];
 }
