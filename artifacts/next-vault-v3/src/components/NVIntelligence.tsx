@@ -854,7 +854,6 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             className="flex items-center gap-1 rounded-lg border border-border/40 px-2 py-1 text-[10px] text-muted-foreground/70 hover:text-primary transition-colors"
           >
             {voiceMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-            {voiceMuted ? t('voice.muted') : t('voice.on')}
           </button>
           <div className="flex items-center gap-1 text-[9px] text-primary/50 font-mono">
             <Bot size={9} />
