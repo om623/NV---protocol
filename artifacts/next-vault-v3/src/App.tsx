@@ -57,7 +57,7 @@ import { NVIntelligence } from './components/NVIntelligence';
 import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
-import { subscribeNavigation } from './lib/navigationStore';
+import { subscribeNavigation, type AgentNavigationParams } from './lib/navigationStore';
 import { HistoryModule, ReportsModule, SettingsModule, HelpModule, logNVModuleView } from './components/ProtocolModules';
 import { logNVActivity } from './lib/activityLog';
 
@@ -420,6 +420,12 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
 
 // ─── RightPanel (removed — replaced by IntelligenceColumn component) ──────────
 
+function defaultDestForAgent(sourceId: string): string {
+  return NETWORKS_CONFIG.find(
+    n => n.id !== sourceId && n.type === 'mainnet' && getCctpNetwork(n.id) !== null && n.tokens.some(tk => tk.symbol === 'USDC'),
+  )?.id ?? 'base';
+}
+
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 function Home() {
@@ -443,6 +449,7 @@ function Home() {
 
   // View + coming-soon state
   const [activeView, setActiveView] = useState<SidebarView>('dashboard');
+  const [pendingAgentIntent, setPendingAgentIntent] = useState<AgentNavigationParams | null>(null);
   const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
 
   // ── Environment / network state ─────────────────────────────────────────────
@@ -451,10 +458,28 @@ function Home() {
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
 
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
-  useEffect(() => subscribeNavigation((view) => {
-    // Only navigate to views that actually exist in the sidebar
+  useEffect(() => subscribeNavigation((view, params) => {
     const valid: SidebarView[] = ['dashboard', 'swap', 'carteira', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
-    if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
+    if (!valid.includes(view as SidebarView)) return;
+    if (params) setPendingAgentIntent(params);
+    if (view === 'swap' && params) {
+      const requestedSource = typeof params.fromNetwork === 'string'
+        ? NETWORKS_CONFIG.find(n => n.id === params.fromNetwork && n.type === 'mainnet' && getCctpNetwork(n.id))
+        : undefined;
+      const sourceNetwork = requestedSource ?? DEFAULT_MAINNET;
+      setEnvMode('mainnet');
+      setActiveNetwork(sourceNetwork);
+      if (typeof params.amount === 'number' && params.amount > 0) setAmount(String(params.amount));
+      if (typeof params.sourceToken === 'string') setSourceToken(params.sourceToken);
+      if (typeof params.destToken === 'string') setDestToken(params.destToken);
+      const requestedDest = typeof params.toNetwork === 'string' ? params.toNetwork : '';
+      if (requestedDest && requestedDest !== sourceNetwork.id && getCctpNetwork(requestedDest)) {
+        setSwapDestNetworkId(requestedDest);
+      } else {
+        setSwapDestNetworkId(defaultDestForAgent(sourceNetwork.id));
+      }
+    }
+    setActiveView(view as SidebarView);
   }), []);
 
   // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
@@ -1242,6 +1267,7 @@ function Home() {
                <BridgeView
                   provider={provider}
                   connectedAddress={connectedAddress}
+                  agentIntent={pendingAgentIntent}
                 />
               )}
               
