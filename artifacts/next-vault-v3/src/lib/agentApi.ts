@@ -624,15 +624,9 @@ function detectMainnetId(question: string, excludeId?: string): string | null {
   return null;
 }
 
-function requestedTokens(question: string): { sourceToken: string; destToken: string } {
-  const q = question.toLowerCase();
-  const match = q.match(/(?:swap|trocar|converter)\s+(?:\d+(?:[.,]\d+)?\s*)?([a-z]{2,8})\s+(?:to|for|por|para|em)\s+([a-z]{2,8})/i);
-  const valid = new Set(['USDC', 'EURC', 'ETH', 'USDT', 'DAI', 'WETH', 'WBTC']);
-  if (match) {
-    const from = match[1].toUpperCase();
-    const to = match[2].toUpperCase();
-    if (valid.has(from) && valid.has(to)) return { sourceToken: from, destToken: to };
-  }
+function requestedTokens(_question: string): { sourceToken: string; destToken: string } {
+  // The current real transaction path is CCTP V2 USDC cross-chain transfer,
+  // not a DEX token swap. Never prefill an unsupported token pair.
   return { sourceToken: 'USDC', destToken: 'USDC' };
 }
 
