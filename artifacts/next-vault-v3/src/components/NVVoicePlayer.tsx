@@ -90,6 +90,19 @@ export default function NVVoicePlayer({ queue }: Props) {
 
   return (
     <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur overflow-hidden">
+      {/* Original NV presenter identity — animated, not a stock or generated face */}
+      <div className="flex items-center gap-3 border-b border-primary/15 bg-gradient-to-r from-primary/8 via-cyan-400/5 to-violet-500/8 px-4 py-3">
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-slate-950/80 shadow-[0_0_18px_rgba(0,229,188,0.14)]">
+          <div className="absolute inset-1 rounded-xl border border-dashed border-cyan-300/35 animate-[spin_18s_linear_infinite]" />
+          <Globe size={23} className="relative text-primary" />
+          <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400 animate-pulse" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-bold tracking-[0.16em] text-foreground">NV PRESENTER <span className="text-primary">●</span></div>
+          <div className="text-[10px] text-muted-foreground/70">{t('intel.nvNewsVoice')}</div>
+        </div>
+        <span className="rounded-md border border-primary/20 bg-primary/8 px-2 py-1 text-[9px] font-mono tracking-wider text-primary">NV AI</span>
+      </div>
 
       {/* ── Live mode status bar ── */}
       {liveEnabled && (
