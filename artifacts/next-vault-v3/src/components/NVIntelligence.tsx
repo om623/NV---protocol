@@ -844,8 +844,8 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            aria-label={voiceMuted ? 'Enable NV Voice for future replies' : 'Silence future NV Voice replies'}
-            title={voiceMuted ? 'Enable voice for future replies' : 'Silence future replies'}
+            aria-label={voiceMuted ? t('voice.enableFuture') : t('voice.silenceFuture')}
+            title={voiceMuted ? t('voice.enableFuture') : t('voice.silenceFuture')}
             onClick={() => {
               const nextMuted = !voiceMuted;
               setVoiceMuted(nextMuted);
