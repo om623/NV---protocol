@@ -483,6 +483,25 @@ function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
+  useEffect(() => {
+    try {
+      const preferences = JSON.parse(localStorage.getItem('nv_protocol_settings_v1') ?? '{}') as { compact?: boolean; reducedMotion?: boolean };
+      document.documentElement.dataset.nvCompact = preferences.compact ? 'true' : 'false';
+      document.documentElement.dataset.nvReducedMotion = preferences.reducedMotion ? 'true' : 'false';
+      const styleId = 'nv-user-preferences-style';
+      let style = document.getElementById(styleId) as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement('style');
+        style.id = styleId;
+        document.head.appendChild(style);
+      }
+      style.textContent =
+        (preferences.compact ? 'html[data-nv-compact="true"] .p-5{padding:1rem!important}html[data-nv-compact="true"] .gap-5{gap:1rem!important}' : '') +
+        (preferences.reducedMotion ? '*,*::before,*::after{scroll-behavior:auto!important;animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}' : '');
+    } catch {
+      // Keep the default interface if saved preferences cannot be read.
+    }
+  }, []);
   useEffect(() => { logNVModuleView(activeView); }, [activeView]);
 
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
