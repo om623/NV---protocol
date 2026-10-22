@@ -14,7 +14,7 @@ import { subscribeIndices } from '../lib/indices';
 import { useI18n } from '../i18n';
 import { logNVActivity } from '../lib/activityLog';
 
-type FilterCategory = MarketCategory | 'all' | 'tvl';
+type FilterCategory = MarketCategory | 'all' | 'tvl' | 'tokenized' | 'nft';
 type SortKey = 'change24h' | 'volume24h' | 'price';
 
 // ─── Sparkline ────────────────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ function TvlCard({ entry, rank }: { entry: TvlEntry; rank: number }) {
 
 // ─── Filter tab config ────────────────────────────────────────────────────────
 
-const FILTERS: { key: FilterCategory; labelKey: string; fallback: string }[] = [
+const FILTERS: { key: FilterCategory; labelKey: string; fallback: string; comingSoon?: boolean }[] = [
   { key: 'all',          labelKey: 'market.all',          fallback: 'Todos'       },
   { key: 'crypto',       labelKey: 'market.crypto',       fallback: 'Crypto'      },
   { key: 'stablecoins',  labelKey: 'market.stablecoins',  fallback: 'Stablecoins' },
@@ -214,6 +214,8 @@ const FILTERS: { key: FilterCategory; labelKey: string; fallback: string }[] = [
   { key: 'indices',      labelKey: 'market.indices',      fallback: 'Índices'     },
   { key: 'fiat',         labelKey: 'market.fiat',         fallback: 'Fiat'        },
   { key: 'tvl',          labelKey: 'dashboard.tvl',       fallback: 'TVL'         },
+  { key: 'tokenized',    labelKey: 'market.tokenized',    fallback: 'Ações tokenizadas', comingSoon: true },
+  { key: 'nft',          labelKey: 'market.nft',          fallback: 'Mercado NFT', comingSoon: true },
 ];
 
 // ─── Main MarketGrid component ────────────────────────────────────────────────
@@ -276,6 +278,7 @@ export function MarketGrid() {
   }, [assets, filter, sort, query]);
 
   const isTvl = filter === 'tvl';
+  const isComingSoon = filter === 'tokenized' || filter === 'nft';
 
   return (
     <motion.div
@@ -293,7 +296,7 @@ export function MarketGrid() {
             <TrendingUp size={16} className="text-primary" />
             <h2 className="text-base font-semibold text-foreground tracking-wide">{t('market.globalMarket')}</h2>
           </div>
-          {!isTvl && (
+          {!isTvl && !isComingSoon && (
             <button onClick={handleRefresh} disabled={refreshing}
               className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
               {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -308,9 +311,12 @@ export function MarketGrid() {
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => { setFilter(f.key); logNVActivity({ category: 'markets', action: 'Filtro Global Markets alterado', details: f.fallback }); }}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
-                  filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+                  f.comingSoon ? (filter === f.key ? 'bg-orange-500/15 text-orange-300 border border-orange-500/30' : 'text-orange-400/80 border border-orange-500/20 hover:bg-orange-500/10')
+                    : filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}>
+                {f.comingSoon && <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-orange-400 align-middle" />}
                 {t(f.labelKey as Parameters<typeof t>[0]) || f.fallback}
+                {f.comingSoon && <span className="ml-1 text-[8px] uppercase tracking-wide">Em breve</span>}
               </button>
             ))}
           </div>
@@ -343,7 +349,27 @@ export function MarketGrid() {
 
         {/* TVL panel */}
         <AnimatePresence mode="wait">
-          {isTvl ? (
+          {isComingSoon ? (
+            <motion.div
+              key={filter}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="rounded-xl border border-orange-500/25 bg-orange-500/[0.06] p-5 sm:p-7 flex flex-col items-center text-center gap-2"
+            >
+              <div className="w-10 h-10 rounded-xl border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-400">
+                {filter === 'nft' ? <Database size={18} /> : <TrendingUp size={18} />}
+              </div>
+              <h3 className="text-sm font-semibold text-orange-300">{filter === 'nft' ? 'Mercado NFT' : 'Ações tokenizadas'} · Em breve</h3>
+              <p className="max-w-md text-xs leading-relaxed text-muted-foreground/70">
+                {filter === 'nft'
+                  ? 'Estamos preparando a integração da API de dados NFT. Floor price e volume serão exibidos quando a fonte estiver configurada e validada.'
+                  : 'Estamos validando a fonte de cotações tokenizadas. Os preços aparecerão aqui quando a API responder de forma confiável.'}
+              </p>
+              <span className="mt-1 rounded-full border border-orange-500/25 bg-orange-500/10 px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider text-orange-300">Integração em preparação</span>
+            </motion.div>
+          ) : isTvl ? (
             <motion.div
               key="tvl"
               initial={{ opacity: 0, y: 8 }}
