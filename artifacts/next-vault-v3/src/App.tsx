@@ -1202,7 +1202,7 @@ function Home() {
                 />
               )}
               
-              {/* ── Dashboard / Simulation View (default) ──────────────────── */}
+              {/* ── Dashboard View ────────────────────────────────────────── */}
               {activeView === 'dashboard' && (
                 <>
 
