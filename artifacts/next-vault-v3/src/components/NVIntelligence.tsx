@@ -774,7 +774,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   }, [locale]);
 
   async function localizeText(text: string, targetLocale: string): Promise<string> {
-    if (!text.trim() || targetLocale === 'pt-BR') return text;
+    if (!text.trim()) return text;
     try {
       const response = await fetch('/api/nv-agent-localize', {
         method: 'POST',
