@@ -14,6 +14,7 @@ import { SolanaBridgePanel } from './SolanaBridgePanel';
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
   connectedAddress: string | null;
+  agentIntent?: Record<string, string | number | null> | null;
 }
 
 // ─── Network display metadata ─────────────────────────────────────────────────
@@ -81,6 +82,7 @@ function getNetworkName(id: string): string {
 export function BridgeView({
   provider,
   connectedAddress,
+  agentIntent,
 }: BridgeViewProps) {
   const routes = getBridgeRoutes();
 
@@ -88,7 +90,7 @@ export function BridgeView({
   // ENV MODE (testnet / mainnet)
   // ─────────────────────────────────────────────────────────────
 
-  const [envMode, setEnvMode] = useState<EnvMode>('testnet');
+  const [envMode, setEnvMode] = useState<EnvMode>(agentIntent?.envMode === 'mainnet' ? 'mainnet' : 'testnet');
 
   // ─────────────────────────────────────────────────────────────
   // ROTAS DISPONÍVEIS para o modo atual
@@ -115,13 +117,17 @@ export function BridgeView({
   // ESTADO DA BRIDGE
   // ─────────────────────────────────────────────────────────────
 
-  const [fromNetwork, setFromNetwork] =
-    useState<NetworkId>(DEFAULT_FROM[envMode]);
-
-  const [toNetwork, setToNetwork] =
-    useState<NetworkId>(DEFAULT_TO[envMode]);
-
-  const [amount, setAmount] = useState('');
+  const initialFrom = typeof agentIntent?.fromNetwork === 'string' && agentIntent.fromNetwork in MAINNET_NETWORKS
+    ? agentIntent.fromNetwork as MainnetId
+    : DEFAULT_FROM[envMode];
+  const initialTo = typeof agentIntent?.toNetwork === 'string' && agentIntent.toNetwork in MAINNET_NETWORKS
+    ? agentIntent.toNetwork as MainnetId
+    : DEFAULT_TO[envMode];
+  const [fromNetwork, setFromNetwork] = useState<NetworkId>(initialFrom);
+  const [toNetwork, setToNetwork] = useState<NetworkId>(initialTo);
+  const [amount, setAmount] = useState(
+    typeof agentIntent?.amount === 'number' && agentIntent.amount > 0 ? String(agentIntent.amount) : '',
+  );
 
   const [status, setStatus] = useState<
     'idle' | 'processing' | 'success' | 'error'
