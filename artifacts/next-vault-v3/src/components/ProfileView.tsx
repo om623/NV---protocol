@@ -145,8 +145,34 @@ export function ProfileView({
             gamification.equippedSkin === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/50' :
             'bg-primary/10 border border-primary/20'
           }`}>
-            <span className="text-2xl font-bold text-primary">{level >= 1000 ? '' : ''}{level >= 2000 ? '' : ''}</span>
-            <Shield size={32} className="text-primary/80" />
+            <motion.div
+              aria-label={`NV avatar level ${Math.min(1000, level)}`}
+              animate={{ y: [0, -3, 0], rotate: [-1, 1, -1], scale: level >= 1000 ? [1, 1.06, 1] : [1, 1.025, 1] }}
+              transition={{ duration: level >= 500 ? 2.2 : 3.4, repeat: Infinity, ease: 'easeInOut' }}
+              className="relative flex h-14 w-14 items-center justify-center"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: level >= 500 ? 12 : 24, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-0 rounded-full border border-primary/50 border-t-cyan-300 shadow-[0_0_18px_rgba(0,229,188,0.22)]"
+              />
+              <svg viewBox="0 0 64 64" className="h-12 w-12 drop-shadow-[0_0_8px_rgba(0,229,188,0.45)]" role="img" aria-label="NV Core avatar">
+                <defs>
+                  <linearGradient id="nv-core-gradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor={level >= 1000 ? '#f5d76e' : level >= 500 ? '#9d8cff' : '#00e5bc'} />
+                    <stop offset="100%" stopColor="#19a7ff" />
+                  </linearGradient>
+                </defs>
+                <path d="M32 4 53 16v24L32 60 11 40V16Z" fill="#07181c" stroke="url(#nv-core-gradient)" strokeWidth="2.4" />
+                <path d="M20 22h8l8 20h-8Zm16 0h8L36 42h-8Z" fill="url(#nv-core-gradient)" opacity=".95" />
+                <circle cx="32" cy="32" r="5" fill="#eafffb" />
+              </svg>
+              <motion.span
+                animate={{ opacity: [0.55, 1, 0.55] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
+                className="absolute -bottom-1 rounded-full border border-primary/40 bg-[#061316] px-1.5 py-0.5 text-[8px] font-mono font-bold text-primary"
+              >LVL {Math.min(1000, level)}</motion.span>
+            </motion.div>
             {gamification.equippedTitle && (
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
                 {t(`title.${gamification.equippedTitle}`)}
@@ -247,13 +273,22 @@ export function ProfileView({
             <div className="flex items-center gap-2 mb-3">
               <Calendar size={14} className="text-violet-400" />
               <h3 className="text-sm font-semibold text-foreground">{t('profile.event')}</h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
-                {t('nav.comingSoon')}
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-400/10 text-emerald-300 border border-emerald-300/25">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                {({ 'pt-BR': 'TEMPORADA ABERTA', en: 'SEASON OPEN', es: 'TEMPORADA ABIERTA', fr: 'SAISON OUVERTE', zh: '赛季开放', ja: 'シーズン開催中', ko: '시즌 오픈', hi: 'सीज़न खुला है', ar: 'الموسم مفتوح' } as Record<string, string>)[(t('profile.level') && (typeof window !== 'undefined' ? localStorage.getItem('nv-locale') : null)) || 'pt-BR'] || 'SEASON OPEN'}
               </span>
             </div>
-            <div className="py-6 text-center">
-              <Calendar size={28} className="text-muted-foreground/20 mx-auto mb-2" />
-              <p className="text-[11px] font-mono text-muted-foreground/40">{t('profile.eventSoon')}</p>
+            <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-[#08191d] to-cyan-500/5 p-4">
+              <div className="absolute -right-6 -top-8 h-28 w-28 rounded-full border border-primary/15" />
+              <div className="relative flex items-center gap-4">
+                <motion.div animate={{ rotate: [0, 6, -6, 0], y: [0, -3, 0] }} transition={{ duration: 4, repeat: Infinity }} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-[#061316] shadow-[0_0_22px_rgba(0,229,188,0.12)]">
+                  <Sparkles size={25} className="text-primary" />
+                </motion.div>
+                <div className="min-w-0">
+                  <div className="text-lg font-bold tracking-wide text-foreground">NV · Season 0</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{({ 'pt-BR': 'Temporada inaugural aberta. Acumule XP, desbloqueie badges e evolua seu NV Core do nível 1 ao 1000.', en: 'Genesis season is open. Earn XP, unlock badges and evolve your NV Core from level 1 to 1000.', es: 'La temporada inaugural está abierta. Gana XP, desbloquea insignias y evoluciona tu NV Core del nivel 1 al 1000.', fr: 'La saison inaugurale est ouverte. Gagnez de l’XP, débloquez des badges et faites évoluer votre NV Core du niveau 1 à 1000.', zh: '创世赛季已开放。获取 XP、解锁徽章，让 NV Core 从 1 级进化到 1000 级。', ja: 'ジェネシスシーズン開催中。XPを獲得し、バッジを解除してNV Coreをレベル1から1000へ進化させよう。', ko: '시즌 0이 열렸습니다. XP를 모으고 배지를 잠금 해제하며 NV Core를 1레벨에서 1000레벨까지 진화시키세요.', hi: 'पहला सीज़न खुला है। XP कमाएँ, बैज अनलॉक करें और NV Core को लेवल 1 से 1000 तक विकसित करें।', ar: 'الموسم التأسيسي مفتوح. اجمع XP وافتح الشارات وطوّر NV Core من المستوى 1 إلى 1000.' } as Record<string, string>)[(typeof window !== 'undefined' ? localStorage.getItem('nv-locale') : null) || 'pt-BR'] || 'Season 0 is open.'}</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -295,23 +330,34 @@ export function ProfileView({
                 const unlocked = gamification.unlockedBadges.includes(badge.id);
                 const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
                 return (
-                  <div key={badge.id} className={`rounded-xl border p-3 transition-all ${
-                    unlocked ? 'border-primary/25 bg-primary/5' : 'border-border/30 bg-secondary/20 opacity-50'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        unlocked ? 'bg-primary/15 text-primary' : 'bg-secondary/50 text-muted-foreground/40'
+                  <motion.div
+                    key={badge.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className={`group relative overflow-hidden rounded-2xl border p-3 transition-all duration-300 ${
+                      unlocked
+                        ? 'border-primary/45 bg-gradient-to-br from-primary/15 via-[#0b1b20] to-cyan-500/10 shadow-[0_0_18px_rgba(0,229,188,0.08)]'
+                        : 'border-white/10 bg-[#071014]/70 opacity-65'
+                    }`}
+                  >
+                    <div className="absolute -right-4 -top-5 h-16 w-16 rounded-full border border-primary/15 transition-transform duration-500 group-hover:scale-125" />
+                    <div className="relative flex items-center gap-2 mb-2">
+                      <div className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                        unlocked ? 'border-primary/40 bg-primary/15 text-primary shadow-[0_0_12px_rgba(0,229,188,0.12)]' : 'border-white/10 bg-white/5 text-muted-foreground/40'
                       }`}>
-                        {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                        {unlocked ? <Icon size={18} /> : <Lock size={14} />}
+                        {unlocked && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[#061316] bg-cyan-300" />}
                       </div>
-                      <span className="text-xs font-medium text-foreground truncate">{t(`badge.${badge.id}`)}</span>
+                      <span className="min-w-0 text-xs font-semibold tracking-wide text-foreground">{t(`badge.${badge.id}`)}</span>
                     </div>
-                    <div className="text-[9px] font-mono text-muted-foreground/40">
-                      {unlocked
-                        ? `${t('profile.unlocked')} · +${badge.levelGrant} ${t('profile.levels')}`
-                        : `${t('profile.level')} ${badge.levelRequired}`}
+                    <div className="relative flex items-center justify-between gap-2">
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-primary/75">NV CORE · ${String(badge.levelRequired).padStart(3, '0')}</span>
+                      <span className={`text-[9px] font-mono ${unlocked ? 'text-emerald-300' : 'text-muted-foreground/45'}`}>
+                        {unlocked ? 'UNLOCKED' : `LVL ${badge.levelRequired}`}
+                      </span>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>

@@ -47,6 +47,10 @@ export const INDEX_DEFINITIONS: IndexDef[] = [
   { symbol: 'N225',  name: 'Nikkei 225',            yfSymbol: '^N225',     currency: 'JPY' },
   { symbol: 'HSI',   name: 'Hang Seng',             yfSymbol: '^HSI',      currency: 'HKD' },
   { symbol: 'SHCOMP',name: 'Shanghai Composite',    yfSymbol: '000001.SS', currency: 'CNY' },
+  { symbol: 'IBEX',  name: 'IBEX 35',               yfSymbol: '^IBEX',     currency: 'EUR' },
+  { symbol: 'KS11',  name: 'KOSPI',                  yfSymbol: '^KS11',     currency: 'KRW' },
+  { symbol: 'NSEI',  name: 'NIFTY 50',               yfSymbol: '^NSEI',     currency: 'INR' },
+  { symbol: 'TASI',  name: 'Tadawul All Share',      yfSymbol: '^TASI',     currency: 'SAR' },
 ];
 
 // ─── Yahoo Finance chart API response ─────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
@@ -10,10 +10,12 @@ import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
 import { SolanaBridgePanel } from './SolanaBridgePanel';
+import { consumeNavigationRequest } from '../lib/navigationStore';
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
   connectedAddress: string | null;
+  agentIntent?: Record<string, string | number | null> | null;
 }
 
 // ─── Network display metadata ─────────────────────────────────────────────────
@@ -81,6 +83,7 @@ function getNetworkName(id: string): string {
 export function BridgeView({
   provider,
   connectedAddress,
+  agentIntent,
 }: BridgeViewProps) {
   const routes = getBridgeRoutes();
 
@@ -88,7 +91,7 @@ export function BridgeView({
   // ENV MODE (testnet / mainnet)
   // ─────────────────────────────────────────────────────────────
 
-  const [envMode, setEnvMode] = useState<EnvMode>('testnet');
+  const [envMode, setEnvMode] = useState<EnvMode>(agentIntent?.envMode === 'mainnet' ? 'mainnet' : 'testnet');
 
   // ─────────────────────────────────────────────────────────────
   // ROTAS DISPONÍVEIS para o modo atual
@@ -115,19 +118,45 @@ export function BridgeView({
   // ESTADO DA BRIDGE
   // ─────────────────────────────────────────────────────────────
 
-  const [fromNetwork, setFromNetwork] =
-    useState<NetworkId>(DEFAULT_FROM[envMode]);
-
-  const [toNetwork, setToNetwork] =
-    useState<NetworkId>(DEFAULT_TO[envMode]);
-
-  const [amount, setAmount] = useState('');
+  const initialFrom = typeof agentIntent?.fromNetwork === 'string' && agentIntent.fromNetwork in MAINNET_NETWORKS
+    ? agentIntent.fromNetwork as MainnetId
+    : DEFAULT_FROM[envMode];
+  const initialTo = typeof agentIntent?.toNetwork === 'string' && agentIntent.toNetwork in MAINNET_NETWORKS
+    ? agentIntent.toNetwork as MainnetId
+    : DEFAULT_TO[envMode];
+  const [fromNetwork, setFromNetwork] = useState<NetworkId>(initialFrom);
+  const [toNetwork, setToNetwork] = useState<NetworkId>(initialTo);
+  const [amount, setAmount] = useState(
+    typeof agentIntent?.amount === 'number' && agentIntent.amount > 0 ? String(agentIntent.amount) : '',
+  );
 
   const [status, setStatus] = useState<
     'idle' | 'processing' | 'success' | 'error'
   >('idle');
 
   const [message, setMessage] = useState('');
+
+  // Requests from NV Agent only prefill this existing form. The user must still
+  // review the route and amount and explicitly press the Bridge confirmation.
+  useEffect(() => {
+    const request = consumeNavigationRequest('bridge');
+    if (!request) return;
+    const params = request.params ?? {};
+    const requestedFrom = typeof params.fromNetwork === 'string' && params.fromNetwork in MAINNET_NETWORKS
+      ? params.fromNetwork as MainnetId
+      : 'arc-mainnet';
+    const requestedTo = typeof params.toNetwork === 'string' && params.toNetwork in MAINNET_NETWORKS && params.toNetwork !== requestedFrom
+      ? params.toNetwork as MainnetId
+      : (requestedFrom === 'base' ? 'arc-mainnet' : 'base');
+    setEnvMode('mainnet');
+    setFromNetwork(requestedFrom);
+    setToNetwork(requestedTo);
+    setAmount(typeof params.amount === 'number' && Number.isFinite(params.amount) && params.amount > 0
+      ? String(params.amount)
+      : '');
+    setStatus('idle');
+    setMessage('');
+  }, []);
 
   // ─────────────────────────────────────────────────────────────
   // ROTA ATUAL

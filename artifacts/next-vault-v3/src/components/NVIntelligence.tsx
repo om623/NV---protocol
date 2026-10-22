@@ -905,7 +905,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
                 <div className="mt-2 pt-2 border-t border-primary/20">
                   <button
                     type="button"
-                    onClick={() => requestNavigation(msg.action!.navigateTo)}
+                    onClick={() => requestNavigation(msg.action!.navigateTo, msg.action!.params)}
                     className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-primary/10 border border-primary/25 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-all cursor-pointer"
                   >
                     <ArrowRight size={10} />

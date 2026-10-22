@@ -2,7 +2,7 @@
 // All definitions are data-driven so new badges/titles/skins can be added
 // by simply appending to the arrays below.
 
-export const BASE_LEVEL = 0;
+export const BASE_LEVEL = 1;
 export const SWAP_XP_BASE = 0.5;
 export const BOOST_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 export const SWAP_COOLDOWN_MS = 2000; // dedup window for calls without a swap ID
@@ -46,33 +46,33 @@ export interface XPPackageDef {
 
 // ── Badge definitions (extensible) ───────────────────────────────────────────
 export const BADGES: BadgeDef[] = [
-  { id: 'first-swap',    levelRequired: 1000, levelGrant: 250, icon: 'Sparkles' },
-  { id: 'swapper-50',    levelRequired: 1250, levelGrant: 250, icon: 'Zap' },
-  { id: 'swapper-100',   levelRequired: 1500, levelGrant: 250, icon: 'Flame' },
-  { id: 'swapper-250',   levelRequired: 1750, levelGrant: 250, icon: 'Trophy' },
-  { id: 'swapper-500',   levelRequired: 2000, levelGrant: 500, icon: 'Crown' },
-  { id: 'swapper-1000',  levelRequired: 2500, levelGrant: 500, icon: 'Diamond' },
+  { id: 'first-swap',    levelRequired: 1,    levelGrant: 0,   icon: 'Sparkles' },
+  { id: 'swapper-50',    levelRequired: 50,   levelGrant: 0,   icon: 'Zap' },
+  { id: 'swapper-100',   levelRequired: 100,  levelGrant: 0,   icon: 'Flame' },
+  { id: 'swapper-250',   levelRequired: 250,  levelGrant: 0,   icon: 'Trophy' },
+  { id: 'swapper-500',   levelRequired: 500,  levelGrant: 0,   icon: 'Crown' },
+  { id: 'swapper-1000',  levelRequired: 1000, levelGrant: 0,   icon: 'Diamond' },
 ];
 
 // ── Title definitions (extensible) ───────────────────────────────────────────
 export const TITLES: TitleDef[] = [
-  { id: 'novice',       levelRequired: 1000, levelGrant: 0   },
-  { id: 'trader',       levelRequired: 1250, levelGrant: 250 },
-  { id: 'expert',       levelRequired: 1500, levelGrant: 250 },
-  { id: 'master',       levelRequired: 1750, levelGrant: 250 },
-  { id: 'legend',       levelRequired: 2000, levelGrant: 500 },
-  { id: 'collector',    levelRequired: 2000, levelGrant: 0   }, // from premium skins
+  { id: 'novice',       levelRequired: 1,    levelGrant: 0 },
+  { id: 'trader',       levelRequired: 50,   levelGrant: 0 },
+  { id: 'expert',       levelRequired: 100,  levelGrant: 0 },
+  { id: 'master',       levelRequired: 250,  levelGrant: 0 },
+  { id: 'legend',       levelRequired: 500,  levelGrant: 0 },
+  { id: 'collector',    levelRequired: 1000, levelGrant: 0 }, // from premium skins
 ];
 
 // ── Skin definitions (extensible) ────────────────────────────────────────────
 export const SKINS: SkinDef[] = [
-  { id: 'default',   levelRequired: 1000 },
-  { id: 'bronze',    levelRequired: 1250 },
-  { id: 'silver',    levelRequired: 1500 },
-  { id: 'gold',      levelRequired: 1750 },
-  { id: 'platinum',  levelRequired: 2000 },
-  { id: 'premium-500',  levelRequired: 2000, premium: true,  price: 500,  collectorTitle: true },
-  { id: 'premium-1000', levelRequired: 2000, premium: true,  price: 1000, collectorTitle: true },
+  { id: 'default',   levelRequired: 1 },
+  { id: 'bronze',    levelRequired: 50 },
+  { id: 'silver',    levelRequired: 100 },
+  { id: 'gold',      levelRequired: 250 },
+  { id: 'platinum',  levelRequired: 500 },
+  { id: 'premium-500',  levelRequired: 500, premium: true,  price: 500,  collectorTitle: true },
+  { id: 'premium-1000', levelRequired: 1000, premium: true,  price: 1000, collectorTitle: true },
 ];
 
 // ── XP purchase packages ─────────────────────────────────────────────────────
@@ -83,12 +83,12 @@ export const XP_PACKAGES: XPPackageDef[] = [
 ];
 
 // ── Season definitions (72-month event, 4-month seasons = 18 seasons) ────────
-export const SEASONS: SeasonDef[] = Array.from({ length: 18 }, (_, i) => ({
+export const SEASONS: SeasonDef[] = [{ id: 'season-0', index: 0, startMonth: 0, durationMonths: 4 }, ...Array.from({ length: 18 }, (_, i) => ({
   id: `season-${i + 1}`,
   index: i + 1,
   startMonth: i * 4,
   durationMonths: 4,
-}));
+}))];
 
 export const EVENT_TOTAL_MONTHS = 72;
 export const SEASON_DURATION_MONTHS = 4;
@@ -141,16 +141,16 @@ export const DEFAULT_GAMIFICATION_STATE: GamificationState = {
 
 /** Compute effective level from accumulated XP (single source of truth). */
 export function computeLevel(state: GamificationState): number {
-  return BASE_LEVEL + state.xp;
+  return Math.min(1000, Math.max(1, BASE_LEVEL + Math.floor(state.xp)));
 }
 
 /** XP progress toward the next level threshold, using XP as the single source. */
 export function nextMilestone(state: GamificationState): { level: number; xpNeeded: number; progress: number } {
   const currentXp = state.xp;
-  const currentLevel = BASE_LEVEL + currentXp;
+  const currentLevel = Math.min(1000, BASE_LEVEL + Math.floor(currentXp));
   const allThresholds = [...new Set([...BADGES.map(b => b.levelRequired), ...TITLES.map(t => t.levelRequired)])]
     .sort((a, b) => a - b);
-  const next = allThresholds.find(t => t > currentLevel) ?? (allThresholds[allThresholds.length - 1] ?? BASE_LEVEL) + 500;
+  const next = allThresholds.find(t => t > currentLevel) ?? 1000;
   const prev = [...allThresholds].reverse().find(t => t <= currentLevel) ?? BASE_LEVEL;
   const prevXp = prev - BASE_LEVEL;
   const nextXp = next - BASE_LEVEL;
@@ -161,7 +161,7 @@ export function nextMilestone(state: GamificationState): { level: number; xpNeed
 
 /** Check and unlock badges/titles based on XP-derived level vs levelRequired. */
 export function checkUnlocks(state: GamificationState): GamificationState {
-  const currentLevel = BASE_LEVEL + state.xp;
+  const currentLevel = Math.min(1000, BASE_LEVEL + Math.floor(state.xp));
   const newBadges = [...state.unlockedBadges];
   const newTitles = [...state.unlockedTitles];
   let changed = false;
