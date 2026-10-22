@@ -485,6 +485,8 @@ function Home() {
   // ── UI state (new) ──────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => { document.title = 'NV Protocol'; }, []);
+
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
   /** Pick the first valid same-env CCTP destination that differs from `sourceId`. */
@@ -895,6 +897,7 @@ function Home() {
       isWalletConnected: isConnected,
       networkOnline: true,
       recentSwapActivity: transactions.length > 0,
+      simulationRunning: false,
     };
   }, [activeNetwork.name, isConnected, transactions.length]);
 
