@@ -12,6 +12,7 @@ import {
   type EquityQuote,
 } from '../lib/equities';
 import { useI18n } from '../i18n';
+import { fetchCryptoPrices, type CoinGeckoCoin } from '../lib/api';
 
 // ─── Type badge color by equity type ─────────────────────────────────────────
 function typeBadgeStyle(type: string): string {
@@ -109,6 +110,8 @@ export function MarketTicker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<number | null>(null);
+  const [bitcoin, setBitcoin] = useState<CoinGeckoCoin | null>(null);
+  const [bitcoinUpdatedAt, setBitcoinUpdatedAt] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const tickerList = getLocaleTickerList(locale);
@@ -148,6 +151,25 @@ export function MarketTicker() {
     intervalRef.current = setInterval(() => { loadQuotes(); }, 2 * 60 * 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [loadQuotes]);
+
+  // BTC/USD live quote from CoinGecko; no fabricated fallback.
+  useEffect(() => {
+    let alive = true;
+    const loadBitcoin = async () => {
+      try {
+        const prices = await fetchCryptoPrices();
+        if (!alive) return;
+        const btc = prices.get('BTC') ?? null;
+        setBitcoin(btc);
+        if (btc) setBitcoinUpdatedAt(Date.now());
+      } catch {
+        if (alive) setBitcoin(null);
+      }
+    };
+    void loadBitcoin();
+    const id = setInterval(() => { void loadBitcoin(); }, 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
 
   // Inject CSS animation once
   useEffect(() => { ensureTickerAnimation(); }, []);
@@ -216,6 +238,26 @@ export function MarketTicker() {
           {error}
         </div>
       )}
+
+      {/* Live Bitcoin quote — explicitly sourced, never simulated */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.04] px-3 py-2">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/25 bg-amber-400/8 px-2 py-1 text-[9px] font-mono font-bold tracking-wider text-amber-300">
+          BTC/USD <span className="text-[8px] font-normal text-muted-foreground/60">COINGECKO</span>
+        </span>
+        {bitcoin ? (
+          <>
+            <span className="text-xs font-mono font-semibold tabular-nums text-foreground">
+              {new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(bitcoin.current_price)}
+            </span>
+            <span className={`text-[10px] font-mono font-semibold tabular-nums ${bitcoin.price_change_percentage_24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {bitcoin.price_change_percentage_24h >= 0 ? '+' : ''}{bitcoin.price_change_percentage_24h.toFixed(2)}% 24h
+            </span>
+            {bitcoinUpdatedAt && <span className="text-[8px] font-mono text-muted-foreground/35">{t('ticker.justNow')}</span>}
+          </>
+        ) : (
+          <span className="text-[10px] font-mono text-muted-foreground/45">{t('ticker.apiPending')}</span>
+        )}
+      </div>
 
       {/* Tape */}
       {!error && (
