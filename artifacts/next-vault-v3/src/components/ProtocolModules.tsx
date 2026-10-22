@@ -98,8 +98,8 @@ function useActivityFeed() {
   return [items, setItems] as const;
 }
 
-function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(timestamp);
+function formatDate(timestamp: number, locale: string) {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'medium' }).format(timestamp);
 }
 
 function EmptyState({ children }: { children: ReactNode }) {
@@ -108,6 +108,7 @@ function EmptyState({ children }: { children: ReactNode }) {
 
 export function HistoryModule() {
   const tx = useModuleCopy();
+  const { locale } = useI18n();
   const [items] = useActivityFeed();
   const hashes = items.filter(item => item.txHash);
   const copyHash = async (hash: string) => {
@@ -136,7 +137,7 @@ export function HistoryModule() {
               <div key={item.id} className="rounded-xl border border-border/60 bg-background/50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="font-medium text-sm">{item.action}</div>
-                  <span className="text-xs text-muted-foreground">{formatDate(item.timestamp)}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(item.timestamp, locale)}</span>
                 </div>
                 <div className="mt-2 break-all font-mono text-xs text-muted-foreground">{item.txHash}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -152,7 +153,7 @@ export function HistoryModule() {
         <h2 className={titleClass}>{tx('recentActivity')}</h2>
         <p className={subtle + ' mt-1 mb-4'}>{tx('localActivity')}</p>
         {items.length === 0 ? <EmptyState>{tx('noActivity')}</EmptyState> : (
-          <div className="space-y-2">{items.slice(0, 12).map(item => <div key={item.id} className="flex gap-3 rounded-lg bg-secondary/30 p-3"><Activity size={15} className="mt-0.5 text-primary shrink-0"/><div className="min-w-0 flex-1"><div className="text-sm font-medium">{item.action}</div>{item.details && <div className="text-xs text-muted-foreground mt-1 break-words">{item.details}</div>}<div className="text-[11px] text-muted-foreground mt-1">{formatDate(item.timestamp)}</div></div></div>)}</div>
+          <div className="space-y-2">{items.slice(0, 12).map(item => <div key={item.id} className="flex gap-3 rounded-lg bg-secondary/30 p-3"><Activity size={15} className="mt-0.5 text-primary shrink-0"/><div className="min-w-0 flex-1"><div className="text-sm font-medium">{item.action}</div>{item.details && <div className="text-xs text-muted-foreground mt-1 break-words">{item.details}</div>}<div className="text-[11px] text-muted-foreground mt-1">{formatDate(item.timestamp, locale)}</div></div></div>)}</div>
         )}
       </div>
     </section>
@@ -161,6 +162,7 @@ export function HistoryModule() {
 
 export function ReportsModule() {
   const tx = useModuleCopy();
+  const { locale } = useI18n();
   const [items] = useActivityFeed();
   const [filter, setFilter] = useState('all');
   const filtered = useMemo(() => filter === 'all' ? items : items.filter(item => item.category === filter), [items, filter]);
@@ -199,7 +201,7 @@ export function ReportsModule() {
         <select value={filter} onChange={event => setFilter(event.target.value)} className="mt-1 mb-4 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
           <option value="all">{tx('allCategories')}</option><option value="wallet">{tx('wallet')}</option><option value="swap">{tx('swap')}</option><option value="bridge">{tx('bridge')}</option><option value="agent">{tx('agent')}</option><option value="news">{tx('news')}</option><option value="markets">{tx('globalMarkets')}</option><option value="navigation">{tx('navigation')}</option><option value="system">{tx('system')}</option>
         </select>
-        {filtered.length === 0 ? <EmptyState>{tx('noFilter')}</EmptyState> : <div className="space-y-2">{filtered.map(item => <div key={item.id} className="flex items-start gap-3 rounded-xl border border-border/50 p-3"><div className="rounded-lg bg-primary/10 p-2 text-primary"><Activity size={15}/></div><div className="min-w-0 flex-1"><div className="flex flex-wrap justify-between gap-2"><strong className="text-sm">{item.action}</strong><span className="text-[11px] text-muted-foreground">{formatDate(item.timestamp)}</span></div><div className="mt-1 text-xs text-muted-foreground">{item.category}{item.network ? ' · ' + item.network : ''}</div>{item.details && <p className="mt-1 text-xs break-words">{item.details}</p>}{item.txHash && <p className="mt-1 break-all font-mono text-xs text-primary">{item.txHash}</p>}</div></div>)}</div>}
+        {filtered.length === 0 ? <EmptyState>{tx('noFilter')}</EmptyState> : <div className="space-y-2">{filtered.map(item => <div key={item.id} className="flex items-start gap-3 rounded-xl border border-border/50 p-3"><div className="rounded-lg bg-primary/10 p-2 text-primary"><Activity size={15}/></div><div className="min-w-0 flex-1"><div className="flex flex-wrap justify-between gap-2"><strong className="text-sm">{item.action}</strong><span className="text-[11px] text-muted-foreground">{formatDate(item.timestamp, locale)}</span></div><div className="mt-1 text-xs text-muted-foreground">{item.category}{item.network ? ' · ' + item.network : ''}</div>{item.details && <p className="mt-1 text-xs break-words">{item.details}</p>}{item.txHash && <p className="mt-1 break-all font-mono text-xs text-primary">{item.txHash}</p>}</div></div>)}</div>}
       </div>
       <p className="text-xs text-muted-foreground">{tx('privacy')}</p>
     </section>
