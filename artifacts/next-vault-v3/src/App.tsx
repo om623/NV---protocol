@@ -63,21 +63,6 @@ const queryClient = new QueryClient();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface SimHistoryItem {
-  id: string;
-  datetime: string;
-  roi: number;
-  risk: number;
-  duration: number;
-  strategy: string;
-  pools: number;
-  opportunities: number;
-  fromToken: string;
-  toToken: string;
-}
-
-interface RoiPoint { t: number; roi: number; }
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_TOKENS = [
@@ -104,42 +89,6 @@ const INITIAL_TRANSACTIONS = [
 ];
 
 // Network lists live in ./networks.ts — imported above.
-
-const PIPELINE_STEPS = [
-  { labelKey: 'sim.step.connecting',          Icon: Wallet },
-  { labelKey: 'sim.step.validating',          Icon: Shield },
-  { labelKey: 'sim.step.readingBalance',      Icon: Database },
-  { labelKey: 'sim.step.scanningPools',       Icon: Activity },
-  { labelKey: 'sim.step.analyzingOpps',       Icon: TrendingUp },
-  { labelKey: 'sim.step.calculatingRisk',     Icon: AlertTriangle },
-  { labelKey: 'sim.step.selectingStrategy',   Icon: Target },
-  { labelKey: 'sim.step.simulating',          Icon: Cpu },
-  { labelKey: 'sim.step.confirming',          Icon: Check },
-  { labelKey: 'sim.step.finished',            Icon: CheckCircle2 },
-];
-
-const CONSOLE_SCRIPT: { type: 'info' | 'success' | 'warn'; text: string; delay: number }[] = [
-  { type: 'info',    text: 'Wallet connected',         delay: 350  },
-  { type: 'info',    text: 'Reading balances...',      delay: 1400 },
-  { type: 'warn',    text: 'High volatility detected', delay: 2400 },
-  { type: 'info',    text: '23 pools analyzed',        delay: 3500 },
-  { type: 'info',    text: '7 opportunities found',    delay: 5000 },
-  { type: 'info',    text: 'Best ROI selected',        delay: 6700 },
-  { type: 'info',    text: 'Running final checks...',  delay: 7900 },
-  { type: 'success', text: 'Simulation completed',     delay: 8900 },
-];
-
-const BADGES = [
-  { label: 'Secure Wallet',       color: 'text-cyan-400',    border: 'border-cyan-400/30',    bg: 'bg-cyan-400/8'    },
-  { label: 'AI Strategy',         color: 'text-violet-400',  border: 'border-violet-400/30',  bg: 'bg-violet-400/8'  },
-  { label: 'Smart Routing',       color: 'text-blue-400',    border: 'border-blue-400/30',    bg: 'bg-blue-400/8'    },
-  { label: 'Simulation Complete', color: 'text-emerald-400', border: 'border-emerald-400/30', bg: 'bg-emerald-400/8' },
-];
-
-const SIM_TOTAL_MS = 9700;
-const ROI_START_MS = 6700;
-const ROI_DURATION_MS = 1400;
-const ROI_TARGET = 8.47;
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
@@ -173,182 +122,6 @@ const formatRate = (rate: number) => {
   if (!Number.isFinite(rate)) return '—';
   return rate < 0.01 ? rate.toFixed(6) : rate < 1 ? rate.toFixed(4) : rate.toFixed(2);
 };
-
-function getNextSimId(): string {
-  try {
-    const count = parseInt(localStorage.getItem('vault-sim-count') || '0') + 1;
-    localStorage.setItem('vault-sim-count', String(count));
-    const d = new Date();
-    const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    return `SIM-${ds}-${String(count).padStart(4, '0')}`;
-  } catch { return `SIM-${Date.now()}`; }
-}
-
-function formatDateTime(d: Date): string {
-  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function generateReportHtml(data: {
-  simId: string; datetime: string; wallet: string;
-  fromToken: string; toToken: string; fromAmount: number; toAmount: number;
-  totalTime: number; roi: number; risk: number;
-  strategy: string; pools: number; opportunities: number;
-}): string {
-  return `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<title>Relatório — ${data.simId}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#070c18;color:#c8d8e8;padding:0}
-.page{max-width:680px;margin:0 auto;padding:52px 44px}
-.brand{display:flex;align-items:center;gap:12px;margin-bottom:36px}
-.brand-icon{width:36px;height:36px;background:rgba(0,229,188,.15);border:1px solid rgba(0,229,188,.3);border-radius:10px;display:flex;align-items:center;justify-content:center}
-.brand-name{font-size:14px;font-weight:700;letter-spacing:4px;color:#e2e8f0}
-.brand-sub{font-size:9px;color:#00e5bc;letter-spacing:3px;text-transform:uppercase;margin-top:3px}
-.divider{height:1px;background:linear-gradient(to right,rgba(0,229,188,.4),transparent);margin:24px 0}
-.title{font-size:22px;font-weight:700;color:#f8fafc;margin-bottom:6px}
-.sim-id{font-size:11px;color:#00e5bc;letter-spacing:1px;margin-bottom:4px}
-.dt{font-size:11px;color:#64748b}
-.section-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#475569;margin:28px 0 12px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.field{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px 16px}
-.field-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#475569;margin-bottom:6px}
-.field-value{font-size:14px;color:#e2e8f0}
-.field-value.accent{color:#00e5bc}
-.field-value.green{color:#34d399}
-.field-value.yellow{color:#fbbf24}
-.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
-.badge{display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,188,.08);border:1px solid rgba(0,229,188,.2);border-radius:999px;padding:5px 12px;font-size:10px;color:#00e5bc}
-.footer{margin-top:48px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:#1e293b;display:flex;justify-content:space-between}
-@media print{body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
-</style></head><body><div class="page">
-<div class="brand">
-  <div class="brand-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00e5bc" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-  <div><div class="brand-name">NV PROTOCOL</div><div class="brand-sub">Protocol V3 · Simulation Report</div></div>
-</div>
-<div class="divider"></div>
-<div class="title">Relatório de Simulação</div>
-<div class="sim-id">${data.simId}</div>
-<div class="dt">Executado em: ${data.datetime}</div>
-
-<div class="section-title">Identificação</div>
-<div class="grid">
-  <div class="field"><div class="field-label">ID da Simulação</div><div class="field-value accent">${data.simId}</div></div>
-  <div class="field"><div class="field-label">Carteira Conectada</div><div class="field-value">${data.wallet}</div></div>
-</div>
-
-<div class="section-title">Operação</div>
-<div class="grid">
-  <div class="field"><div class="field-label">Token Origem</div><div class="field-value">${data.fromToken} &nbsp;(${data.fromAmount.toFixed(4)})</div></div>
-  <div class="field"><div class="field-label">Token Destino</div><div class="field-value">${data.toToken} &nbsp;(${data.toAmount.toFixed(4)})</div></div>
-</div>
-
-<div class="section-title">Métricas</div>
-<div class="grid">
-  <div class="field"><div class="field-label">Tempo de Execução</div><div class="field-value">${data.totalTime.toFixed(2)}s</div></div>
-  <div class="field"><div class="field-label">ROI Estimado</div><div class="field-value green">+${data.roi.toFixed(2)}%</div></div>
-  <div class="field"><div class="field-label">Risco</div><div class="field-value yellow">${data.risk.toFixed(1)}% (Moderado)</div></div>
-  <div class="field"><div class="field-label">Estratégia</div><div class="field-value">${data.strategy}</div></div>
-  <div class="field"><div class="field-label">Pools Analisados</div><div class="field-value">${data.pools}</div></div>
-  <div class="field"><div class="field-label">Oportunidades</div><div class="field-value">${data.opportunities}</div></div>
-</div>
-
-<div class="section-title">Verificações de Segurança</div>
-<div class="badges">
-  <span class="badge">✓ Secure Wallet</span>
-  <span class="badge">✓ AI Strategy</span>
-  <span class="badge">✓ Smart Routing</span>
-  <span class="badge">✓ Simulation Complete</span>
-</div>
-<div class="footer">
-  <span>NV Protocol V3</span>
-  <span>Gerado em ${data.datetime}</span>
-</div>
-</div>
-<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),800))</script>
-</body></html>`;
-}
-
-// ─── RoiChart ─────────────────────────────────────────────────────────────────
-
-function RoiChart({ points, isComplete = false }: { points: RoiPoint[]; isComplete?: boolean }) {
-  const { t } = useI18n();
-  const W = 400; const H = 90;
-  const PAD = { t: 10, b: 12, l: 6, r: 40 };
-  const cW = W - PAD.l - PAD.r;
-  const cH = H - PAD.t - PAD.b;
-  const maxRoi = ROI_TARGET;
-
-  const toX = (t: number) => PAD.l + (Math.min(t, SIM_TOTAL_MS) / SIM_TOTAL_MS) * cW;
-  const toY = (roi: number) => PAD.t + cH - (Math.max(0, roi) / maxRoi) * cH;
-
-  if (points.length < 2) {
-    return (
-      <div className="w-full flex items-center justify-center" style={{ height: H }}>
-        <span className="text-[10px] font-mono text-muted-foreground/30 animate-pulse">{t('sim.waitingRoi')}</span>
-      </div>
-    );
-  }
-
-  const linePts = points.map(p => `${toX(p.t).toFixed(1)},${toY(p.roi).toFixed(1)}`).join(' ');
-  const last = points[points.length - 1];
-  const lx = toX(last.t);
-  const ly = toY(last.roi);
-  const areaBase = (PAD.t + cH).toFixed(1);
-  const areaPts = `${toX(points[0].t).toFixed(1)},${areaBase} ${linePts} ${lx.toFixed(1)},${areaBase}`;
-  const yTicks = [0.25, 0.5, 0.75, 1.0];
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="roiFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgb(0,229,188)" stopOpacity="0.22" />
-          <stop offset="85%" stopColor="rgb(0,229,188)" stopOpacity="0.02" />
-        </linearGradient>
-        <filter id="neon" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-
-      {yTicks.map(r => {
-        const y = toY(maxRoi * r);
-        return (
-          <g key={r}>
-            <line x1={PAD.l} y1={y} x2={W - PAD.r + 4} y2={y}
-              stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 5" />
-            <text x={W - PAD.r + 7} y={y + 4} fill="rgba(255,255,255,0.2)"
-              fontSize="7" fontFamily="monospace">{(maxRoi * r).toFixed(1)}%</text>
-          </g>
-        );
-      })}
-
-      <line x1={PAD.l} y1={PAD.t + cH} x2={W - PAD.r} y2={PAD.t + cH}
-        stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-
-      <polygon points={areaPts} fill="url(#roiFill)" />
-
-      <polyline points={linePts} fill="none"
-        stroke="rgb(0,229,188)" strokeWidth="1.8"
-        strokeLinecap="round" strokeLinejoin="round"
-        filter="url(#neon)" />
-
-      <circle cx={lx} cy={ly} r={isComplete ? 3.5 : 3} fill="rgb(0,229,188)"
-        style={{ filter: 'drop-shadow(0 0 5px rgb(0,229,188))' }}>
-        {!isComplete && (
-          <animate attributeName="r" values="2.5;4;2.5" dur="1.5s" repeatCount="indefinite" />
-        )}
-      </circle>
-
-      {last.roi > 0.05 && (
-        <text x={Math.min(lx + 5, W - PAD.r - 2)} y={Math.max(ly - 5, PAD.t + 8)}
-          fill="rgb(0,229,188)" fontSize="9" fontFamily="monospace" fontWeight="bold">
-          +{last.roi.toFixed(2)}%
-        </text>
-      )}
-    </svg>
-  );
-}
 
 // ─── Token Icons ──────────────────────────────────────────────────────────────
 
@@ -708,139 +481,9 @@ function Home() {
     onXpGranted: (xpAmount, txHash) => gamification.grantXp(xpAmount, txHash),
   });
   const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
-  const [swapModalOpen,  setSwapModalOpen]  = useState(false);
-  const [swapStep,       setSwapStep]       = useState(0);
-  const [pendingSwap,    setPendingSwap]    = useState<any>(null);
-
-  // ── Simulation state ────────────────────────────────────────────────────────
-  const [simId,        setSimId]        = useState('');
-  const [simDateTime,  setSimDateTime]  = useState('');
-  const [simStep,      setSimStep]      = useState(-1);
-  const [simProgress,  setSimProgress]  = useState(0);
-  const [consoleLogs,  setConsoleLogs]  = useState<{ type: 'info'|'success'|'warn'; text: string }[]>([]);
-  const [simPhase,     setSimPhase]     = useState<'pipeline'|'complete'>('pipeline');
-  const [simStats,     setSimStats]     = useState({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-  const [simTotalTime, setSimTotalTime] = useState(0);
-  const [roiPoints,    setRoiPoints]    = useState<RoiPoint[]>([]);
-  const [reportExported, setReportExported] = useState(false);
-  const [simHistory,   setSimHistory]   = useState<SimHistoryItem[]>(() => {
-    try { return JSON.parse(localStorage.getItem('vault-sim-history') || '[]'); } catch { return []; }
-  });
-  const [historyOpen,  setHistoryOpen]  = useState(false);
 
   // ── UI state (new) ──────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [simPaused,   setSimPaused]   = useState(false);
-
-  const consoleEndRef = useRef<HTMLDivElement>(null);
-  const simTimers = useRef<{ intervals: number[]; timeouts: number[] }>({ intervals: [], timeouts: [] });
-  const swapStepTimers = useRef<number[]>([]);
-  const miscTimers = useRef<number[]>([]);
-
-  useEffect(() => { document.title = 'NV Protocol'; }, []);
-  useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [consoleLogs]);
-
-  // Centralised unmount cleanup — clears every timer that escapes clearSim.
-  useEffect(() => {
-    return () => {
-      simTimers.current.intervals.forEach(t => window.clearInterval(t));
-      simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
-      swapStepTimers.current.forEach(t => window.clearTimeout(t));
-      miscTimers.current.forEach(t => window.clearTimeout(t));
-    };
-  }, []);
-
-  // ── Simulation engine (unchanged) ───────────────────────────────────────────
-
-  const clearSim = useCallback(() => {
-    simTimers.current.timeouts.forEach(t => window.clearTimeout(t));
-    simTimers.current.intervals.forEach(t => window.clearInterval(t));
-    swapStepTimers.current.forEach(t => window.clearTimeout(t));
-    simTimers.current = { intervals: [], timeouts: [] };
-    swapStepTimers.current = [];
-  }, []);
-
-  const startSim = useCallback((id: string, dt: string) => {
-    const sto = (fn: () => void, ms: number) => {
-      const t = window.setTimeout(fn, ms);
-      simTimers.current.timeouts.push(t);
-    };
-    const sin = (fn: () => void, ms: number): number => {
-      const t = window.setInterval(fn, ms);
-      simTimers.current.intervals.push(t);
-      return t;
-    };
-    const animateTo = (setter: (v: number) => void, target: number, duration: number, round = false) => {
-      const s = Date.now();
-      const iv = sin(() => {
-        const t = Math.min(1, (Date.now() - s) / duration);
-        const e = 1 - Math.pow(1 - t, 3);
-        setter(round ? Math.round(target * e) : target * e);
-        if (t >= 1) { window.clearInterval(iv); simTimers.current.intervals = simTimers.current.intervals.filter(x => x !== iv); }
-      }, 30);
-    };
-
-    const startTime = Date.now();
-    PIPELINE_STEPS.forEach((_, i) => sto(() => setSimStep(i), i * 950));
-    CONSOLE_SCRIPT.forEach(({ type, text, delay }) =>
-      sto(() => setConsoleLogs(prev => [...prev, { type, text }]), delay));
-
-    const progIv = sin(() => {
-      setSimProgress(Math.min(100, ((Date.now() - startTime) / SIM_TOTAL_MS) * 100));
-    }, 50);
-    const execIv = sin(() => {
-      setSimStats(prev => ({ ...prev, execTime: (Date.now() - startTime) / 1000 }));
-    }, 100);
-
-    for (let ms = 0; ms <= SIM_TOTAL_MS; ms += 200) {
-      const scheduledMs = ms;
-      sto(() => {
-        const roiT = scheduledMs < ROI_START_MS ? 0 : Math.min(1, (scheduledMs - ROI_START_MS) / ROI_DURATION_MS);
-        const roiVal = ROI_TARGET * (1 - Math.pow(1 - roiT, 3));
-        setRoiPoints(prev => [...prev, { t: scheduledMs, roi: roiVal }]);
-      }, ms);
-    }
-
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, balance: v })), 46382.17, 2200), 1400);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, poolsAnalyzed: v })), 23, 1400, true), 3500);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, opportunities: v })), 7, 800, true), 5000);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, risk: v })), 12.3, 900), 5800);
-    sto(() => animateTo(v => setSimStats(p => ({ ...p, roi: v })), ROI_TARGET, 1400), ROI_START_MS);
-
-    sto(() => {
-      const total = parseFloat(((Date.now() - startTime) / 1000).toFixed(2));
-      window.clearInterval(progIv);
-      window.clearInterval(execIv);
-      simTimers.current.intervals = simTimers.current.intervals.filter(x => x !== progIv && x !== execIv);
-      setSimTotalTime(total);
-      setSimPhase('complete');
-      setSimProgress(100);
-      const item: SimHistoryItem = {
-        id, datetime: dt, roi: ROI_TARGET, risk: 12.3, duration: total,
-        strategy: 'Arbitrum Optimal Route v2', pools: 23, opportunities: 7,
-        fromToken: '', toToken: '',
-      };
-      setSimHistory(prev => {
-        const updated = [item, ...prev].slice(0, 10);
-        try { localStorage.setItem('vault-sim-history', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-    }, SIM_TOTAL_MS);
-  }, []);
-
-  useEffect(() => {
-    if (swapModalOpen) {
-      const id = getNextSimId();
-      const dt = formatDateTime(new Date());
-      setSimId(id); setSimDateTime(dt);
-      setSimStep(-1); setSimProgress(0); setConsoleLogs([]);
-      setSimPhase('pipeline'); setRoiPoints([]);
-      setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-      setSimTotalTime(0); setReportExported(false);
-      startSim(id, dt);
-    } else { clearSim(); }
-    return clearSim;
-  }, [swapModalOpen]);
 
   // ── Existing handlers (unchanged) ───────────────────────────────────────────
 
@@ -1201,53 +844,6 @@ function Home() {
     void handleRealSwap();
   };
 
-  const closeSwapModal = () => {
-    setSwapModalOpen(false);
-    if (pendingSwap) {
-      const simTxId = Math.random().toString();
-      setTransactions(prev => [{
-        id: simTxId,
-        fromToken: pendingSwap.fromToken, toToken: pendingSwap.toToken,
-        fromAmount: pendingSwap.fromAmount, toAmount: pendingSwap.toAmount,
-        time: 'Just now', status: 'Success'
-      }, ...prev]);
-      const xpGained = gamification.recordSwap(simTxId);
-      toast({ title: `+${xpGained} XP`, description: gamification.hasBoost ? `${gamification.state.boostMultiplier}x ${t('profile.boostActive')}` : undefined });
-    }
-    setAmount('');
-  };
-
-  const handleNovaSimulacao = () => {
-    const id = getNextSimId(); const dt = formatDateTime(new Date());
-    setSimId(id); setSimDateTime(dt);
-    clearSim();
-    setSimStep(-1); setSimProgress(0); setConsoleLogs([]);
-    setSimPhase('pipeline'); setRoiPoints([]);
-    setSimStats({ balance: 0, roi: 0, risk: 0, execTime: 0, poolsAnalyzed: 0, opportunities: 0 });
-    setSimTotalTime(0); setReportExported(false);
-    const t = window.setTimeout(() => startSim(id, dt), 60);
-    simTimers.current.timeouts.push(t);
-  };
-
-  const handleExportReport = () => {
-    const html = generateReportHtml({
-      simId, datetime: simDateTime, wallet: '0x8F4A...91C2',
-      fromToken: pendingSwap?.fromToken || 'ETH',
-      toToken:   pendingSwap?.toToken   || 'USDC',
-      fromAmount: pendingSwap?.fromAmount || 0,
-      toAmount:   pendingSwap?.toAmount   || 0,
-      totalTime: simTotalTime,
-      roi: simStats.roi, risk: simStats.risk,
-      strategy: 'Arbitrum Optimal Route v2',
-      pools: simStats.poolsAnalyzed, opportunities: simStats.opportunities,
-    });
-    const win = window.open('', '_blank');
-    if (win) { win.document.write(html); win.document.close(); }
-    setReportExported(true);
-    const tm = window.setTimeout(() => setReportExported(false), 2500);
-    miscTimers.current.push(tm);
-  };
-
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
   const handleMax = () => {
     const raw = realBalances
@@ -1255,35 +851,6 @@ function Home() {
       : MOCK_BALANCES[sourceToken];
     const bal = safeBalance(raw);
     setAmount(bal.toString());
-  };
-
-  // ── New action handlers ──────────────────────────────────────────────────────
-
-  const handleStartNewSim = () => {
-    setSimPaused(false);
-    if (!swapModalOpen) {
-      const n = parseFloat(amount) || 1;
-      setPendingSwap({ fromToken: sourceToken, toToken: destToken, fromAmount: n, toAmount: n * getRate(sourceToken, destToken) });
-      setSwapModalOpen(true);
-    } else {
-      handleNovaSimulacao();
-    }
-  };
-
-  const handlePause = () => {
-    if (!swapModalOpen || simPhase === 'complete') return;
-    if (simPaused) {
-      setSimPaused(false);
-      handleNovaSimulacao();
-    } else {
-      clearSim();
-      setSimPaused(true);
-    }
-  };
-
-  const handleCancel = () => {
-    setSimPaused(false);
-    closeSwapModal();
   };
 
   // ── Derived values ───────────────────────────────────────────────────────────
@@ -1302,18 +869,6 @@ function Home() {
   const destAmountNum = sourceAmountNum * rate;
   const sourceUsd = sourceAmountNum * getUsdRate(sourceToken);
   const destUsd   = destAmountNum   * getUsdRate(destToken);
-
-  const logColor = (type: string) => type === 'success' ? 'text-emerald-400' : type === 'warn' ? 'text-yellow-400' : 'text-cyan-300';
-  const logTag   = (type: string) => type === 'success' ? '[SUCCESS]' : type === 'warn' ? '[WARN]' : '[INFO]';
-
-  const statCards = [
-    { label: t('swap.balance'),   value: fmt.currency(simStats.balance, 'USD', 0), Icon: BarChart2,    color: 'text-cyan-400',    glow: 'hover:shadow-[0_0_14px_rgba(34,211,238,0.2)]'  },
-    { label: t('sim.estimatedRoi'),value: isValidNum(simStats.roi) ? `+${simStats.roi.toFixed(2)}%` : '—',  Icon: TrendingUp,   color: 'text-emerald-400', glow: 'hover:shadow-[0_0_14px_rgba(52,211,153,0.2)]'  },
-    { label: t('dash.risk'),   value: isValidNum(simStats.risk) ? `${simStats.risk.toFixed(1)}%` : '—',  Icon: AlertTriangle,color: 'text-yellow-400',  glow: 'hover:shadow-[0_0_14px_rgba(250,204,21,0.15)]' },
-    { label: t('sim.totalTime'),   value: isValidNum(simStats.execTime) ? `${simStats.execTime.toFixed(1)}s` : '—', Icon: Clock,     color: 'text-primary',     glow: 'hover:shadow-[0_0_14px_rgba(0,229,188,0.2)]'   },
-    { label: t('intel.pools'),   value: `${simStats.poolsAnalyzed}`,     Icon: Database,     color: 'text-violet-400',  glow: 'hover:shadow-[0_0_14px_rgba(167,139,250,0.2)]' },
-    { label: t('intel.opportunities'),  value: `${simStats.opportunities}`,     Icon: Target,       color: 'text-orange-400',  glow: 'hover:shadow-[0_0_14px_rgba(251,146,60,0.2)]'  },
-  ];
 
   // ── Dashboard context for Digital Presenter ─────────────────────────────────
   const dashboardContext: DashboardContext = useMemo(() => {
@@ -1340,9 +895,8 @@ function Home() {
       isWalletConnected: isConnected,
       networkOnline: true,
       recentSwapActivity: transactions.length > 0,
-      simulationRunning: false,
     };
-  }, [activeNetwork.name, isConnected, transactions.length, swapModalOpen, simPaused, simPhase]);
+  }, [activeNetwork.name, isConnected, transactions.length]);
 
   // ── Wallet event listeners (account / chain changes) ───────────────────────
   useEffect(() => {
