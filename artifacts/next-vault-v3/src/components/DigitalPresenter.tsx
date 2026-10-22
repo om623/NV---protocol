@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Pause, VolumeX, Repeat, Play, Radio, ChevronRight, Clock } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { getAsset } from '../lib/marketData';
+import { getIndexState, fetchAllIndices } from '../lib/indices';
+import { fetchEquityQuotes, getLocaleTickerList, formatEquityPrice, type EquityQuote } from '../lib/equities';
 import { useSpeech } from '../hooks/use-speech';
 import {
   generateEditorialEvents,
@@ -24,8 +27,75 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
   const [expanded, setExpanded] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [elapsedMin, setElapsedMin] = useState(0);
+  const [marketQuotes, setMarketQuotes] = useState<EquityQuote[]>([]);
+  const [indexSnapshot, setIndexSnapshot] = useState(() => getIndexState().quotes);
+  const [btcSnapshot, setBtcSnapshot] = useState(() => getAsset('BTC'));
+  const [welcomeText, setWelcomeText] = useState('Welcome to NV Protocol. Your next move starts here.');
+  const welcomeDoneRef = useRef(false);
   const lastShownIdRef = useRef<string>('');
   const timerRef = useRef<number | null>(null);
+
+  const welcomeByLocale: Record<string, string> = {
+    'pt-BR': 'Boas-vindas ao NV Protocol. Sua próxima evolução começa agora.',
+    en: 'Welcome to NV Protocol. Your next evolution starts now.',
+    es: 'Te damos la bienvenida a NV Protocol. Tu próxima evolución comienza ahora.',
+    fr: 'Bienvenue sur NV Protocol. Votre prochaine évolution commence maintenant.',
+    zh: '欢迎来到 NV Protocol。你的下一次进化现在开始。',
+    ja: 'NV Protocolへようこそ。次の進化が今、始まります。',
+    ko: 'NV Protocol에 오신 것을 환영합니다. 다음 진화가 지금 시작됩니다.',
+    hi: 'NV Protocol में आपका स्वागत है। आपका अगला विकास अब शुरू होता है।',
+    ar: 'مرحبًا بك في NV Protocol. يبدأ تطورك التالي الآن.',
+  };
+
+  // Welcome in the user's selected language. Browsers may require a prior tap
+  // before allowing speech; the visible greeting always remains available.
+  useEffect(() => {
+    const greeting = welcomeByLocale[locale] ?? welcomeByLocale.en;
+    setWelcomeText(greeting);
+    if (!speech.supported || welcomeDoneRef.current) return;
+    welcomeDoneRef.current = true;
+    try {
+      speech.speak(greeting, { lang: localeBcp47, rate: 0.92, pitch: 1.02, volume: 0.8 });
+    } catch {
+      // Voice controls remain available when autoplay is blocked by the browser.
+    }
+  }, [locale, localeBcp47, speech.supported]);
+
+  // Refresh real BTC, local-market index and localized equity symbols.
+  useEffect(() => {
+    let cancelled = false;
+    const loadMarketBrief = async () => {
+      try {
+        const [quotes, indices] = await Promise.all([
+          fetchEquityQuotes(locale),
+          fetchAllIndices(),
+        ]);
+        if (cancelled) return;
+        setMarketQuotes(quotes);
+        setIndexSnapshot(indices);
+        setBtcSnapshot(getAsset('BTC'));
+      } catch {
+        if (!cancelled) setBtcSnapshot(getAsset('BTC'));
+      }
+    };
+    void loadMarketBrief();
+    const id = window.setInterval(() => { void loadMarketBrief(); }, 60_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [locale]);
+
+  const marketMeta = getLocaleTickerList(locale);
+  const localIndexSymbol: Record<string, string> = {
+    'pt-BR': 'IBOV', en: 'SPX', es: 'IBOV', fr: 'CAC', zh: 'SHCOMP',
+    ja: 'N225', ko: 'NDX', hi: 'NDX', ar: 'NDX',
+  };
+  const localIndex = indexSnapshot.get(localIndexSymbol[locale] ?? 'SPX');
+  const marketCurrency: Record<string, string> = {
+    'pt-BR': 'BRL', en: 'USD', es: 'EUR', fr: 'EUR', zh: 'CNY',
+    ja: 'JPY', ko: 'KRW', hi: 'INR', ar: 'SAR',
+  };
+  const formatMoney = (value: number, currency: string) => new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, {
+    style: 'currency', currency, maximumFractionDigits: value >= 1000 ? 0 : 2,
+  }).format(value);
 
   // Regenerate events when context or locale changes
   useEffect(() => {
@@ -189,6 +259,39 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
               title={t('presenter.allEvents')} aria-label={t('presenter.allEvents')}>
               <Radio size={13} className={expanded ? 'text-primary' : ''} />
             </button>
+          </div>
+        </div>
+
+        {/* Personalized welcome + real market briefing */}
+        <div className="mb-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/8 via-[#071316] to-cyan-500/5 p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Sparkles size={14} /></span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-primary">NV PRESENTER</div>
+              <div className="text-xs font-semibold text-foreground">{welcomeText}</div>
+            </div>
+            <span className="rounded-full border border-primary/20 px-2 py-0.5 text-[8px] font-mono text-primary/70">9 LANG</span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border border-white/5 bg-black/20 p-2">
+              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50">BITCOIN · BTC/USD</div>
+              {btcSnapshot?.isLive
+                ? <div className="mt-1 flex items-baseline gap-2"><span className="text-sm font-bold text-foreground">{formatMoney(btcSnapshot.price, 'USD')}</span><span className={btcSnapshot.change24h >= 0 ? 'text-[10px] text-emerald-400' : 'text-[10px] text-red-400'}>{btcSnapshot.change24h >= 0 ? '+' : ''}{btcSnapshot.change24h.toFixed(2)}%</span></div>
+                : <div className="mt-1 text-[10px] text-amber-300/70">{locale === 'pt-BR' ? 'Aguardando cotação verificada…' : 'Waiting for a verified quote…'}</div>}
+            </div>
+            <div className="rounded-lg border border-white/5 bg-black/20 p-2">
+              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50">{marketMeta.marketLabel} · {localIndex?.symbol ?? (localIndexSymbol[locale] ?? 'SPX')}</div>
+              {localIndex
+                ? <div className="mt-1 flex flex-wrap items-baseline gap-2"><span className="text-sm font-bold text-foreground">{formatMoney(localIndex.price, localIndex.currency || marketCurrency[locale] || 'USD')}</span><span className={localIndex.changePercent !== null && localIndex.changePercent >= 0 ? 'text-[10px] text-emerald-400' : 'text-[10px] text-red-400'}>{localIndex.changePercent === null ? '—' : `${localIndex.changePercent >= 0 ? '+' : ''}${localIndex.changePercent.toFixed(2)}%`}</span></div>
+                : <div className="mt-1 text-[10px] text-amber-300/70">{locale === 'pt-BR' ? 'Índice aguardando dados da bolsa…' : 'Waiting for verified index data…'}</div>}
+            </div>
+          </div>
+          <div className="mt-2 border-t border-white/5 pt-2">
+            <div className="mb-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">{locale === 'pt-BR' ? 'AÇÕES · MERCADOS GLOBAIS' : locale === 'es' ? 'ACCIONES · MERCADOS GLOBALES' : locale === 'fr' ? 'ACTIONS · MARCHÉS MONDIAUX' : locale === 'ar' ? 'الأسهم · الأسواق العالمية' : 'EQUITIES · GLOBAL MARKETS'}</div>
+            {marketQuotes.length > 0
+              ? <div className="flex flex-wrap gap-x-3 gap-y-1">{marketQuotes.slice(0, 8).map(q => <span key={q.symbol} className="inline-flex items-center gap-1 text-[9px] font-mono"><strong className="text-foreground/80">{q.symbol}</strong><span className={q.change !== null && q.change >= 0 ? 'text-emerald-400' : q.change !== null ? 'text-red-400' : 'text-muted-foreground/40'}>{q.price === null ? '—' : formatEquityPrice(q.price, q.currency)} {q.change === null ? '' : `${q.change >= 0 ? '+' : ''}${q.change.toFixed(2)}%`}</span></span>)}</div>
+              : <div className="text-[10px] text-muted-foreground/50">{locale === 'pt-BR' ? 'Carregando cotações verificadas; valores indisponíveis não são inventados.' : 'Loading verified quotes; unavailable values are never fabricated.'}</div>}
+            <div className="mt-1 text-[8px] text-muted-foreground/35">{locale === 'pt-BR' ? 'Cotações sujeitas a atraso. Informativo, não é recomendação financeira.' : 'Quotes may be delayed. Informational only, not financial advice.'}</div>
           </div>
         </div>
 
