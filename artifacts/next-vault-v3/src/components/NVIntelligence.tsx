@@ -1202,3 +1202,258 @@ export function NVIntelligence() {
     return clusters.filter(c => {
       if (filters.region !== 'all' && c.region !== filters.region) return false;
       if (filters.country !== 'all' && c.country !== filters.country) return false;
+      if (filters.priority !== 'all' && c.priority !== filters.priority) return false;
+      if (filters.categories.size > 0 && !filters.categories.has(c.category)) return false;
+      if (filters.confirmedOnly && !c.multiSourceConfirmed) return false;
+      return true;
+    });
+  }, [clusters, filters]);
+
+  // Region counts
+  const regionCounts = useMemo(() =>
+    news.reduce<Record<string, number>>((acc, item) => {
+      acc[item.region] = (acc[item.region] ?? 0) + 1;
+      return acc;
+    }, {}), [news]);
+
+  const breakingCount = useMemo(() => news.filter(n => n.priority === 'breaking').length, [news]);
+
+  // NV News queue for the Live provider — rebuilt whenever news or locale changes
+  const nvNewsQueue = useMemo(() => buildNVNewsQueue(news, 20, locale), [news, locale]);
+
+  // Active sources list
+  const activeSources = useMemo(() => [...new Set(news.map(n => n.source))].sort(), [news]);
+
+  const tabs: { id: 'feed' | 'agent' | 'nvnews'; labelKey: string; icon: typeof Newspaper }[] = [
+    { id: 'feed',   labelKey: 'intel.feed',   icon: Newspaper },
+    { id: 'agent',  labelKey: 'intel.agent',  icon: Bot },
+    { id: 'nvnews', labelKey: 'intel.news',   icon: Mic },
+  ];
+
+  return (
+    <NVLiveProvider queue={nvNewsQueue}>
+    <div className="w-full max-w-5xl mx-auto space-y-5">
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Globe size={20} className="text-primary" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-semibold text-foreground">{t('intel.nv')}</h1>
+              {breakingCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                  {breakingCount} {t('intel.breaking')}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {activeSources.length > 0 ? `${activeSources.length} sources · ${news.length} items` : 'Global market intelligence'}
+            </p>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <LanguageSelector />
+          <button
+            type="button"
+            onClick={() => { setLoading(true); loadNews(); }}
+            disabled={loading}
+            className="w-8 h-8 rounded-lg bg-secondary/30 border border-border/40 flex items-center justify-center hover:border-primary/30 hover:text-primary transition-all disabled:opacity-40"
+            title={t('intel.refresh')}
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin text-primary' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Stats bar ───────────────────────────────────────────────────────── */}
+      {news.length > 0 && (
+        <StatsBar news={news} clusters={clusters} lastUpdate={lastUpdate} />
+      )}
+
+      {/* ── Breaking ticker ─────────────────────────────────────────────────── */}
+      {news.filter(i => i.priority === 'breaking').length > 0 && (
+        <BreakingTicker items={news} />
+      )}
+
+      {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
+      <div className="flex rounded-xl border border-border/40 overflow-hidden text-sm font-medium">
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2.5 flex items-center justify-center gap-2 transition-all ${
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary/20 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon size={13} />
+              <span className="hidden sm:inline">{t(tab.labelKey)}</span>
+              {tab.id === 'feed' && news.length > 0 && (
+                <span className={`text-[10px] font-mono px-1 rounded ${isActive ? 'bg-white/20' : 'bg-secondary/50'}`}>
+                  {filteredNews.length}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Feed tab ────────────────────────────────────────────────────────── */}
+      {activeTab === 'feed' && (
+        <div className="space-y-4">
+
+          {/* Region tabs */}
+          <RegionTabBar
+            active={filters.region}
+            onChange={r => setFilters(prev => ({ ...prev, region: r, country: 'all' }))}
+            counts={regionCounts}
+          />
+
+          {/* View mode toggle + Advanced filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-lg border border-border/40 overflow-hidden text-[11px] font-mono">
+              <button
+                type="button"
+                onClick={() => setViewMode('clusters')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-all ${viewMode === 'clusters' ? 'bg-primary/15 text-primary' : 'text-muted-foreground/60 hover:text-foreground/70'}`}
+              >
+                <Layers size={11} />
+                {t('intel.viewClusters')}
+                {filteredClusters.length > 0 && (
+                  <span className={`text-[9px] px-1 rounded ${viewMode === 'clusters' ? 'bg-primary/20' : 'bg-secondary/40'}`}>
+                    {filteredClusters.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('flat')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border-l border-border/40 transition-all ${viewMode === 'flat' ? 'bg-primary/15 text-primary' : 'text-muted-foreground/60 hover:text-foreground/70'}`}
+              >
+                <Newspaper size={11} />
+                {t('intel.viewFlat')}
+                {filteredNews.length > 0 && (
+                  <span className={`text-[9px] px-1 rounded ${viewMode === 'flat' ? 'bg-primary/20' : 'bg-secondary/40'}`}>
+                    {filteredNews.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <FilterPanel filters={filters} onChange={setFilters} news={news} />
+
+          {/* Loading */}
+          {loading && news.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 space-y-3">
+              <Loader2 size={24} className="animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground/60">{t('intel.loading')}</p>
+              <p className="text-xs text-muted-foreground/40 font-mono">
+                Reuters · Bloomberg · BBC · FT · Nikkei · CoinDesk · Al Jazeera · Economic Times…
+              </p>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+              <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-xs text-muted-foreground/50 mt-1">{t('intel.partialError')}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!loading && viewMode === 'clusters' && filteredClusters.length === 0 && !error && (
+            <div className="text-center py-12 text-sm text-muted-foreground/50">{t('intel.noNews')}</div>
+          )}
+          {!loading && viewMode === 'flat' && filteredNews.length === 0 && !error && (
+            <div className="text-center py-12 text-sm text-muted-foreground/50">{t('intel.noNews')}</div>
+          )}
+
+          {/* Cluster view */}
+          {viewMode === 'clusters' && filteredClusters.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AnimatePresence mode="popLayout">
+                {filteredClusters.map(cluster => (
+                  <ClusterCard key={cluster.id} cluster={cluster} />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Flat view */}
+          {viewMode === 'flat' && filteredNews.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AnimatePresence mode="popLayout">
+                {filteredNews.map(item => (
+                  <NewsCard key={item.id} item={item} />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Source legend */}
+          {news.length > 0 && (
+            <div className="flex items-start gap-2 pt-2">
+              <CheckCircle2 size={11} className="text-emerald-400 shrink-0 mt-0.5" />
+              <div className="text-[10px] text-muted-foreground/50 font-mono leading-relaxed">
+                {t('intel.sources')}: {activeSources.slice(0, 14).join(' · ')}
+                {activeSources.length > 14 ? ` + ${activeSources.length - 14} more` : ''}
+              </div>
+            </div>
+          )}
+
+          <PendingIntegrationsPanel />
+        </div>
+      )}
+
+      {/* ── Agent tab ───────────────────────────────────────────────────────── */}
+      {activeTab === 'agent' && (
+        <div className="space-y-4">
+          <NVAgentPanel news={news} agentCtx={agentCtx} />
+          {news.length > 0 && (
+            <div className="rounded-xl border border-border/30 bg-secondary/10 px-4 py-3">
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
+                {t('intel.sources')}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {activeSources.map(src => (
+                  <span
+                    key={src}
+                    className="text-[9px] font-mono px-2 py-0.5 rounded bg-secondary/30 border border-border/20 text-muted-foreground/60"
+                  >
+                    {src}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          <PendingIntegrationsPanel />
+        </div>
+      )}
+
+      {/* ── NV News tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'nvnews' && (
+        <div className="space-y-4">
+          <NVNewsPanel news={news} />
+          <PendingIntegrationsPanel />
+        </div>
+      )}
+    </div>
+    </NVLiveProvider>
+  );
+}
