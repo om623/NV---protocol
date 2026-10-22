@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Loader2,
   Timer,
+  Globe,
 } from 'lucide-react';
 import type { NVNewsItem } from '../lib/intelligence';
 import { COUNTRY_FLAG, CATEGORY_CONFIG, formatRelativeTime } from '../lib/intelligence';
