@@ -461,7 +461,7 @@ function Home() {
   useEffect(() => subscribeNavigation((view, params) => {
     const valid: SidebarView[] = ['dashboard', 'swap', 'carteira', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
     if (!valid.includes(view as SidebarView)) return;
-    if (params) setPendingAgentIntent(params);
+    setPendingAgentIntent(view === 'bridge' && params ? params : null);
     if (view === 'swap' && params) {
       const requestedSource = typeof params.fromNetwork === 'string'
         ? NETWORKS_CONFIG.find(n => n.id === params.fromNetwork && n.type === 'mainnet' && getCctpNetwork(n.id))
@@ -473,7 +473,7 @@ function Home() {
       if (typeof params.sourceToken === 'string') setSourceToken(params.sourceToken);
       if (typeof params.destToken === 'string') setDestToken(params.destToken);
       const requestedDest = typeof params.toNetwork === 'string' ? params.toNetwork : '';
-      if (requestedDest && requestedDest !== sourceNetwork.id && getCctpNetwork(requestedDest)) {
+      if (requestedDest && requestedDest !== sourceNetwork.id && NETWORKS_CONFIG.some(n => n.id === requestedDest && n.type === 'mainnet' && getCctpNetwork(n.id))) {
         setSwapDestNetworkId(requestedDest);
       } else {
         setSwapDestNetworkId(defaultDestForAgent(sourceNetwork.id));
