@@ -71,7 +71,6 @@ const DEFAULT_TOKENS = [
   { symbol: 'ETH',  name: 'Ethereum' },
 ];
 
-const MOCK_BALANCES: Record<string, number> = { USDC: 5420.18, EURC: 3200.50, ETH: 12.48 };
 
 // Live exchange rates are derived from real CoinGecko prices via getAsset().
 // Falls back to reasonable defaults if the API hasn't loaded yet.
@@ -82,11 +81,7 @@ function livePrice(symbol: string): number {
   return Number.isFinite(p) ? p : (FALLBACK_PRICES[symbol] ?? 1);
 }
 
-const INITIAL_TRANSACTIONS = [
-  { id: '1', fromToken: 'USDC', toToken: 'EURC', fromAmount: 500, toAmount: 460.0, time: '2 min ago', status: 'Success' },
-  { id: '2', fromToken: 'EURC', toToken: 'USDC', fromAmount: 200, toAmount: 217.4, time: '1 hr ago', status: 'Success' },
-  { id: '3', fromToken: 'USDC', toToken: 'ETH', fromAmount: 1000, toAmount: 0.3112, time: '3 hrs ago', status: 'Success' }
-];
+const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fromAmount: number; toAmount: number; time: string; status: string }[] = [];
 
 // Network lists live in ./networks.ts — imported above.
 
@@ -836,7 +831,6 @@ function Home() {
     if (!amount || !Number.isFinite(parseFloat(amount)) || parseFloat(amount) <= 0) return;
     if (!isConnected) {
       setShowWalletPicker(true);
-      toast({ title: t('wallet.notFound'), description: t('wallet.installMetamask'), variant: 'destructive' });
       return;
     }
     if (!isRealSwap) {
@@ -848,9 +842,7 @@ function Home() {
 
   const handleReverse = () => { setSourceToken(destToken); setDestToken(sourceToken); };
   const handleMax = () => {
-    const raw = realBalances
-      ? (realBalances[sourceToken] ?? 0)
-      : MOCK_BALANCES[sourceToken];
+    const raw = realBalances ? (realBalances[sourceToken] ?? 0) : 0;
     const bal = safeBalance(raw);
     setAmount(bal.toString());
   };
@@ -1254,7 +1246,7 @@ function Home() {
                                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                                         <span>${isValidNum(sourceUsd) ? sourceUsd.toFixed(2) : '—'}</span>
                                         <span className="flex items-center gap-2">
-                                          {t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[sourceToken]) : safeBalanceFmt(MOCK_BALANCES[sourceToken])}
+                                          {t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[sourceToken]) : '—'}
                                           <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">{t('action.max')}</button>
                                         </span>
                                       </div>
@@ -1275,7 +1267,7 @@ function Home() {
                                       </div>
                                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                                         <span>${isValidNum(destUsd) ? destUsd.toFixed(2) : '—'}</span>
-                                        <span>{t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[destToken]) : safeBalanceFmt(MOCK_BALANCES[destToken])}</span>
+                                        <span>{t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[destToken]) : '—'}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -1380,7 +1372,7 @@ function Home() {
                                           ? 'bg-secondary/40 text-muted-foreground/50 border-border/30 cursor-not-allowed'
                                           : 'bg-primary text-primary-foreground border-primary/20 hover:bg-primary/90 hover:shadow-[0_0_30px_rgba(0,255,200,0.3)] active:scale-[0.98] animate-btn-pulse'
                                       }`}>
-                                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> {t('action.simulateSwap')}</span>
+                                      <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide"><Sparkles size={16} /> {t('action.swap')}</span>
                                       {amount && parseFloat(amount) > 0 && (
                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-[50%] -translate-x-[150%] group-hover:animate-shimmer skew-x-[-15deg]" />
                                       )}
