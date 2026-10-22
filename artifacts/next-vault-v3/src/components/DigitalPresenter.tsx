@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Pause, VolumeX, Repeat, Play, Radio, ChevronRight, Clock } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { fetchCryptoPrices } from '../lib/api';
 import { useSpeech } from '../hooks/use-speech';
 import {
   generateEditorialEvents,
@@ -24,6 +25,8 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
   const [expanded, setExpanded] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [elapsedMin, setElapsedMin] = useState(0);
+  const [welcomeMarketSummary, setWelcomeMarketSummary] = useState('');
+  const welcomeSpokenRef = useRef<string>('');
   const lastShownIdRef = useRef<string>('');
   const timerRef = useRef<number | null>(null);
 
@@ -50,6 +53,83 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
     context.recentSwapActivity,
     locale,
   ]);
+
+  // One welcome broadcast on dashboard entry: greeting + current BTC/USD + locale benchmark.
+  useEffect(() => {
+    if (!speech.supported || speech.muted || welcomeSpokenRef.current === locale) return;
+    welcomeSpokenRef.current = locale;
+    let alive = true;
+    const configByLocale: Record<string, { symbol: string; name: string }> = {
+      'pt-BR': { symbol: '^BVSP', name: 'Ibovespa' },
+      en: { symbol: '^GSPC', name: 'S&P 500' },
+      es: { symbol: '^IBEX', name: 'IBEX 35' },
+      fr: { symbol: '^FCHI', name: 'CAC 40' },
+      zh: { symbol: '000001.SS', name: '上证指数' },
+      ja: { symbol: '^N225', name: '日経225' },
+      ko: { symbol: '^KS11', name: 'KOSPI' },
+      hi: { symbol: '^NSEI', name: 'NIFTY 50' },
+      ar: { symbol: '^TASI', name: 'تداول' },
+    };
+    const config = configByLocale[locale] ?? configByLocale.en;
+    const greetings: Record<string, string> = {
+      'pt-BR': 'Bem-vindo ao NV Protocol. Eu sou a apresentadora NV. Confira agora o Bitcoin e o índice do seu mercado local.',
+      en: 'Welcome to NV Protocol. I am your NV presenter. Here are the latest Bitcoin and local market index quotes.',
+      es: 'Bienvenido a NV Protocol. Soy la presentadora NV. Estas son las últimas cotizaciones de Bitcoin y del índice de tu mercado local.',
+      fr: 'Bienvenue sur NV Protocol. Je suis votre présentatrice NV. Voici les dernières cotations du Bitcoin et de votre indice de marché local.',
+      zh: '欢迎来到 NV Protocol。我是 NV 主播。以下是比特币和您所在市场指数的最新报价。',
+      ja: 'NV Protocolへようこそ。NVプレゼンターです。ビットコインと地域市場指数の最新価格をお伝えします。',
+      ko: 'NV Protocol에 오신 것을 환영합니다. 저는 NV 진행자입니다. 비트코인과 현지 시장 지수의 최신 시세를 알려드립니다.',
+      hi: 'NV Protocol में आपका स्वागत है। मैं NV प्रस्तुतकर्ता हूँ। यहाँ Bitcoin और आपके स्थानीय बाज़ार सूचकांक के नवीनतम भाव हैं।',
+      ar: 'مرحبًا بك في NV Protocol. أنا مقدمة NV. إليك أحدث أسعار البيتكوين ومؤشر السوق المحلي.',
+    };
+    const loadWelcome = async () => {
+      let btcText = '';
+      let indexText = '';
+      try {
+        const prices = await fetchCryptoPrices();
+        const btc = prices.get('BTC');
+        if (btc && Number.isFinite(btc.current_price)) {
+          btcText = new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(btc.current_price);
+        }
+      } catch { /* omit unavailable quote instead of inventing it */ }
+      try {
+        const response = await fetch(`/yf-proxy/v8/finance/chart/${encodeURIComponent(config.symbol)}?interval=1d&range=5d`);
+        if (response.ok) {
+          const payload = await response.json() as { chart?: { result?: Array<{ meta?: { regularMarketPrice?: number } }> } };
+          const price = payload.chart?.result?.[0]?.meta?.regularMarketPrice;
+          if (typeof price === 'number' && Number.isFinite(price)) {
+            indexText = `${config.name}: ${new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, { maximumFractionDigits: 2 }).format(price)}`;
+          }
+        }
+      } catch { /* omit unavailable quote instead of inventing it */ }
+      if (!alive) return;
+      const parts = [
+        greetings[locale] ?? greetings.en,
+        btcText ? `Bitcoin: ${btcText} USD.` : '',
+        indexText ? `${indexText}.` : '',
+      ].filter(Boolean);
+      const spoken = parts.join(' ');
+      setWelcomeMarketSummary(parts.slice(1).join(' · '));
+      if (parts.length > 1) {
+        const localizedPrefix: Record<string, string> = {
+          'pt-BR': 'Os dados são informativos e podem mudar a qualquer momento.',
+          en: 'These quotes are informational and may change at any time.',
+          es: 'Estas cotizaciones son informativas y pueden cambiar en cualquier momento.',
+          fr: 'Ces cotations sont informatives et peuvent changer à tout moment.',
+          zh: '以上报价仅供参考，可能随时变化。',
+          ja: 'これらの価格は参考情報であり、随時変動する可能性があります。',
+          ko: '이 시세는 참고용이며 언제든지 변동될 수 있습니다.',
+          hi: 'ये भाव केवल जानकारी के लिए हैं और कभी भी बदल सकते हैं।',
+          ar: 'هذه الأسعار للمعلومات فقط وقد تتغير في أي وقت.',
+        };
+        speech.speak(`${spoken} ${localizedPrefix[locale] ?? localizedPrefix.en}`, { lang: localeBcp47, rate: 0.94, pitch: 0.96, volume: 0.75 });
+      } else {
+        speech.speak(greetings[locale] ?? greetings.en, { lang: localeBcp47, rate: 0.94, pitch: 0.96, volume: 0.75 });
+      }
+    };
+    void loadWelcome();
+    return () => { alive = false; };
+  }, [locale, localeBcp47, speech.supported, speech.muted, speech.speak]);
 
   // Update "Atualizado há X min"
   useEffect(() => {
@@ -191,6 +271,14 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
             </button>
           </div>
         </div>
+
+        {welcomeMarketSummary && (
+          <div className="mb-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/6 via-cyan-400/5 to-transparent px-3 py-2">
+            <div className="mb-1 text-[9px] font-mono font-bold uppercase tracking-[0.16em] text-primary">NV MARKET BRIEF</div>
+            <p className="text-[11px] leading-relaxed text-foreground/80">{welcomeMarketSummary}</p>
+            <p className="mt-1 text-[9px] text-muted-foreground/45">{t('ticker.ariaLabel')} · CoinGecko / Yahoo Finance</p>
+          </div>
+        )}
 
         {/* Event content */}
         <AnimatePresence mode="wait">
