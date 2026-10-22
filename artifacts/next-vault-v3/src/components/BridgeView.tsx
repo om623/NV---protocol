@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
@@ -10,6 +10,7 @@ import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
 import { SolanaBridgePanel } from './SolanaBridgePanel';
+import { consumeNavigationRequest } from '../lib/navigationStore';
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
@@ -134,6 +135,28 @@ export function BridgeView({
   >('idle');
 
   const [message, setMessage] = useState('');
+
+  // Requests from NV Agent only prefill this existing form. The user must still
+  // review the route and amount and explicitly press the Bridge confirmation.
+  useEffect(() => {
+    const request = consumeNavigationRequest('bridge');
+    if (!request) return;
+    const params = request.params ?? {};
+    const requestedFrom = typeof params.fromNetwork === 'string' && params.fromNetwork in MAINNET_NETWORKS
+      ? params.fromNetwork as MainnetId
+      : 'arc-mainnet';
+    const requestedTo = typeof params.toNetwork === 'string' && params.toNetwork in MAINNET_NETWORKS && params.toNetwork !== requestedFrom
+      ? params.toNetwork as MainnetId
+      : (requestedFrom === 'base' ? 'arc-mainnet' : 'base');
+    setEnvMode('mainnet');
+    setFromNetwork(requestedFrom);
+    setToNetwork(requestedTo);
+    setAmount(typeof params.amount === 'number' && Number.isFinite(params.amount) && params.amount > 0
+      ? String(params.amount)
+      : '');
+    setStatus('idle');
+    setMessage('');
+  }, []);
 
   // ─────────────────────────────────────────────────────────────
   // ROTA ATUAL
