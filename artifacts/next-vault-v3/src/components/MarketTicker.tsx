@@ -105,6 +105,17 @@ function ensureTickerAnimation() {
 
 // ─── Main MarketTicker component ──────────────────────────────────────────────
 export function MarketTicker() {
+  const INDEX_BY_LOCALE: Record<string, { symbol: string; name: string }> = {
+    'pt-BR': { symbol: '^BVSP', name: 'IBOVESPA' },
+    en: { symbol: '^GSPC', name: 'S&P 500' },
+    es: { symbol: '^IBEX', name: 'IBEX 35' },
+    fr: { symbol: '^FCHI', name: 'CAC 40' },
+    zh: { symbol: '000001.SS', name: '上证指数' },
+    ja: { symbol: '^N225', name: '日経225' },
+    ko: { symbol: '^KS11', name: 'KOSPI' },
+    hi: { symbol: '^NSEI', name: 'NIFTY 50' },
+    ar: { symbol: '^TASI', name: 'TADAWUL' },
+  };
   const { locale, t } = useI18n();
   const [quotes, setQuotes] = useState<EquityQuote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +123,7 @@ export function MarketTicker() {
   const [lastFetch, setLastFetch] = useState<number | null>(null);
   const [bitcoin, setBitcoin] = useState<CoinGeckoCoin | null>(null);
   const [bitcoinUpdatedAt, setBitcoinUpdatedAt] = useState<number | null>(null);
+  const [marketIndex, setMarketIndex] = useState<{ price: number; change: number | null; symbol: string; name: string } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const tickerList = getLocaleTickerList(locale);
@@ -170,6 +182,36 @@ export function MarketTicker() {
     const id = setInterval(() => { void loadBitcoin(); }, 60_000);
     return () => { alive = false; clearInterval(id); };
   }, []);
+
+  // Locale-selected benchmark index from the existing Yahoo Finance proxy.
+  useEffect(() => {
+    let alive = true;
+    const config = INDEX_BY_LOCALE[locale] ?? INDEX_BY_LOCALE.en;
+    const loadIndex = async () => {
+      try {
+        const response = await fetch(`/yf-proxy/v8/finance/chart/${encodeURIComponent(config.symbol)}?interval=1d&range=5d`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json() as {
+          chart?: { result?: Array<{ meta?: { regularMarketPrice?: number; chartPreviousClose?: number; previousClose?: number } }> };
+        };
+        const meta = payload.chart?.result?.[0]?.meta;
+        const price = meta?.regularMarketPrice;
+        const previous = meta?.chartPreviousClose ?? meta?.previousClose;
+        if (!alive) return;
+        setMarketIndex(typeof price === 'number' ? {
+          price,
+          change: typeof previous === 'number' && previous !== 0 ? ((price - previous) / previous) * 100 : null,
+          symbol: config.symbol,
+          name: config.name,
+        } : null);
+      } catch {
+        if (alive) setMarketIndex(null);
+      }
+    };
+    void loadIndex();
+    const id = setInterval(() => { void loadIndex(); }, 2 * 60 * 1000);
+    return () => { alive = false; clearInterval(id); };
+  }, [locale]);
 
   // Inject CSS animation once
   useEffect(() => { ensureTickerAnimation(); }, []);
@@ -253,6 +295,26 @@ export function MarketTicker() {
               {bitcoin.price_change_percentage_24h >= 0 ? '+' : ''}{bitcoin.price_change_percentage_24h.toFixed(2)}% 24h
             </span>
             {bitcoinUpdatedAt && <span className="text-[8px] font-mono text-muted-foreground/35">{t('ticker.justNow')}</span>}
+          </>
+        ) : (
+          <span className="text-[10px] font-mono text-muted-foreground/45">{t('ticker.apiPending')}</span>
+        )}
+      </div>
+
+      {/* Main financial index for the selected locale */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.04] px-3 py-2">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan-300/20 bg-cyan-300/5 px-2 py-1 text-[9px] font-mono font-bold tracking-wider text-cyan-200">
+          {marketIndex?.name ?? (INDEX_BY_LOCALE[locale] ?? INDEX_BY_LOCALE.en).name}
+        </span>
+        {marketIndex ? (
+          <>
+            <span className="text-xs font-mono font-semibold tabular-nums text-foreground">
+              {new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, { maximumFractionDigits: 2 }).format(marketIndex.price)}
+            </span>
+            {marketIndex.change !== null && <span className={`text-[10px] font-mono font-semibold tabular-nums ${marketIndex.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {marketIndex.change >= 0 ? '+' : ''}{marketIndex.change.toFixed(2)}%
+            </span>}
+            <span className="text-[8px] font-mono text-muted-foreground/35">Yahoo Finance · {marketIndex.symbol}</span>
           </>
         ) : (
           <span className="text-[10px] font-mono text-muted-foreground/45">{t('ticker.apiPending')}</span>
