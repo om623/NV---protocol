@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Pause, VolumeX, Repeat, Play, Radio, ChevronRight, Clock } from 'lucide-react';
+import { Volume2, Pause, VolumeX, Repeat, Play, Radio, ChevronRight, Clock, Sparkles } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { getAsset } from '../lib/marketData';
 import { getIndexState, fetchAllIndices } from '../lib/indices';
