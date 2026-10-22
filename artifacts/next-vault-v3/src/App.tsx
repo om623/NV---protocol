@@ -214,9 +214,12 @@ interface EnvNetworkSelectorProps {
 }
 
 const NETWORK_LOGO_SLUGS: Record<string, string> = {
-  ethereum: 'ethereum', base: 'base', arbitrum: 'arbitrum', optimism: 'optimism',
+  // Mainnets and matching testnets use the same canonical chain logo.
+  'arc-mainnet': 'arc', 'arc-testnet': 'arc',
+  ethereum: 'ethereum', sepolia: 'ethereum',
+  base: 'base', arbitrum: 'arbitrum', optimism: 'optimism',
   polygon: 'polygon', avalanche: 'avalanche', unichain: 'unichain', linea: 'linea',
-  sonic: 'sonic', 'world-chain': 'worldchain', monad: 'monad', sei: 'sei',
+  codex: 'codex', sonic: 'sonic', 'world-chain': 'worldchain', monad: 'monad', sei: 'sei',
   xdc: 'xdc', hyperevm: 'hyperliquid', ink: 'ink', plume: 'plume',
   cronos: 'cronos', plasma: 'plasma', xlayer: 'x-layer', injective: 'injective',
   morph: 'morph', pharos: 'pharos', edge: 'edge',
