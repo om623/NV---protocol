@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChartBar as BarChart2, Target, Activity, Factory as History, Zap, Clock, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Lightbulb, Eye, Shield } from 'lucide-react';
+import { Target, Activity, Zap, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Lightbulb, Eye, Shield } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
-import type { SimHistoryItem } from '../App';
 import { useI18n } from '../i18n';
 import {
   type MarketAsset, type MarketGroup, type TrendStatus,
@@ -14,11 +13,6 @@ import {
 interface IntelligenceColumnProps {
   envMode: EnvMode;
   activeNetwork: NetworkConfig;
-  simStats: { balance: number; roi: number; risk: number; execTime: number; poolsAnalyzed: number; opportunities: number };
-  simPhase: 'pipeline' | 'complete';
-  simId: string;
-  simHistory: SimHistoryItem[];
-  simProgress: number;
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -93,7 +87,7 @@ const NETWORK_STATS = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function IntelligenceColumn({
-  envMode, activeNetwork, simStats, simPhase, simId, simHistory, simProgress,
+  envMode, activeNetwork,
 }: IntelligenceColumnProps) {
   const { t } = useI18n();
   const [tipIdx] = useState(() => Math.floor(Math.random() * 5));
@@ -120,7 +114,6 @@ export function IntelligenceColumn({
     marketTimer.current = window.setTimeout(() => setMarketRefreshing(false), 500);
   };
 
-  const isRunning = simPhase === 'pipeline' && simStats.execTime > 0;
   const TIPS = [
     t('intel.tips.1'),
     t('intel.tips.2'),
@@ -166,82 +159,6 @@ export function IntelligenceColumn({
         </div>
       </div>
 
-      {/* ── Simulation Summary (preserved from RightPanel) ────────────────── */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <BarChart2 size={11} className="text-primary" />
-          {t('intel.simSummary')}
-        </div>
-        {simId ? (
-          <div className="space-y-1">
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">ID</span>
-              <span className="text-primary font-mono text-[11px]">{simId}</span>
-            </div>
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">{t('intel.status')}</span>
-              <span className={`font-mono text-[11px] flex items-center gap-1 ${simPhase === 'complete' ? 'text-emerald-400' : isRunning ? 'text-cyan-400' : 'text-muted-foreground'}`}>
-                {simPhase === 'complete' ? <CheckCircle2 size={10} /> : isRunning ? <Loader2 size={10} className="animate-spin" /> : null}
-                {simPhase === 'complete' ? t('intel.complete') : isRunning ? t('intel.running') : t('intel.waiting')}
-              </span>
-            </div>
-            {simProgress > 0 && simPhase === 'pipeline' && (
-              <div className="mt-2 mb-1">
-                <div className="flex justify-between text-[10px] font-mono text-muted-foreground/50 mb-1">
-                  <span>{t('intel.progress')}</span><span>{Math.round(simProgress)}%</span>
-                </div>
-                <div className="h-1 bg-secondary rounded-full overflow-hidden">
-                  <motion.div className="h-full bg-gradient-to-r from-primary to-emerald-400 rounded-full"
-                    style={{ width: `${simProgress}%` }} transition={{ ease: 'linear' }} />
-                </div>
-              </div>
-            )}
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">{t('dash.roi')}</span>
-              <span className="text-emerald-400 font-mono text-[11px]">+{simStats.roi.toFixed(2)}%</span>
-            </div>
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">{t('dash.risk')}</span>
-              <span className="text-yellow-400 font-mono text-[11px]">{simStats.risk.toFixed(1)}%</span>
-            </div>
-            <div className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">{t('intel.pools')}</span>
-              <span className="text-violet-400 font-mono text-[11px]">{simStats.poolsAnalyzed}</span>
-            </div>
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground/40 font-mono">{t('intel.noSimulation')}</p>
-        )}
-      </div>
-
-      {/* ── Current Opportunity (preserved) ───────────────────────────────── */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <Target size={11} className="text-orange-400" />
-          {t('intel.currentOpportunity')}
-        </div>
-        <div className="space-y-2">
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">{t('intel.opportunities')}</span>
-            <span className="text-orange-400 font-mono text-[11px] font-bold">{simStats.opportunities}</span>
-          </div>
-          <div className={fieldRow}>
-            <span className="text-muted-foreground/60 font-mono">{t('intel.strategy')}</span>
-            <span className="text-foreground font-mono text-[10px]">Arbitrum v2</span>
-          </div>
-          <div className="mt-1">
-            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-orange-500 to-amber-400 rounded-full"
-                animate={{ width: `${Math.min(100, (simStats.opportunities / 7) * 100)}%` }}
-                transition={{ ease: 'easeOut', duration: 0.6 }}
-              />
-            </div>
-            <div className="text-[9px] text-muted-foreground/40 font-mono mt-1 text-right">{simStats.opportunities}/7 {t('intel.slots')}</div>
-          </div>
-        </div>
-      </div>
-
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
       <div className={panelCard}>
         <div className={panelLabel}>
@@ -281,28 +198,6 @@ export function IntelligenceColumn({
           </div>
         </div>
       </div>
-
-      {/* ── Recent History (preserved) ────────────────────────────────────── */}
-      {simHistory.length > 0 && (
-        <div className={panelCard}>
-          <div className={panelLabel}>
-            <History size={11} className="text-primary" />
-            {t('intel.recentHistory')}
-            <span className="ml-auto bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px]">{simHistory.length}</span>
-          </div>
-          <div className="space-y-1.5">
-            {simHistory.slice(0, 4).map(item => (
-              <div key={item.id} className="flex items-center justify-between bg-secondary/30 rounded-lg px-2.5 py-1.5">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-mono text-primary">{item.id}</span>
-                  <span className="text-[8px] text-muted-foreground/40 font-mono">{item.duration.toFixed(1)}s</span>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-400">+{item.roi.toFixed(2)}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── Security Status (new institutional touch) ─────────────────────── */}
       <div className={panelCard}>
