@@ -135,24 +135,35 @@ export function ProfileView({
       {/* ── Profile Header Card ───────────────────────────────────────────── */}
       <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
-          {/* Avatar */}
-          <div className={`relative w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 ${
-            gamification.equippedSkin === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/30' :
-            gamification.equippedSkin === 'silver' ? 'bg-gradient-to-br from-slate-300/15 to-slate-500/10 border border-slate-300/25' :
-            gamification.equippedSkin === 'bronze' ? 'bg-gradient-to-br from-orange-400/15 to-orange-600/10 border border-orange-400/25' :
-            gamification.equippedSkin === 'platinum' ? 'bg-gradient-to-br from-cyan-300/15 to-cyan-500/10 border border-cyan-300/25' :
-            gamification.equippedSkin === 'premium-500' ? 'bg-gradient-to-br from-amber-400/25 to-amber-600/15 border border-amber-400/40' :
-            gamification.equippedSkin === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/50' :
-            'bg-primary/10 border border-primary/20'
-          }`}>
-            <span className="text-2xl font-bold text-primary">{level >= 1000 ? '' : ''}{level >= 2000 ? '' : ''}</span>
-            <Shield size={32} className="text-primary/80" />
+          {/* NV Core Avatar — evolves visually with the player's level */}
+          <motion.div
+            key={Math.min(10, Math.floor((level - 1) / 100))}
+            initial={{ scale: 0.88, opacity: 0.65 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+            className={`relative w-24 h-24 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden border ${level >= 1000 ? 'border-amber-300/70 bg-gradient-to-br from-amber-300/25 via-primary/15 to-violet-500/25 shadow-[0_0_28px_rgba(245,158,11,0.22)]' : level >= 500 ? 'border-violet-300/50 bg-gradient-to-br from-violet-500/20 via-cyan-400/15 to-primary/20 shadow-[0_0_24px_rgba(139,92,246,0.2)]' : level >= 100 ? 'border-cyan-300/50 bg-gradient-to-br from-cyan-400/20 via-primary/15 to-blue-500/20 shadow-[0_0_18px_rgba(34,211,238,0.18)]' : 'border-primary/30 bg-gradient-to-br from-primary/15 via-cyan-500/10 to-slate-900'}`}
+            aria-label={`NV Core avatar, level ${level}`}
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: level >= 500 ? 9 : 18, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-2 rounded-full border border-dashed border-primary/35"
+            />
+            <motion.div
+              animate={{ y: [0, -2, 0], scale: level >= 1000 ? [1, 1.06, 1] : [1, 1.025, 1] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+              className="relative flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-950/65 border border-primary/30"
+            >
+              <Shield size={30} strokeWidth={1.5} className={level >= 1000 ? 'text-amber-300' : level >= 500 ? 'text-violet-300' : 'text-primary'} />
+              <Sparkles size={12} className="absolute -top-1 -right-1 text-cyan-200 animate-pulse" />
+            </motion.div>
+            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-slate-950/90 border border-primary/30 text-[9px] font-mono font-bold text-primary">NV {level >= 1000 ? 'X' : level >= 500 ? 'V' : level >= 100 ? 'III' : level >= 10 ? 'II' : 'I'}</span>
             {gamification.equippedTitle && (
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
+              <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
                 {t(`title.${gamification.equippedTitle}`)}
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* Level & XP */}
           <div className="flex-1 min-w-0 w-full">
@@ -242,20 +253,42 @@ export function ProfileView({
       {/* ── Overview Tab ──────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          {/* Season & Event */}
-          <div className="rounded-2xl border border-border/40 bg-card/80 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar size={14} className="text-violet-400" />
-              <h3 className="text-sm font-semibold text-foreground">{t('profile.event')}</h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
-                {t('nav.comingSoon')}
-              </span>
+          {/* NV Season 0 — open launch season */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden rounded-2xl border border-primary/35 bg-gradient-to-br from-primary/10 via-card/90 to-violet-500/10 p-4"
+          >
+            <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full border border-primary/15" />
+            <div className="absolute -right-3 -top-5 h-20 w-20 rounded-full border border-dashed border-cyan-300/20 animate-[spin_24s_linear_infinite]" />
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-slate-950/60 text-primary shadow-[0_0_18px_rgba(0,229,188,0.12)]">
+                <Calendar size={21} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h3 className="text-sm font-bold tracking-wide text-foreground">NV SEASON 0</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-mono font-bold tracking-wider text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" /> OPEN
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">A temporada de estreia está aberta. Explore o NV Protocol, conclua ações elegíveis e acumule XP para desbloquear sua evolução.</p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">Season XP</div>
+                    <div className="text-lg font-bold text-primary">{number(gamification.seasonXP, 1)} <span className="text-[10px] font-medium text-muted-foreground">XP</span></div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">Progress</div>
+                    <div className="text-xs font-mono text-cyan-300">LEVEL {number(level, 0)} / 1000</div>
+                  </div>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary/70">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (level / 1000) * 100)}%` }} transition={{ duration: 0.7 }} className="h-full rounded-full bg-gradient-to-r from-primary via-cyan-300 to-violet-400" />
+                </div>
+              </div>
             </div>
-            <div className="py-6 text-center">
-              <Calendar size={28} className="text-muted-foreground/20 mx-auto mb-2" />
-              <p className="text-[11px] font-mono text-muted-foreground/40">{t('profile.eventSoon')}</p>
-            </div>
-          </div>
+          </motion.div>
 
           {/* Equipped items */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -296,11 +329,11 @@ export function ProfileView({
                 const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
                 return (
                   <div key={badge.id} className={`rounded-xl border p-3 transition-all ${
-                    unlocked ? 'border-primary/25 bg-primary/5' : 'border-border/30 bg-secondary/20 opacity-50'
+                    unlocked ? 'border-primary/45 bg-gradient-to-br from-primary/12 via-cyan-400/5 to-violet-500/10 shadow-[0_0_16px_rgba(0,229,188,0.08)]' : 'border-border/30 bg-secondary/20 opacity-60 grayscale-[35%]'
                   }`}>
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        unlocked ? 'bg-primary/15 text-primary' : 'bg-secondary/50 text-muted-foreground/40'
+                        unlocked ? 'bg-gradient-to-br from-primary/25 to-violet-500/20 text-cyan-200 ring-1 ring-primary/25' : 'bg-secondary/50 text-muted-foreground/40'
                       }`}>
                         {unlocked ? <Icon size={14} /> : <Lock size={12} />}
                       </div>
