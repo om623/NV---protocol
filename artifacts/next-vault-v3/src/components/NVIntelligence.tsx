@@ -1081,6 +1081,22 @@ function LanguageSelector() {
 
 export function NVIntelligence() {
   const { t, locale } = useI18n();
+
+  // NV Presenter welcome — browser-native voice in the user's selected language.
+  useEffect(() => {
+    const greetings: Record<string, string> = {
+      'pt-BR': 'Bem-vindo ao NV Protocol. Eu sou a apresentadora NV. Aqui você acompanha os mercados globais, notícias verificadas e a evolução do seu perfil.',
+      en: 'Welcome to NV Protocol. I am your NV presenter. Here you can follow global markets, verified news, and your profile progression.',
+      es: 'Bienvenido a NV Protocol. Soy la presentadora NV. Aquí puedes seguir los mercados globales, noticias verificadas y la evolución de tu perfil.',
+      fr: 'Bienvenue sur NV Protocol. Je suis votre présentatrice NV. Ici, vous suivez les marchés mondiaux, les actualités vérifiées et la progression de votre profil.',
+      zh: '欢迎来到 NV Protocol。我是 NV 主播。您可以在这里关注全球市场、经过核实的新闻以及个人资料等级进度。',
+      ja: 'NV Protocolへようこそ。NVプレゼンターです。世界市場、確認済みニュース、プロフィールの成長をお届けします。',
+      ko: 'NV Protocol에 오신 것을 환영합니다. 저는 NV 진행자입니다. 글로벌 시장, 확인된 뉴스, 프로필 성장을 안내합니다.',
+      hi: 'NV Protocol में आपका स्वागत है। मैं NV प्रस्तुतकर्ता हूँ। यहाँ आप वैश्विक बाज़ार, सत्यापित समाचार और अपनी प्रोफ़ाइल की प्रगति देख सकते हैं।',
+      ar: 'مرحبًا بك في NV Protocol. أنا مقدمة NV. يمكنك هنا متابعة الأسواق العالمية والأخبار الموثوقة وتطور ملفك الشخصي.',
+    };
+    enqueueNVVoice(greetings[locale] ?? greetings.en, locale);
+  }, [locale]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsFetchedAt, setNewsFetchedAt] = useState(0);
   const [clusters, setClusters] = useState<EventCluster[]>([]);
