@@ -57,12 +57,11 @@ const WALLET_EVM_KW = [
 ];
 
 const PAYMENT_KW = [
-  'send', 'enviar', 'pay', 'pagar', 'payment', 'pagamento',
-  'transfer', 'transferir', 'transferência', 'transferencia',
-  'how to pay', 'como pagar', 'send usdc', 'enviar usdc',
-  'send eth', 'how to send', 'como enviar', 'make a payment',
-  'fazer pagamento', 'realizar pagamento', 'usdc payment',
-  'base payment', 'purchase', 'compra',
+  'payment', 'pagamento', 'payments', 'pagamentos', 'payment status', 'status do pagamento',
+  'how to pay', 'como pagar', 'send usdc', 'enviar usdc', 'send eth', 'how to send',
+  'como enviar', 'make a payment', 'fazer pagamento', 'realizar pagamento',
+  'usdc payment', 'base payment', 'purchase status', 'status da compra', 'compra com usdc',
+  'comprar com usdc', 'checkout', 'gamification purchase', 'pagamento confirmado',
 ];
 
 const CRE_KW = [
@@ -520,7 +519,7 @@ function answerProtocolInfo(): AgentResponse {
   };
 }
 
-function answerPortfolio(ctx: NVAgentContext, t: (k: string) => string): AgentResponse {
+function answerPortfolio(ctx: NVAgentContext): AgentResponse {
   const lines = ['Wallet overview', ''];
   const evm = ctx.evmWallet;
   const sol = ctx.solanaWallet;
@@ -817,7 +816,7 @@ export function agentQuery(
       return answerProtocolInfo();
 
     case 'portfolio_info':
-      return answerPortfolio(ctx, t);
+      return answerPortfolio(ctx);
 
     case 'market_sentiment':
       return answerMarketSentiment(ctx, t);
