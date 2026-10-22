@@ -4,7 +4,7 @@ import type { NetworkConfig } from '../networks';
 import { getAllAssets, type MarketAsset } from '../lib/marketData';
 import { fetchEquityQuotes, type EquityQuote } from '../lib/equities';
 
-type ConverterGroup = 'fiat' | 'crypto' | 'commodities' | 'stocks' | 'tokenized';
+type ConverterGroup = 'fiat' | 'crypto' | 'commodities' | 'stocks';
 type ConverterAsset = {
   symbol: string;
   name: string;
@@ -18,34 +18,6 @@ const usdPerUnit = (asset: MarketAsset) => asset.category === 'fiat' ? (asset.pr
 const money = (value: number, currency = 'USD') => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency, maximumFractionDigits: value < 0.01 ? 8 : 4,
 }).format(value);
-
-const XSTOCKS = [
-  { symbol: 'AAPLx', name: 'Apple tokenizada' },
-  { symbol: 'NVDAx', name: 'NVIDIA tokenizada' },
-  { symbol: 'TSLAx', name: 'Tesla tokenizada' },
-  { symbol: 'AMZNx', name: 'Amazon tokenizada' },
-  { symbol: 'GOOGLx', name: 'Alphabet tokenizada' },
-  { symbol: 'MSFTx', name: 'Microsoft tokenizada' },
-  { symbol: 'SPYx', name: 'ETF S&P 500 tokenizado' },
-  { symbol: 'QQQx', name: 'ETF Nasdaq-100 tokenizado' },
-];
-
-async function fetchTokenizedAssets(): Promise<ConverterAsset[]> {
-  const results = await Promise.all(XSTOCKS.map(async item => {
-    try {
-      const response = await fetch(`https://api.xstocks.fi/api/v2/public/assets/${encodeURIComponent(item.symbol)}/price-data`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) throw new Error('xStocks quote unavailable');
-      const data = await response.json() as { quote?: number | null };
-      const price = typeof data.quote === 'number' && Number.isFinite(data.quote) && data.quote > 0 ? data.quote : null;
-      return { symbol: item.symbol, name: item.name, group: 'tokenized' as const, usdPrice: price, source: 'xStocks', live: price !== null };
-    } catch {
-      return { symbol: item.symbol, name: item.name, group: 'tokenized' as const, usdPrice: null, source: 'xStocks', live: false };
-    }
-  }));
-  return results;
-}
 
 function mapEquity(quote: EquityQuote, fx: Map<string, number>): ConverterAsset {
   const ratePerUsd = fx.get(quote.currency) ?? (quote.currency === 'USD' ? 1 : 0);
@@ -66,7 +38,6 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
   const [amount, setAmount] = useState('1');
   const [refreshKey, setRefreshKey] = useState(0);
   const [equities, setEquities] = useState<ConverterAsset[]>([]);
-  const [tokenized, setTokenized] = useState<ConverterAsset[]>([]);
   const [gasPrice, setGasPrice] = useState<string | null>(null);
   const [gasLoading, setGasLoading] = useState(false);
   const [gasError, setGasError] = useState(false);
@@ -97,22 +68,20 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
     const load = async () => {
       const fx = new Map<string, number>();
       for (const asset of getAllAssets()) if (asset.category === 'fiat') fx.set(asset.symbol, asset.price);
-      const [brQuotes, usQuotes, xQuotes] = await Promise.all([
+      const [brQuotes, usQuotes] = await Promise.all([
         fetchEquityQuotes('pt-BR'),
         fetchEquityQuotes('en'),
-        fetchTokenizedAssets(),
       ]);
       if (cancelled) return;
       const merged = new Map<string, ConverterAsset>();
       [...brQuotes, ...usQuotes].forEach(q => merged.set(q.symbol, mapEquity(q, fx)));
       setEquities([...merged.values()]);
-      setTokenized(xQuotes);
     };
     void load();
     return () => { cancelled = true; };
   }, [refreshKey]);
 
-  const allAssets = useMemo(() => [...baseAssets, ...equities, ...tokenized], [baseAssets, equities, tokenized]);
+  const allAssets = useMemo(() => [...baseAssets, ...equities], [baseAssets, equities]);
   const available = useMemo(() => allAssets.filter(a => a.group === group), [allAssets, group]);
   const fromAsset = allAssets.find(a => a.symbol === from) ?? available[0];
   const toAsset = allAssets.find(a => a.symbol === to) ?? allAssets.find(a => a.symbol === 'USD');
@@ -159,7 +128,7 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
   const selectClass = 'min-w-0 rounded-lg border border-border/50 bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary/50';
   const tabs: [ConverterGroup, string][] = [
     ['crypto', 'Cripto & stablecoins'], ['fiat', 'Fiat'], ['commodities', 'Commodities'],
-    ['stocks', 'Ações / ETFs'], ['tokenized', 'Ações tokenizadas'],
+    ['stocks', 'Ações / ETFs'],
   ];
   return (
     <section className="w-full rounded-2xl border border-white/[0.06] bg-card/85 backdrop-blur-xl p-3 sm:p-4 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
@@ -204,7 +173,6 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
           </div>
         </div>
       </div>
-      {group === 'tokenized' && <p className="text-[9px] text-muted-foreground/45 mt-2">Fonte: API pública xStocks. Tokens sem preço disponível não são estimados nem substituídos pelo preço da ação tradicional.</p>}
       {group === 'stocks' && <p className="text-[9px] text-muted-foreground/45 mt-2">Ações, ETFs e FIIs selecionados; dados via Yahoo Finance podem sofrer atraso de mercado. O conversor não executa ordens.</p>}
       <div className="mt-3 border-t border-border/30 pt-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
