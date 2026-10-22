@@ -1,55 +1,78 @@
-import type { Locale } from "../i18n/types";
+/**
+ * NV Agent response voice — browser-native speech, no paid voice API.
+ *
+ * Speech is queued serially. Never call speechSynthesis.cancel(), pause(), or
+ * resume(): changing Silent mode affects future replies only and never cuts
+ * off speech already in progress.
+ */
+
+const LOCALE_TO_BCP47: Record<string, string> = {
+  'pt-BR': 'pt-BR',
+  en: 'en-US',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  zh: 'zh-CN',
+  ja: 'ja-JP',
+  ko: 'ko-KR',
+  hi: 'hi-IN',
+  ar: 'ar-SA',
+};
 
 let muted = false;
 let queue: Promise<void> = Promise.resolve();
-let activeAudio: HTMLAudioElement | null = null;
 
 export function isNVVoiceMuted(): boolean {
   return muted;
 }
 
-/** Muting affects queued/future replies only. It never pauses or stops active audio. */
 export function setNVVoiceMuted(nextMuted: boolean): void {
+  // Intentionally does not interrupt or cancel current/previously queued speech.
   muted = nextMuted;
 }
 
-export function enqueueNVVoice(text: string, locale: Locale): void {
-  const spokenText = text.trim().slice(0, 2500);
-  if (!spokenText || muted || typeof window === "undefined") return;
+function speak(text: string, locale: string): Promise<void> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    console.warn('[NV Agent voice] Browser speech synthesis is unavailable.');
+    return Promise.resolve();
+  }
 
-  queue = queue
-    .then(async () => {
-      // Respect a mute choice made while this item was waiting in the queue.
-      if (muted) return;
+  return new Promise(resolve => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const lang = LOCALE_TO_BCP47[locale] ?? 'en-US';
+    utterance.lang = lang;
+    utterance.rate = 0.96;
+    utterance.pitch = 0.88;
+    utterance.volume = 1;
 
-      const response = await fetch("/api/nv-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: spokenText, locale }),
-      });
-      if (!response.ok) {
-        throw new Error(response.status === 503 ? "NV Voice is not configured." : "NV Voice request failed.");
-      }
+    const chooseVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const exact = voices.find(voice => voice.lang.toLowerCase() === lang.toLowerCase());
+      const prefix = voices.find(voice => voice.lang.toLowerCase().startsWith(lang.split('-')[0].toLowerCase()));
+      const selected = exact ?? prefix;
+      if (selected) utterance.voice = selected;
+    };
+    chooseVoice();
 
-      const blob = await response.blob();
-      if (muted || !blob.size) return;
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      activeAudio = audio;
+    utterance.onend = () => resolve();
+    utterance.onerror = event => {
+      console.warn('[NV Agent voice] Speech playback failed:', event.error);
+      resolve();
+    };
 
-      try {
-        await new Promise<void>((resolve, reject) => {
-          audio.addEventListener("ended", () => resolve(), { once: true });
-          audio.addEventListener("error", () => reject(new Error("Audio playback failed.")), { once: true });
-          void audio.play().catch(reject);
-        });
-      } finally {
-        if (activeAudio === audio) activeAudio = null;
-        URL.revokeObjectURL(url);
-      }
-    })
-    .catch((error: unknown) => {
-      // Text remains available if voice generation/playback fails.
-      console.warn("[NV Voice]", error instanceof Error ? error.message : error);
-    });
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.warn('[NV Agent voice] Unable to start speech:', error);
+      resolve();
+    }
+  });
+}
+
+/** Queue one reply; speech already in progress is never interrupted. */
+export function enqueueNVVoice(text: string, locale: string): void {
+  const cleanText = text.trim();
+  if (!cleanText || muted) return;
+  queue = queue.then(() => speak(cleanText, locale)).catch(error => {
+    console.warn('[NV Agent voice] Queue error:', error);
+  });
 }
