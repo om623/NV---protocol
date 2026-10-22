@@ -33,7 +33,6 @@ import { BridgeView } from './components/BridgeView';
 import { WalletView } from './components/WalletView';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { DashboardConverter } from './components/DashboardConverter';
-import { GlobalAssetMarkets } from './components/GlobalAssetMarkets';
 import { MarketGrid } from './components/MarketGrid';
 import { MarketTicker } from './components/MarketTicker';
 import { PortfolioCharts } from './components/PortfolioCharts';
@@ -1289,7 +1288,6 @@ function Home() {
               />
 
               <DashboardConverter activeNetwork={activeNetwork} />
-              <GlobalAssetMarkets />
 
               {/* ── Market grid ──────────────────────────────────────── */}
               <MarketGrid />
