@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Wallet, Activity, Droplets,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
-import { safeUsd, safeNum, safePct, isValidNum } from '../lib/utils';
+import { safeUsd, isValidNum } from '../lib/utils';
 import { useI18n, useFormat } from '../i18n';
 
 interface ExecutiveDashboardProps {
