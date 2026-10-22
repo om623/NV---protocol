@@ -102,12 +102,12 @@ const ACTION_TRANSFER_KW = [
 ];
 
 const ACTION_BRIDGE_KW = [
-  'bridge usdc from', 'bridge from', 'executar bridge', 'fazer bridge', 'quero fazer bridge',
+  'bridge usdc', 'bridge from', 'executar bridge', 'fazer bridge', 'quero fazer bridge',
   'move usdc from', 'mover usdc de', 'i want to bridge', 'start bridge', 'iniciar bridge',
 ];
 
 const ACTION_SWAP_KW = [
-  'swap usdc', 'swap from', 'executar swap', 'fazer swap', 'quero fazer swap',
+  'swap usdc', 'swap from', 'executar swap', 'fazer swap', 'quero fazer swap', 'trocar usdc', 'converter usdc',
   'swap tokens', 'i want to swap', 'start a swap', 'iniciar swap',
   'swap usdc to', 'swap eth for',
 ];
@@ -589,6 +589,53 @@ function parseAddress(q: string): string | null {
   return null;
 }
 
+function detectMainnetId(question: string, excludeId?: string): string | null {
+  const q = question.toLowerCase();
+  const aliases: Array<[string, string[]]> = [
+    ['arc-mainnet', ['arc mainnet', 'arc']],
+    ['base', ['base mainnet', 'base']],
+    ['ethereum', ['ethereum mainnet', 'ethereum', 'mainnet eth']],
+    ['arbitrum', ['arbitrum one', 'arbitrum']],
+    ['optimism', ['op mainnet', 'optimism']],
+    ['polygon', ['polygon pos', 'polygon']],
+    ['avalanche', ['avalanche', 'avax']],
+    ['unichain', ['unichain']],
+    ['linea', ['linea']],
+    ['codex', ['codex']],
+    ['sonic', ['sonic']],
+    ['world-chain', ['world chain']],
+    ['monad', ['monad']],
+    ['sei', ['sei network', 'sei']],
+    ['xdc', ['xdc network', 'xdc']],
+    ['hyperevm', ['hyperevm', 'hyper evm']],
+    ['ink', ['ink network', 'ink']],
+    ['plume', ['plume']],
+    ['edge', ['edge network']],
+    ['injective', ['injective', 'inevm']],
+    ['morph', ['morph']],
+    ['pharos', ['pharos']],
+    ['cronos', ['cronos']],
+    ['plasma', ['plasma']],
+    ['xlayer', ['x layer', 'xlayer']],
+  ];
+  for (const [id, names] of aliases) {
+    if (id !== excludeId && names.some(name => q.includes(name))) return id;
+  }
+  return null;
+}
+
+function requestedTokens(question: string): { sourceToken: string; destToken: string } {
+  const q = question.toLowerCase();
+  const match = q.match(/(?:swap|trocar|converter)\s+(?:\d+(?:[.,]\d+)?\s*)?([a-z]{2,8})\s+(?:to|for|por|para|em)\s+([a-z]{2,8})/i);
+  const valid = new Set(['USDC', 'EURC', 'ETH', 'USDT', 'DAI', 'WETH', 'WBTC']);
+  if (match) {
+    const from = match[1].toUpperCase();
+    const to = match[2].toUpperCase();
+    if (valid.has(from) && valid.has(to)) return { sourceToken: from, destToken: to };
+  }
+  return { sourceToken: 'USDC', destToken: 'USDC' };
+}
+
 function answerActionTransfer(
   question: string,
   ctx: NVAgentContext,
@@ -674,10 +721,18 @@ function answerActionBridge(
   lines.push(t('agent.action.reviewInWallet'));
   lines.push(''); lines.push(t('agent.action.noAutoExecute'));
 
+  const requestedFrom = detectMainnetId(question);
+  const requestedTo = detectMainnetId(question, requestedFrom ?? undefined);
   const action: AgentAction = {
     type: 'bridge',
     navigateTo: 'bridge',
-    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0 },
+    params: {
+      envMode: 'mainnet',
+      amount: amount ?? null,
+      fromSolana: isSolanaSource ? 1 : 0,
+      fromNetwork: isSolanaSource ? 'solana' : requestedFrom,
+      toNetwork: requestedTo,
+    },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
@@ -708,11 +763,20 @@ function answerActionSwap(
   lines.push(t('agent.action.reviewInWallet'));
   lines.push(''); lines.push(t('agent.action.noAutoExecute'));
 
-  // Swap in NV Protocol = CCTP cross-chain transfer (no DEX)
+  const requestedFrom = detectMainnetId(question);
+  const requestedTo = detectMainnetId(question, requestedFrom ?? undefined);
+  const tokens = requestedTokens(question);
   const action: AgentAction = {
     type: 'swap',
-    navigateTo: 'bridge',
-    params: { amount: amount ?? null },
+    navigateTo: 'swap',
+    params: {
+      envMode: 'mainnet',
+      amount: amount ?? null,
+      fromNetwork: requestedFrom,
+      toNetwork: requestedTo,
+      sourceToken: tokens.sourceToken,
+      destToken: tokens.destToken,
+    },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
