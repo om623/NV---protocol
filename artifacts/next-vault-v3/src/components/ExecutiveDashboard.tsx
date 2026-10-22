@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Wallet, Activity, Droplets,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
-import { safeUsd, safeNum, safePct, isValidNum } from '../lib/utils';
+import { safeUsd, isValidNum } from '../lib/utils';
 import { useI18n, useFormat } from '../i18n';
 
 interface ExecutiveDashboardProps {
@@ -24,14 +24,6 @@ interface ExecStat {
   color: string;
   glow: string;
 }
-
-const ACTIVITY_SEED = [
-  { label: 'Swap USDC → EURC', time: '2m', positive: true,  amount: '+$460' },
-  { label: 'Pool liquidity added', time: '14m', positive: false, amount: '-$1,200' },
-  { label: 'Yield harvested',   time: '1h',  positive: true,  amount: '+$82.4' },
-  { label: 'Swap EURC → USDC',  time: '3h',  positive: true,  amount: '+$217' },
-  { label: 'Gas optimization',  time: '5h',  positive: true,  amount: '+$12.8' },
-];
 
 function sentimentColor(idx: number): string {
   if (idx >= 75) return 'text-emerald-400';
@@ -52,20 +44,12 @@ function sentimentBg(idx: number): string {
 export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: ExecutiveDashboardProps) {
   const { t } = useI18n();
   const fmt = useFormat();
-  const [sparkData, setSparkData] = useState<number[]>(() =>
-    Array.from({ length: 28 }, (_, i) => 44200 + Math.sin(i / 3) * 1200 + Math.random() * 400),
-  );
   const [sentiment, setSentiment] = useState(() => getMarketSentiment());
+  const btc = getAsset('BTC');
+  const sparkData = btc?.spark?.filter(v => Number.isFinite(v) && v > 0) ?? [];
 
   useEffect(() => {
-    const iv = setInterval(() => {
-      setSparkData(prev => {
-        const last = prev[prev.length - 1];
-        const next = Math.max(38000, last + (Math.random() - 0.48) * 600);
-        return [...prev.slice(1), next];
-      });
-      setSentiment(getMarketSentiment());
-    }, 3000);
+    const iv = setInterval(() => setSentiment(getMarketSentiment()), 15000);
     return () => clearInterval(iv);
   }, []);
 
@@ -80,23 +64,25 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: Exe
       ? (usdcBal ?? 0) + (eurcBal ?? 0) * eurcPrice + (ethBal ?? 0) * ethPrice
       : null;
 
-  const dailyPnl = useMemo(() => (totalPatrimony !== null ? totalPatrimony * 0.028 : null), [totalPatrimony]);
   const tvl = sentiment.totalTvl;
 
   const stats: ExecStat[] = [
-    { label: t('dash.patrimony'), value: safeUsd(totalPatrimony ?? undefined), delta: '+2.8%', deltaPositive: true, Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
-    { label: t('dash.dailyProfit'), value: dailyPnl !== null ? `+${safeUsd(dailyPnl, '+—')}` : '—', delta: '+0.42%', deltaPositive: true, Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
+    { label: t('dash.patrimony'), value: safeUsd(totalPatrimony ?? undefined), Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
+    { label: t('dash.dailyProfit'), value: '—', Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
     { label: t('dash.roi'), value: '—', Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
   ];
 
-  const sparkW = 280, sparkH = 48;
-  const min = Math.min(...sparkData), max = Math.max(...sparkData), range = max - min || 1;
-  const pts = sparkData.map((v, i) => {
-    const x = (i / (sparkData.length - 1)) * sparkW;
-    const y = sparkH - 4 - ((v - min) / range) * (sparkH - 8);
+  const sparkW = 520, sparkH = 82;
+  const chartData = sparkData.length > 1 ? sparkData : [];
+  const min = chartData.length ? Math.min(...chartData) : 0;
+  const max = chartData.length ? Math.max(...chartData) : 1;
+  const range = max - min || Math.max(1, max * 0.001);
+  const pts = chartData.map((v, i) => {
+    const x = (i / (chartData.length - 1)) * sparkW;
+    const y = sparkH - 8 - ((v - min) / range) * (sparkH - 16);
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
 
@@ -110,19 +96,29 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: Exe
       <div className="p-5">
         <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-5 -mt-1" />
 
-        {/* Top row: BTC visual chart */}
-        <div className="flex items-center gap-4 mb-5">
-          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-mono shrink-0">{t('dash.executiveSummary')}</span>
-          <svg viewBox={`0 0 ${sparkW} ${sparkH}`} className="flex-1" style={{ height: sparkH }} preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="execBtcSpark" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(34,211,238)" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="rgb(34,211,238)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <polygon points={`0,${sparkH} ${pts.join(' ')} ${sparkW},${sparkH}`} fill="url(#execBtcSpark)" />
-            <polyline points={pts.join(' ')} fill="none" stroke="rgb(34,211,238)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        {/* Bitcoin chart sourced from Global Markets */}
+        <div className="mb-5 rounded-xl border border-border/30 bg-secondary/15 p-3 sm:p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-sm">₿</div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground/55 font-mono">Bitcoin · BTC/USD</div>
+                <div className="text-lg sm:text-xl font-mono font-bold text-foreground tabular-nums">{btc?.price ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(btc.price) : 'Preço indisponível'}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`text-sm font-mono font-semibold ${(btc?.change24h ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {btc ? `${btc.change24h >= 0 ? '+' : ''}${btc.change24h.toFixed(2)}% (24h)` : '—'}
+              </div>
+              <div className="text-[9px] text-muted-foreground/45 font-mono mt-1">{btc?.isLive ? 'Fonte de mercado ao vivo' : 'Indicativo · aguardando cotação ao vivo'}</div>
+            </div>
+          </div>
+          <svg viewBox={`0 0 ${sparkW} ${sparkH}`} className="w-full" style={{ height: 'clamp(76px, 11vw, 104px)' }} preserveAspectRatio="none" role="img" aria-label="Gráfico de tendência do Bitcoin em Global Markets">
+            <defs><linearGradient id="execBtcSpark" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgb(34,211,238)" stopOpacity={0.22} /><stop offset="100%" stopColor="rgb(34,211,238)" stopOpacity={0} /></linearGradient></defs>
+            {chartData.length > 1 && <><polygon points={`0,${sparkH} ${pts.join(' ')} ${sparkW},${sparkH}`} fill="url(#execBtcSpark)" /><polyline points={pts.join(' ')} fill="none" stroke="rgb(34,211,238)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
+            {chartData.length < 2 && <text x="50%" y="50%" fill="currentColor" opacity=".5" fontSize="12" textAnchor="middle">Aguardando dados de mercado…</text>}
           </svg>
+          <div className="flex justify-between text-[9px] font-mono text-muted-foreground/35 mt-1"><span>Histórico disponível</span><span>Atualiza com Global Markets</span></div>
         </div>
 
         {/* Stat cards grid */}
@@ -197,33 +193,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: Exe
           </div>
         </div>
 
-        {/* Recent activity strip */}
-        <div className="border-t border-border/30 pt-4">
-          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2.5 flex items-center gap-1.5">
-            <Activity size={11} className="text-primary" />
-            {t('dash.recentActivity')}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {ACTIVITY_SEED.map((act, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.06 }}
-                className="flex items-center justify-between bg-secondary/25 hover:bg-secondary/40 rounded-lg px-3 py-2 border border-border/20 hover:border-primary/10 transition-all duration-200 cursor-pointer group"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-1.5 h-1.5 rounded-full ${act.positive ? 'bg-emerald-400' : 'bg-orange-400'} shrink-0`} />
-                  <span className="text-[11px] font-mono text-foreground/80 truncate">{act.label}</span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-[11px] font-mono ${act.positive ? 'text-emerald-400' : 'text-orange-400'}`}>{act.amount}</span>
-                  <span className="text-[9px] font-mono text-muted-foreground/40">{act.time}</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+
       </div>
     </motion.div>
   );
