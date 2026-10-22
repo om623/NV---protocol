@@ -31,6 +31,10 @@ type QueryIntent =
   | 'wallet_solana'   // Solana wallet info
   | 'payment_info'    // questions about the payment system
   | 'bridge_info'     // questions about the bridge system
+  | 'cre_info'        // Chainlink CRE workflow and oracle automation
+  | 'protocol_info'   // product capabilities and feature overview
+  | 'portfolio_info'  // combined wallet overview
+  | 'market_sentiment'// market mood / gainers and losers
   | 'action_transfer' // user wants to send/transfer USDC/tokens
   | 'action_bridge'   // user wants to execute a bridge
   | 'action_swap'     // user wants to execute a swap
@@ -59,6 +63,28 @@ const PAYMENT_KW = [
   'send eth', 'how to send', 'como enviar', 'make a payment',
   'fazer pagamento', 'realizar pagamento', 'usdc payment',
   'base payment', 'purchase', 'compra',
+];
+
+const CRE_KW = [
+  'chainlink cre', ' cre ', 'cre workflow', 'runtime environment', 'decentralized oracle',
+  'oracle workflow', 'oracle automation', 'chainlink runtime', 'consensus median',
+];
+
+const PROTOCOL_KW = [
+  'what is nexvault', 'what is nv protocol', 'about nexvault', 'sobre o nexvault',
+  'sobre o protocolo', 'funcionalidades', 'features', 'what can you do', 'o que você faz',
+  'o que voce faz', 'help', 'ajuda', 'comandos', 'capabilities', 'módulos', 'modulos',
+];
+
+const PORTFOLIO_KW = [
+  'my portfolio', 'meu portfolio', 'meu portfólio', 'portfolio balance', 'wallets overview',
+  'resumo das carteiras', 'resumo da carteira', 'all balances', 'todos os saldos',
+  'minhas wallets', 'minhas carteiras',
+];
+
+const SENTIMENT_KW = [
+  'market sentiment', 'sentimento do mercado', 'market mood', 'bullish', 'bearish',
+  'gainers', 'losers', 'maiores altas', 'maiores quedas', 'mercado hoje', 'market overview',
 ];
 
 const BRIDGE_KW = [
@@ -139,6 +165,11 @@ function detectIntent(q: string): QueryIntent {
   if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw)))  return 'action_payment';
 
   // Query intents — most specific first
+  if (CRE_KW.some(kw => lq.includes(kw))) return 'cre_info';
+  if (PORTFOLIO_KW.some(kw => lq.includes(kw))) return 'portfolio_info';
+  if (PROTOCOL_KW.some(kw => lq.includes(kw))) return 'protocol_info';
+  if (SENTIMENT_KW.some(kw => lq.includes(kw))) return 'market_sentiment';
+
   if (WALLET_SOL_KW.some(kw => lq.includes(kw))) return 'wallet_solana';
   if (WALLET_EVM_KW.some(kw => lq.includes(kw))) return 'wallet_evm';
   if (BRIDGE_KW.some(kw => lq.includes(kw)))     return 'bridge_info';
@@ -454,6 +485,90 @@ function answerBridgeInfo(
   return { answer: lines.join('\n'), sources: [] };
 }
 
+function answerCreInfo(t: (k: string) => string): AgentResponse {
+  return {
+    answer: [
+      'Chainlink CRE (Compute Runtime Environment)',
+      '',
+      'Purpose: run workflow logic that can combine external HTTP data, on-chain data and consensus before returning a result.',
+      'NV Protocol focus: market-data collection and aggregation for prices and TVL.',
+      '',
+      'Important: this chat currently answers from the data context loaded in the dashboard. A CRE workflow is not proof that every answer is being served by CRE, and this response does not claim a live workflow execution.',
+      'Before treating CRE data as production-ready, verify workflow simulation/deployment, configured secrets, source freshness and the returned payload.',
+    ].join('\\n'),
+    sources: [],
+  };
+}
+
+function answerProtocolInfo(): AgentResponse {
+  return {
+    answer: [
+      'NV Protocol / Nexvault — available agent topics',
+      '',
+      '• Market prices, asset rankings and market categories (when data is loaded)',
+      '• DeFi TVL by chain and TVL rankings (when data is loaded)',
+      '• EVM and Solana wallet connection and available balances',
+      '• USDC payment status and purchase flow',
+      '• Bridge status and supported route information',
+      '• Global news and market intelligence',
+      '• Chainlink CRE workflow concepts and integration status',
+      '',
+      'I can explain a flow or open the relevant section, but I will not sign transactions or claim a payment/bridge completed without confirmed state.',
+      'Try: “BTC price”, “top crypto”, “TVL Base”, “my wallet”, “payment status”, “bridge status”, “what is CRE?”, or “market news”.',
+    ].join('\\n'),
+    sources: [],
+  };
+}
+
+function answerPortfolio(ctx: NVAgentContext, t: (k: string) => string): AgentResponse {
+  const lines = ['Wallet overview', ''];
+  const evm = ctx.evmWallet;
+  const sol = ctx.solanaWallet;
+
+  if (evm?.connected && evm.address) {
+    lines.push('EVM');
+    lines.push(`Address: ${evm.address}`);
+    if (evm.network) lines.push(`Network: ${evm.network}`);
+    lines.push(`USDC: ${evm.usdcBalance ?? 'Balance unavailable'}`);
+  } else {
+    lines.push('EVM: not connected');
+  }
+
+  lines.push('');
+  if (sol?.walletState.status === 'connected') {
+    const { address } = sol.walletState as { status: 'connected'; address: string };
+    lines.push('Solana');
+    lines.push(`Address: ${address}`);
+    lines.push(sol.balanceState.status === 'loaded'
+      ? `SOL: ${(sol.balanceState as { status: 'loaded'; sol: number }).sol.toFixed(4)}`
+      : 'SOL: balance unavailable');
+    lines.push(sol.usdcBalanceState.status === 'loaded'
+      ? `USDC: ${(sol.usdcBalanceState as { status: 'loaded'; usdc: number }).usdc.toFixed(2)}`
+      : 'USDC: balance unavailable');
+  } else {
+    lines.push('Solana: not connected');
+  }
+
+  lines.push('', 'Only balances present in the current dashboard context are shown; this is not a complete on-chain portfolio valuation.');
+  return { answer: lines.join('\\n'), sources: [] };
+}
+
+function answerMarketSentiment(ctx: NVAgentContext, t: (k: string) => string): AgentResponse {
+  const market = ctx.market;
+  if (!market?.assets?.length) return { answer: t('intel.agentNoData'), sources: [] };
+
+  const live = market.assets.filter(a => a.isLive);
+  const up = live.filter(a => a.change24h > 0).sort((a, b) => b.change24h - a.change24h).slice(0, 5);
+  const down = live.filter(a => a.change24h < 0).sort((a, b) => a.change24h - b.change24h).slice(0, 5);
+  const lines = ['Market overview (24h)', market.isLive ? 'Data status: live source' : 'Data status: not fully live', ''];
+  lines.push('Top gainers:');
+  lines.push(...(up.length ? up.map(a => `• ${a.symbol}: ${fmtChange(a.change24h)}`) : ['No live gainers available']));
+  lines.push('', 'Top losers:');
+  lines.push(...(down.length ? down.map(a => `• ${a.symbol}: ${fmtChange(a.change24h)}`) : ['No live losers available']));
+  if (market.fetchedAt > 0) lines.push('', `Updated: ${new Date(market.fetchedAt).toLocaleString()}`);
+  return { answer: lines.join('\\n'), sources: [] };
+}
+
 // ─── Action handlers ──────────────────────────────────────────────────────────
 // These handlers return an AgentResponse with an `action` field that the UI
 // renders as a NavigateCard. They NEVER initiate a transaction themselves.
@@ -694,6 +809,18 @@ export function agentQuery(
 
     case 'bridge_info':
       return answerBridgeInfo(ctx, t);
+
+    case 'cre_info':
+      return answerCreInfo(t);
+
+    case 'protocol_info':
+      return answerProtocolInfo();
+
+    case 'portfolio_info':
+      return answerPortfolio(ctx, t);
+
+    case 'market_sentiment':
+      return answerMarketSentiment(ctx, t);
 
     case 'action_transfer':
       return answerActionTransfer(question, ctx, t);
