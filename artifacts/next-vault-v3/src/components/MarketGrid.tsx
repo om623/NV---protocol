@@ -315,14 +315,14 @@ export function MarketGrid() {
                     : filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}>
                 {f.comingSoon && <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-orange-400 align-middle" />}
-                {t(f.labelKey as Parameters<typeof t>[0]) || f.fallback}
+                {f.comingSoon ? f.fallback : (t(f.labelKey as Parameters<typeof t>[0]) || f.fallback)}
                 {f.comingSoon && <span className="ml-1 text-[8px] uppercase tracking-wide">Em breve</span>}
               </button>
             ))}
           </div>
 
           {/* Sort buttons — only shown for market categories, not TVL */}
-          {!isTvl && (
+          {!isTvl && !isComingSoon && (
             <>
               <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
                 {([['change24h', t('market.change') || 'Variação'], ['volume24h', t('market.volume') || 'Volume'], ['price', t('market.price') || 'Preço']] as [SortKey, string][]).map(([k, l]) => (
