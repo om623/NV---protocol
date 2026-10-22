@@ -589,7 +589,7 @@ function parseAddress(q: string): string | null {
   return null;
 }
 
-function detectMainnetId(question: string, excludeId?: string): string | null {
+function detectMainnetIds(question: string): string[] {
   const q = question.toLowerCase();
   const aliases: Array<[string, string[]]> = [
     ['arc-mainnet', ['arc mainnet', 'arc']],
@@ -599,29 +599,32 @@ function detectMainnetId(question: string, excludeId?: string): string | null {
     ['optimism', ['op mainnet', 'optimism']],
     ['polygon', ['polygon pos', 'polygon']],
     ['avalanche', ['avalanche', 'avax']],
-    ['unichain', ['unichain']],
-    ['linea', ['linea']],
-    ['codex', ['codex']],
-    ['sonic', ['sonic']],
-    ['world-chain', ['world chain']],
-    ['monad', ['monad']],
-    ['sei', ['sei network', 'sei']],
-    ['xdc', ['xdc network', 'xdc']],
-    ['hyperevm', ['hyperevm', 'hyper evm']],
-    ['ink', ['ink network', 'ink']],
-    ['plume', ['plume']],
-    ['edge', ['edge network']],
-    ['injective', ['injective', 'inevm']],
-    ['morph', ['morph']],
-    ['pharos', ['pharos']],
-    ['cronos', ['cronos']],
-    ['plasma', ['plasma']],
-    ['xlayer', ['x layer', 'xlayer']],
+    ['unichain', ['unichain']], ['linea', ['linea']], ['codex', ['codex']],
+    ['sonic', ['sonic']], ['world-chain', ['world chain']], ['monad', ['monad']],
+    ['sei', ['sei network', 'sei']], ['xdc', ['xdc network', 'xdc']],
+    ['hyperevm', ['hyper evm', 'hyperevm']], ['ink', ['ink network', 'ink']],
+    ['plume', ['plume']], ['edge', ['edge network']], ['injective', ['injective', 'inevm']],
+    ['morph', ['morph']], ['pharos', ['pharos']], ['cronos', ['cronos']],
+    ['plasma', ['plasma']], ['xlayer', ['x layer', 'xlayer']],
+    ['solana', ['solana', 'solana mainnet']],
   ];
+  const found: Array<{ id: string; index: number }> = [];
   for (const [id, names] of aliases) {
-    if (id !== excludeId && names.some(name => q.includes(name))) return id;
+    let earliest = -1;
+    for (const name of names) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp('(^|[^a-z0-9])' + escaped + '(?=$|[^a-z0-9])').exec(q);
+      if (match) {
+        const index = match.index + match[1].length;
+        if (earliest < 0 || index < earliest) earliest = index;
+      }
+    }
+    if (earliest >= 0) found.push({ id, index: earliest });
   }
-  return null;
+  found.sort((a, b) => a.index - b.index);
+  return found.filter((item, index, all) => all.findIndex(other => other.id === item.id) === index)
+    .map(item => item.id)
+    .slice(0, 2);
 }
 
 function requestedTokens(_question: string): { sourceToken: string; destToken: string } {
@@ -715,8 +718,9 @@ function answerActionBridge(
   lines.push(t('agent.action.reviewInWallet'));
   lines.push(''); lines.push(t('agent.action.noAutoExecute'));
 
-  const requestedFrom = detectMainnetId(question);
-  const requestedTo = detectMainnetId(question, requestedFrom ?? undefined);
+  const routeIds = detectMainnetIds(question);
+  const requestedFrom = isSolanaSource ? 'solana' : (routeIds.find(id => id !== 'solana') ?? null);
+  const requestedTo = routeIds.find(id => id !== requestedFrom && id !== 'solana') ?? null;
   const action: AgentAction = {
     type: 'bridge',
     navigateTo: 'bridge',
@@ -724,7 +728,7 @@ function answerActionBridge(
       envMode: 'mainnet',
       amount: amount ?? null,
       fromSolana: isSolanaSource ? 1 : 0,
-      fromNetwork: isSolanaSource ? 'solana' : requestedFrom,
+      fromNetwork: requestedFrom,
       toNetwork: requestedTo,
     },
   };
@@ -757,8 +761,9 @@ function answerActionSwap(
   lines.push(t('agent.action.reviewInWallet'));
   lines.push(''); lines.push(t('agent.action.noAutoExecute'));
 
-  const requestedFrom = detectMainnetId(question);
-  const requestedTo = detectMainnetId(question, requestedFrom ?? undefined);
+  const routeIds = detectMainnetIds(question).filter(id => id !== 'solana');
+  const requestedFrom = routeIds[0] ?? null;
+  const requestedTo = routeIds[1] ?? null;
   const tokens = requestedTokens(question);
   const action: AgentAction = {
     type: 'swap',
