@@ -89,7 +89,7 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
         const prices = await fetchCryptoPrices();
         const btc = prices.get('BTC');
         if (btc && Number.isFinite(btc.current_price)) {
-          btcText = new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(btc.current_price);
+          btcText = new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : locale, { maximumFractionDigits: 0 }).format(btc.current_price);
         }
       } catch { /* omit unavailable quote instead of inventing it */ }
       try {
