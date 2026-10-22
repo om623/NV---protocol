@@ -1660,7 +1660,6 @@ function Home() {
                 envMode={envMode}
                 activeNetwork={activeNetwork}
                 realBalances={realBalances}
-                simStats={simStats}
               />
 
               {/* ── Market grid ──────────────────────────────────────── */}
@@ -1899,11 +1898,6 @@ function Home() {
           <IntelligenceColumn
             envMode={envMode}
             activeNetwork={activeNetwork}
-            simStats={simStats}
-            simPhase={simPhase}
-            simId={simId}
-            simHistory={simHistory}
-            simProgress={simProgress}
           />
         </div>
       </div>
