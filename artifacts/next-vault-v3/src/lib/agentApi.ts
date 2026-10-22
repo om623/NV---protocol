@@ -601,7 +601,7 @@ function detectMainnetIds(question: string): string[] {
     ['avalanche', ['avalanche', 'avax']],
     ['unichain', ['unichain']], ['linea', ['linea']], ['codex', ['codex']],
     ['sonic', ['sonic']], ['world-chain', ['world chain']], ['monad', ['monad']],
-    ['sei', ['sei network', 'sei']], ['xdc', ['xdc network', 'xdc']],
+    ['sei', ['sei network']], ['xdc', ['xdc network', 'xdc']],
     ['hyperevm', ['hyper evm', 'hyperevm']], ['ink', ['ink network', 'ink']],
     ['plume', ['plume']], ['edge', ['edge network']], ['injective', ['injective', 'inevm']],
     ['morph', ['morph']], ['pharos', ['pharos']], ['cronos', ['cronos']],
