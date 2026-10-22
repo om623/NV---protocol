@@ -213,6 +213,34 @@ interface EnvNetworkSelectorProps {
   onNetworkChange: (network: NetworkConfig) => void;
 }
 
+const NETWORK_LOGO_SLUGS: Record<string, string> = {
+  // Mainnets and matching testnets use the same canonical chain logo.
+  'arc-mainnet': 'arc', 'arc-testnet': 'arc',
+  ethereum: 'ethereum', sepolia: 'ethereum',
+  base: 'base', arbitrum: 'arbitrum', optimism: 'optimism',
+  polygon: 'polygon', avalanche: 'avalanche', unichain: 'unichain', linea: 'linea',
+  codex: 'codex', sonic: 'sonic', 'world-chain': 'worldchain', monad: 'monad', sei: 'sei',
+  xdc: 'xdc', hyperevm: 'hyperliquid', ink: 'ink', plume: 'plume',
+  cronos: 'cronos', plasma: 'plasma', xlayer: 'x-layer', injective: 'injective',
+  morph: 'morph', pharos: 'pharos', edge: 'edge',
+  'base-sepolia': 'base', 'ethereum-sepolia': 'ethereum', 'arbitrum-sepolia': 'arbitrum',
+  'optimism-sepolia': 'optimism', 'polygon-amoy': 'polygon',
+};
+
+function NetworkLogo({ network, size = 'w-8 h-8' }: { network: NetworkConfig; size?: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [network.id]);
+  const slug = NETWORK_LOGO_SLUGS[network.id];
+  if (!slug || failed) {
+    return <div className={size + ' rounded-lg ' + network.color + ' flex items-center justify-center text-[10px] font-bold text-white shrink-0'}>{network.icon}</div>;
+  }
+  return (
+    <div className={size + ' rounded-lg bg-background/80 border border-border/30 flex items-center justify-center p-1 shrink-0'}>
+      <img src={'https://icons.llama.fi/' + slug + '.png'} alt={network.name + ' logo'} className="w-full h-full object-contain" loading="lazy" onError={() => setFailed(true)} />
+    </div>
+  );
+}
+
 function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChange }: EnvNetworkSelectorProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -240,7 +268,7 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
           {envLabel}
         </span>
         <span className="text-muted-foreground/40 select-none hidden sm:inline">•</span>
-        <div className={`w-5 h-5 rounded-md ${activeNetwork.color} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>{activeNetwork.icon}</div>
+        <NetworkLogo network={activeNetwork} size="w-5 h-5" />
         <span className="hidden sm:inline">{activeNetwork.shortName}</span>
         <ChevronDown size={13} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -285,7 +313,7 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
                       isActive ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-secondary'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg ${n.color} flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5`}>{n.icon}</div>
+                    <div className="mt-0.5"><NetworkLogo network={n} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span className={`text-xs font-mono font-medium truncate ${isActive ? 'text-primary' : 'text-foreground'}`} translate="no">{n.name}</span>
