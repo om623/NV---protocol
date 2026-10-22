@@ -81,34 +81,34 @@ export function GlobalAssetMarkets() {
             <div className="text-xs font-semibold text-foreground">Mercado NFT</div>
             <span className="ml-auto text-[9px] rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300 px-1.5 py-0.5">Coleções</span>
           </div>
-          {#if loading}
+          {loading ? (
             <p className="text-xs text-muted-foreground py-2">Consultando mercado NFT…</p>
-          {:else if status === 'missing-key'}
-            <p className="text-[11px] leading-relaxed text-muted-foreground/70">O painel está preparado, mas para exibir floor price e volume reais é necessário configurar uma chave gratuita da Reservoir como <code>VITE_RESERVOIR_API_KEY</code>. Não exibimos estatísticas simuladas.</p>
-            <a href="https://reservoir.tools/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-3 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/10 px-2.5 py-1.5 text-[10px] text-fuchsia-300">Obter acesso à API <ExternalLink size={11} /></a>
-          {:else if status === 'unavailable' || collections.length === 0}
+          ) : status === 'missing-key' ? (
+            <>
+              <p className="text-[11px] leading-relaxed text-muted-foreground/70">O painel está preparado, mas para exibir floor price e volume reais é necessário configurar uma chave gratuita da Reservoir como <code>VITE_RESERVOIR_API_KEY</code>. Não exibimos estatísticas simuladas.</p>
+              <a href="https://reservoir.tools/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-3 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/10 px-2.5 py-1.5 text-[10px] text-fuchsia-300">Obter acesso à API <ExternalLink size={11} /></a>
+            </>
+          ) : status === 'unavailable' || collections.length === 0 ? (
             <p className="text-[11px] leading-relaxed text-muted-foreground/70">A fonte NFT não respondeu ou não retornou coleções. Tente novamente mais tarde; nenhum volume ou preço foi estimado.</p>
-          {:else}
+          ) : (
             <div className="space-y-2">
-              {#each collections as collection, index}
+              {collections.map((collection, index) => (
                 <div key={collection.id ?? collection.name ?? index} className="flex items-center gap-2 border-b border-border/30 pb-2 last:border-0 last:pb-0">
-                  {#if collection.image}
-                    <img src={collection.image} alt="" className="w-7 h-7 rounded-lg object-cover bg-secondary" loading="lazy" />
-                  {:else}
-                    <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"><ImageIcon size={13} /></div>
-                  {/if}
+                  {collection.image
+                    ? <img src={collection.image} alt="" className="w-7 h-7 rounded-lg object-cover bg-secondary" loading="lazy" />
+                    : <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"><ImageIcon size={13} /></div>}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[11px] font-medium text-foreground">{collection.name ?? 'Coleção NFT'}</div>
-                    <div className="text-[9px] text-muted-foreground/55">Volume 24h · ${compact(collection.volume?.['1day'])}</div>
+                    <div className="text-[9px] text-muted-foreground/55">Volume 24h · {compact(collection.volume?.['1day'])}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] font-mono text-foreground">{usd(collection.floorAsk?.price?.amount?.usd)}</div>
                     <div className="text-[8px] text-muted-foreground/45">floor USD</div>
                   </div>
                 </div>
-              {/each}
+              ))}
             </div>
-          {/if}
+          )}
           <p className="text-[9px] text-muted-foreground/40 mt-2">Fonte: Reservoir · floor price e volume dependem da disponibilidade da API e da rede selecionada pelo provedor.</p>
         </div>
       </div>
