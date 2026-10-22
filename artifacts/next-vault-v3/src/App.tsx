@@ -32,6 +32,7 @@ import { ComingSoonModal } from './components/ComingSoonModal';
 import { BridgeView } from './components/BridgeView';
 import { WalletView } from './components/WalletView';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
+import { DashboardConverter } from './components/DashboardConverter';
 import { MarketGrid } from './components/MarketGrid';
 import { MarketTicker } from './components/MarketTicker';
 import { PortfolioCharts } from './components/PortfolioCharts';
@@ -368,7 +369,7 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
             <Shield size={15} className="text-primary relative z-10" />
           </div>
           <div>
-            <div className="text-[13px] font-bold tracking-[0.18em] text-foreground leading-none">NV PROTOCOL</div>
+            <div className="nv-brand-flow text-[13px] font-bold tracking-[0.18em] leading-none">NV PROTOCOL</div>
             <div className="text-[9px] text-primary font-mono tracking-widest mt-0.5 opacity-60">Protocol V3</div>
           </div>
         </div>
@@ -483,6 +484,28 @@ function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { document.title = 'NV Protocol'; }, []);
+  useEffect(() => {
+    const id = 'nv-brand-motion';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      @keyframes nv-brand-flow {
+        0%, 100% { background-position: 0% 50%; filter: drop-shadow(0 0 4px rgba(34,211,238,.15)); }
+        50% { background-position: 100% 50%; filter: drop-shadow(0 0 9px rgba(168,85,247,.38)); }
+      }
+      .nv-brand-flow {
+        background-image: linear-gradient(100deg, #34d399 0%, #22d3ee 28%, #a78bfa 56%, #22d3ee 78%, #34d399 100%);
+        background-size: 240% 100%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent !important;
+        animation: nv-brand-flow 5.5s ease-in-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) { .nv-brand-flow { animation: none; } }
+    `;
+    document.head.appendChild(style);
+  }, []);
   useEffect(() => {
     try {
       const preferences = JSON.parse(localStorage.getItem('nv_protocol_settings_v1') ?? '{}') as { compact?: boolean; reducedMotion?: boolean };
@@ -1012,7 +1035,7 @@ function Home() {
                   <Shield size={15} className="text-primary relative z-10" />
                 </div>
                 <div className="hidden sm:flex flex-col min-w-0">
-                  <span className="text-[13px] font-bold tracking-[0.2em] text-foreground leading-none truncate">NV PROTOCOL</span>
+                  <span className="nv-brand-flow text-[13px] font-bold tracking-[0.2em] leading-none truncate">NV PROTOCOL</span>
                   <span className="text-[9px] text-primary font-mono tracking-widest opacity-60 uppercase mt-0.5">Protocol V3</span>
                 </div>
               </div>
@@ -1238,6 +1261,8 @@ function Home() {
                 activeNetwork={activeNetwork}
                 realBalances={realBalances}
               />
+
+              <DashboardConverter activeNetwork={activeNetwork} />
 
               {/* ── Market grid ──────────────────────────────────────── */}
               <MarketGrid />
