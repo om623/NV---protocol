@@ -21,7 +21,6 @@ export interface DashboardContext {
   isWalletConnected: boolean;
   networkOnline: boolean;
   recentSwapActivity: boolean;
-  simulationRunning: boolean;
 }
 
 export type EventPriority =
@@ -52,7 +51,6 @@ const ptBR: EventDict = {
   'cat.wallet': 'Carteira',
   'cat.activity': 'Atividade',
   'cat.sentiment': 'Sentimento',
-  'cat.simulation': 'Simulação',
   'cat.general': 'Geral',
   'title.fear': 'Sentimento em Medo',
   'title.greed': 'Sentimento em Ganância',
@@ -74,8 +72,6 @@ const ptBR: EventDict = {
   'desc.wallet_disconnected': 'Nenhuma carteira conectada — operando com dados simulados.',
   'title.swap_activity': 'Atividade de Swap Registrada',
   'desc.swap_activity': 'Uma nova atividade de swap foi registrada recentemente.',
-  'title.sim_running': 'Simulação em Andamento',
-  'desc.sim_running': 'Pipeline de simulação em execução. Aguardando resultados.',
   'title.tvl': 'TVL DeFi em {value}B',
   'desc.tvl': 'O TVL total em DeFi está em ${value} bilhões, segundo dados da DefiLlama.',
   'title.btc_dom': 'Dominância do BTC em {value}%',
@@ -90,7 +86,6 @@ const en: EventDict = {
   'cat.wallet': 'Wallet',
   'cat.activity': 'Activity',
   'cat.sentiment': 'Sentiment',
-  'cat.simulation': 'Simulation',
   'cat.general': 'General',
   'title.fear': 'Sentiment at Fear',
   'title.greed': 'Sentiment at Greed',
@@ -112,8 +107,6 @@ const en: EventDict = {
   'desc.wallet_disconnected': 'No wallet connected — operating with simulated data.',
   'title.swap_activity': 'Swap Activity Registered',
   'desc.swap_activity': 'A new swap activity has been registered recently.',
-  'title.sim_running': 'Simulation in Progress',
-  'desc.sim_running': 'Simulation pipeline running. Awaiting results.',
   'title.tvl': 'DeFi TVL at {value}B',
   'desc.tvl': 'Total DeFi TVL stands at ${value} billion, according to DefiLlama data.',
   'title.btc_dom': 'BTC Dominance at {value}%',
@@ -128,7 +121,6 @@ const es: EventDict = {
   'cat.wallet': 'Cartera',
   'cat.activity': 'Actividad',
   'cat.sentiment': 'Sentimiento',
-  'cat.simulation': 'Simulación',
   'cat.general': 'General',
   'title.fear': 'Sentimiento en Miedo',
   'title.greed': 'Sentimiento en Codicia',
@@ -150,8 +142,6 @@ const es: EventDict = {
   'desc.wallet_disconnected': 'Ninguna cartera conectada — operando con datos simulados.',
   'title.swap_activity': 'Actividad de Swap Registrada',
   'desc.swap_activity': 'Una nueva actividad de swap ha sido registrada recientemente.',
-  'title.sim_running': 'Simulación en Curso',
-  'desc.sim_running': 'Pipeline de simulación en ejecución. Esperando resultados.',
   'title.tvl': 'TVL DeFi en {value}B',
   'desc.tvl': 'El TVL total en DeFi está en ${value} mil millones, según datos de DefiLlama.',
   'title.btc_dom': 'Dominancia del BTC en {value}%',
@@ -166,7 +156,6 @@ const fr: EventDict = {
   'cat.wallet': 'Portefeuille',
   'cat.activity': 'Activité',
   'cat.sentiment': 'Sentiment',
-  'cat.simulation': 'Simulation',
   'cat.general': 'Général',
   'title.fear': 'Sentiment en Peur',
   'title.greed': 'Sentiment en Cupidité',
@@ -188,8 +177,6 @@ const fr: EventDict = {
   'desc.wallet_disconnected': 'Aucun portefeuille connecté — fonctionnement avec données simulées.',
   'title.swap_activity': 'Activité de Swap Enregistrée',
   'desc.swap_activity': 'Une nouvelle activité de swap a été enregistrée récemment.',
-  'title.sim_running': 'Simulation en Cours',
-  'desc.sim_running': 'Pipeline de simulation en cours d\'exécution. En attente des résultats.',
   'title.tvl': 'TVL DeFi à {value}B',
   'desc.tvl': 'Le TVL total en DeFi s\'élève à ${value} milliards, selon les données DefiLlama.',
   'title.btc_dom': 'Dominance du BTC à {value}%',
@@ -237,19 +224,6 @@ export function generateEditorialEvents(ctx: DashboardContext, locale: Locale): 
       description: fmt(d, 'desc.swap_activity'),
       priority: 'recent_activity',
       color: 'cyan',
-      timestamp: now,
-    });
-  }
-
-  // 2. Simulation running
-  if (ctx.simulationRunning) {
-    events.push({
-      id: 'sim_running',
-      category: fmt(d, 'cat.simulation'),
-      title: fmt(d, 'title.sim_running'),
-      description: fmt(d, 'desc.sim_running'),
-      priority: 'recent_activity',
-      color: 'violet',
       timestamp: now,
     });
   }
