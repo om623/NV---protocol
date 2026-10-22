@@ -71,6 +71,7 @@ import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
 import { requestNavigation } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
+import { logNVActivity } from '../lib/activityLog';
 
 // ─── Badge components ─────────────────────────────────────────────────────────
 
@@ -230,6 +231,7 @@ function ClusterCard({ cluster }: { cluster: EventCluster }) {
         {/* Headline */}
         <a
           href={rep.url}
+          onClick={() => logNVActivity({ category: 'news', action: 'Notícia aberta', details: rep.title })}
           target="_blank"
           rel="noopener noreferrer"
           className="block text-sm font-medium text-foreground hover:text-primary transition-colors leading-snug group"
@@ -372,6 +374,7 @@ function NewsCard({ item }: { item: NewsItem }) {
         {/* Title */}
         <a
           href={item.url}
+          onClick={() => logNVActivity({ category: 'news', action: 'Notícia aberta', details: item.title })}
           target="_blank"
           rel="noopener noreferrer"
           className="block text-sm font-medium text-foreground hover:text-primary transition-colors leading-snug group"
@@ -793,6 +796,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     const question = q.trim();
     if (!question || loading) return;
     setInput('');
+    logNVActivity({ category: 'agent', action: 'Pergunta enviada ao NV Agent', details: question.slice(0, 500) });
     setMessages(prev => [...prev, { role: 'user', content: question, timestamp: Date.now() }]);
     setLoading(true);
     try {

@@ -12,6 +12,7 @@ import {
 import { subscribeFiat } from '../lib/fiat';
 import { subscribeIndices } from '../lib/indices';
 import { useI18n } from '../i18n';
+import { logNVActivity } from '../lib/activityLog';
 
 type FilterCategory = MarketCategory | 'all' | 'tvl';
 type SortKey = 'change24h' | 'volume24h' | 'price';
@@ -82,6 +83,7 @@ function TvlGrid() {
   }, []);
 
   const handleRefresh = useCallback(() => {
+    logNVActivity({ category: 'markets', action: 'Global Markets atualizado manualmente' });
     setRefreshing(true);
     // Reset last-fetch time so fetchTvlNetworks actually fires
     if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
@@ -304,7 +306,7 @@ export function MarketGrid() {
           {/* Category filter tabs */}
           <div className="flex flex-wrap gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
             {FILTERS.map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)}
+              <button key={f.key} onClick={() => { setFilter(f.key); logNVActivity({ category: 'markets', action: 'Filtro Global Markets alterado', details: f.fallback }); }}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
                   filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}>
@@ -318,7 +320,7 @@ export function MarketGrid() {
             <>
               <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
                 {([['change24h', t('market.change') || 'Variação'], ['volume24h', t('market.volume') || 'Volume'], ['price', t('market.price') || 'Preço']] as [SortKey, string][]).map(([k, l]) => (
-                  <button key={k} onClick={() => setSort(k)}
+                  <button key={k} onClick={() => { setSort(k); logNVActivity({ category: 'markets', action: 'Ordenação Global Markets alterada', details: l }); }}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
                       sort === k ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                     }`}>
