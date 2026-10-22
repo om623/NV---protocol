@@ -43,11 +43,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(400).json({ error: "invalid_request" });
     return;
   }
-  if (locale === "pt-BR") {
-    res.status(200).json({ text });
-    return;
-  }
-
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "localization_not_configured" });
