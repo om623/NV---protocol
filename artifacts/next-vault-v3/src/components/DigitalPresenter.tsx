@@ -85,8 +85,8 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
 
   const marketMeta = getLocaleTickerList(locale);
   const localIndexSymbol: Record<string, string> = {
-    'pt-BR': 'IBOV', en: 'SPX', es: 'IBOV', fr: 'CAC', zh: 'SHCOMP',
-    ja: 'N225', ko: 'NDX', hi: 'NDX', ar: 'NDX',
+    'pt-BR': 'IBOV', en: 'SPX', es: 'IBEX', fr: 'CAC', zh: 'SHCOMP',
+    ja: 'N225', ko: 'KS11', hi: 'NSEI', ar: 'TASI',
   };
   const localIndex = indexSnapshot.get(localIndexSymbol[locale] ?? 'SPX');
   const marketCurrency: Record<string, string> = {
