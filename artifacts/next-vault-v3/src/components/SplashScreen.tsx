@@ -12,7 +12,6 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
   const LOADING_STEPS = [
     t('splash.initializing'),
     t('splash.connectingArc'),
-    t('splash.loadingPools'),
     t('splash.syncingMarket'),
     t('splash.calibrating'),
     t('splash.ready'),

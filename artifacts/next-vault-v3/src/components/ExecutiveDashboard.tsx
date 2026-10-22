@@ -13,7 +13,6 @@ interface ExecutiveDashboardProps {
   envMode: EnvMode;
   activeNetwork: NetworkConfig;
   realBalances: Record<string, number> | null;
-  simStats: { roi: number; risk: number; poolsAnalyzed: number; opportunities: number };
 }
 
 interface ExecStat {
@@ -50,7 +49,7 @@ function sentimentBg(idx: number): string {
   return 'from-red-500 to-orange-400';
 }
 
-export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simStats }: ExecutiveDashboardProps) {
+export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: ExecutiveDashboardProps) {
   const { t } = useI18n();
   const fmt = useFormat();
   const [sparkData, setSparkData] = useState<number[]>(() =>
@@ -82,13 +81,12 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances, simSt
       : null;
 
   const dailyPnl = useMemo(() => (totalPatrimony !== null ? totalPatrimony * 0.028 : null), [totalPatrimony]);
-  const roiValue = simStats.roi > 0 ? simStats.roi : 8.47;
   const tvl = sentiment.totalTvl;
 
   const stats: ExecStat[] = [
     { label: t('dash.patrimony'), value: safeUsd(totalPatrimony ?? undefined), delta: '+2.8%', deltaPositive: true, Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
     { label: t('dash.dailyProfit'), value: dailyPnl !== null ? `+${safeUsd(dailyPnl, '+—')}` : '—', delta: '+0.42%', deltaPositive: true, Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
-    { label: t('dash.roi'), value: `+${roiValue.toFixed(2)}%`, delta: `${simStats.risk.toFixed(1)}% ${t('dash.risk')}`, deltaPositive: false, Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
+    { label: t('dash.roi'), value: '—', Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },

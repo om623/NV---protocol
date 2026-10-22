@@ -29,9 +29,12 @@ import {
   Users,
   Zap,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/context';
+import { enqueueNVVoice, isNVVoiceMuted, setNVVoiceMuted } from '../lib/nvVoiceClient';
 import { LOCALES } from '../i18n/types';
 import NVVoicePlayer from './NVVoicePlayer';
 import { NVLiveProvider } from './NVLiveContext';
@@ -698,6 +701,7 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
 
 function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentContext | null }) {
   const { t, locale } = useI18n();
+  const [voiceMuted, setVoiceMuted] = useState(() => isNVVoiceMuted());
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
       role: 'assistant',
@@ -769,20 +773,59 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
 
+  async function localizeText(text: string, targetLocale: string): Promise<string> {
+    if (!text.trim()) return text;
+    try {
+      const response = await fetch('/api/nv-agent-localize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, locale: targetLocale }),
+      });
+      if (!response.ok) return text;
+      const payload = await response.json() as { text?: string };
+      return typeof payload.text === 'string' && payload.text.trim() ? payload.text : text;
+    } catch {
+      return text;
+    }
+  }
+
   async function handleSend(q = input) {
     const question = q.trim();
     if (!question || loading) return;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: question, timestamp: Date.now() }]);
     setLoading(true);
-    await new Promise(r => setTimeout(r, 350));
-    // Use full context when available; fall back to news-only for backward compat
-    const response = agentCtx
-      ? agentQuery(question, agentCtx, { locale, t })
-      : agentQuery(question, news, locale, t);
-    const { answer, sources, action } = response;
-    setMessages(prev => [...prev, { role: 'assistant', content: answer, sources, action, timestamp: Date.now() }]);
-    setLoading(false);
+    try {
+      // Normalize the question to English for intent detection, then localize the
+      // answer back into the user's selected language. The original user text is
+      // always kept in the chat, and financial identifiers remain unchanged.
+      const normalizedQuestion = locale === 'en' ? question : await localizeText(question, 'en');
+      const response = agentCtx
+        ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
+        : agentQuery(normalizedQuestion, news, locale, t);
+      const { answer, sources, action } = response;
+      const localizedAnswer = await localizeText(answer, locale);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: localizedAnswer,
+        sources,
+        action,
+        timestamp: Date.now(),
+      }]);
+      if (!voiceMuted) enqueueNVVoice(localizedAnswer, locale);
+    } catch (error) {
+      console.error('[NV Agent] reply failed:', error);
+      const fallback = t('intel.agentNoData');
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: fallback,
+        sources: [],
+        timestamp: Date.now(),
+      }]);
+      if (!voiceMuted) enqueueNVVoice(fallback, locale);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -798,9 +841,24 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             {news.length} {t('intel.agentItems')}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-1 text-[9px] text-primary/50 font-mono">
-          <Bot size={9} />
-          {t('intel.agentItems')} {news.length > 0 ? '●' : '○'}
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            aria-label={voiceMuted ? t('voice.enableFuture') : t('voice.silenceFuture')}
+            title={voiceMuted ? t('voice.enableFuture') : t('voice.silenceFuture')}
+            onClick={() => {
+              const nextMuted = !voiceMuted;
+              setVoiceMuted(nextMuted);
+              setNVVoiceMuted(nextMuted);
+            }}
+            className="flex items-center gap-1 rounded-lg border border-border/40 px-2 py-1 text-[10px] text-muted-foreground/70 hover:text-primary transition-colors"
+          >
+            {voiceMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+          </button>
+          <div className="flex items-center gap-1 text-[9px] text-primary/50 font-mono">
+            <Bot size={9} />
+            {t('intel.agentItems')} {news.length > 0 ? '●' : '○'}
+          </div>
         </div>
       </div>
 
