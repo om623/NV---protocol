@@ -177,6 +177,24 @@ export function ProfileView({
               <span>{number(gamification.xp, 1)} / {number(milestone.xpNeeded, 0)} XP</span>
               <span>{t('profile.nextMilestone')}: {t('profile.level')} {number(milestone.level, 0)}</span>
             </div>
+            {/* Existing badges belong to the Profile module, not the Nvult character tab. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Insígnias do perfil">
+              <span className="mr-1 text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40">Insígnias</span>
+              {BADGES.slice(0, 5).map(badge => {
+                const unlocked = gamification.unlockedBadges.includes(badge.id);
+                const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
+                return (
+                  <div key={badge.id} title={t(`badge.${badge.id}`)} className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
+                    unlocked ? 'border-primary/35 bg-primary/10 text-primary shadow-[0_0_12px_rgba(0,229,188,0.08)]' : 'border-border/30 bg-secondary/20 text-muted-foreground/25'
+                  }`}>
+                    {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                  </div>
+                );
+              })}
+              <button onClick={() => setActiveTab('badges')} className="text-[9px] font-mono text-primary/70 hover:text-primary">
+                Ver todas <ChevronRight size={10} className="inline" />
+              </button>
+            </div>
           </div>
         </div>
 
