@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Bot, Check, Coins, LockKeyhole, Package, Shield, ShoppingBag, Sparkles, Sword, WandSparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { BADGES } from '../lib/gamification';
+import { Bot, Check, Coins, LockKeyhole, Package, Shield, ShoppingBag, Sparkles, Sword, WandSparkles, Award } from 'lucide-react';
 
 type DemoItem = {
   id: string;
@@ -25,7 +27,7 @@ const ACCENTS: Record<string, string> = {
   amber: 'border-amber-400/40 text-amber-300 bg-amber-400/10',
 };
 
-export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: string; level: number; xp: number }) {
+export function NvultPrototype({ equippedSkin, level, xp, badges, totalSwaps }: { equippedSkin: string; level: number; xp: number; badges: string[]; totalSwaps: number }) {
   const [balance, setBalance] = useState(1000);
   const [owned, setOwned] = useState<string[]>([]);
   const [equipped, setEquipped] = useState<string[]>([]);
@@ -59,6 +61,15 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
     <section className="space-y-4" aria-label="Protótipo Nvult">
       <div className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#07111d] p-4 sm:p-6">
         <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 35%, rgba(34,211,238,.18), transparent 45%), linear-gradient(rgba(56,189,248,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.05) 1px, transparent 1px)', backgroundSize: 'auto, 24px 24px, 24px 24px' }} />
+        {/* Small animated tech-crawler: an original design cue, not a copy of another mascot. */}
+        <motion.div aria-hidden="true" className="pointer-events-none absolute z-10 left-4 top-[42%] opacity-80" animate={{ x: [0, 115, 210, 125, 0], y: [0, -18, 8, 24, 0], rotate: [0, 12, -8, 6, 0] }} transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}>
+          <div className="relative h-8 w-8">
+            <span className="absolute left-2 top-2 h-4 w-4 rounded-full border border-cyan-200 bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,.95)]" />
+            <span className="absolute left-0 top-1 h-2 w-3 -rotate-45 border-l border-t border-cyan-300/80" /><span className="absolute left-0 bottom-1 h-2 w-3 rotate-45 border-l border-b border-cyan-300/80" />
+            <span className="absolute right-0 top-1 h-2 w-3 rotate-45 border-r border-t border-cyan-300/80" /><span className="absolute right-0 bottom-1 h-2 w-3 -rotate-45 border-r border-b border-cyan-300/80" />
+            <span className="absolute left-[-8px] top-3 h-px w-3 bg-cyan-200/70" /><span className="absolute right-[-8px] top-3 h-px w-3 bg-cyan-200/70" />
+          </div>
+        </motion.div>
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[.24em] text-cyan-300/70"><Sparkles size={12} /> NV PROTOCOL · SEASON 0</div>
@@ -102,6 +113,18 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
               <div className="mb-2 flex items-center justify-between text-[10px]"><span className="text-slate-300">Progresso da Temporada 0</span><span className="font-mono text-cyan-200">{Math.min(100, Math.round((xp % 100) || 0))}%</span></div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: Math.min(100, (xp % 100) || 0) + '%' }} /></div>
               <p className="mt-2 text-[9px] text-slate-500">Interface de demonstração. Progresso sazonal real será conectado depois.</p>
+            </div>
+            <div className="rounded-xl border border-violet-300/15 bg-violet-300/[.035] p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-violet-200"><Award size={13} /> Insígnias do perfil <span className="ml-auto font-mono text-violet-200">{badges.length}/{BADGES.length}</span></div>
+              <div className="flex flex-wrap gap-1.5">
+                {BADGES.map((badge, index) => {
+                  const unlocked = badges.includes(badge.id);
+                  return <span key={badge.id} title={badge.id} className={'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] ' + (unlocked ? 'border-violet-300/35 bg-violet-300/10 text-violet-200' : 'border-white/10 bg-white/[.02] text-slate-600')}>
+                    {unlocked ? <Check size={10} /> : <LockKeyhole size={9} />} {badge.id.replace('swapper-', '').replace('first-swap', 'Primeiro swap')}
+                  </span>;
+                })}
+              </div>
+              <p className="mt-2 text-[9px] text-slate-500">{totalSwaps} swaps registrados · Insígnias reais do Perfil</p>
             </div>
             <div className="rounded-xl border border-amber-300/20 bg-amber-300/[.04] p-3">
               <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-200"><LockKeyhole size={13} /> Economia de teste</div>
