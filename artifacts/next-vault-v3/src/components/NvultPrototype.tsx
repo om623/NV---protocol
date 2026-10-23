@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { BADGES } from '../lib/gamification';
-import { Bot, Check, Coins, LockKeyhole, Package, Shield, ShoppingBag, Sparkles, Sword, WandSparkles, Award } from 'lucide-react';
+import { Bot, Check, Coins, LockKeyhole, Package, Shield, ShoppingBag, Sparkles, Sword, WandSparkles } from 'lucide-react';
 
 type DemoItem = {
   id: string;
@@ -27,7 +25,7 @@ const ACCENTS: Record<string, string> = {
   amber: 'border-amber-400/40 text-amber-300 bg-amber-400/10',
 };
 
-export function NvultPrototype({ equippedSkin, level, xp, badges, totalSwaps }: { equippedSkin: string; level: number; xp: number; badges: string[]; totalSwaps: number }) {
+export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: string; level: number; xp: number }) {
   const [balance, setBalance] = useState(1000);
   const [owned, setOwned] = useState<string[]>([]);
   const [equipped, setEquipped] = useState<string[]>([]);
@@ -61,15 +59,6 @@ export function NvultPrototype({ equippedSkin, level, xp, badges, totalSwaps }: 
     <section className="space-y-4" aria-label="Protótipo Nvult">
       <div className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#07111d] p-4 sm:p-6">
         <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 35%, rgba(34,211,238,.18), transparent 45%), linear-gradient(rgba(56,189,248,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.05) 1px, transparent 1px)', backgroundSize: 'auto, 24px 24px, 24px 24px' }} />
-        {/* Small animated tech-crawler: an original design cue, not a copy of another mascot. */}
-        <motion.div aria-hidden="true" className="pointer-events-none absolute z-10 left-4 top-[42%] opacity-80" animate={{ x: [0, 115, 210, 125, 0], y: [0, -18, 8, 24, 0], rotate: [0, 12, -8, 6, 0] }} transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}>
-          <div className="relative h-8 w-8">
-            <span className="absolute left-2 top-2 h-4 w-4 rounded-full border border-cyan-200 bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,.95)]" />
-            <span className="absolute left-0 top-1 h-2 w-3 -rotate-45 border-l border-t border-cyan-300/80" /><span className="absolute left-0 bottom-1 h-2 w-3 rotate-45 border-l border-b border-cyan-300/80" />
-            <span className="absolute right-0 top-1 h-2 w-3 rotate-45 border-r border-t border-cyan-300/80" /><span className="absolute right-0 bottom-1 h-2 w-3 -rotate-45 border-r border-b border-cyan-300/80" />
-            <span className="absolute left-[-8px] top-3 h-px w-3 bg-cyan-200/70" /><span className="absolute right-[-8px] top-3 h-px w-3 bg-cyan-200/70" />
-          </div>
-        </motion.div>
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[.24em] text-cyan-300/70"><Sparkles size={12} /> NV PROTOCOL · SEASON 0</div>
@@ -87,9 +76,15 @@ export function NvultPrototype({ equippedSkin, level, xp, badges, totalSwaps }: 
             <div className="mb-3 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/5 px-3 py-1 text-[9px] font-mono uppercase tracking-widest text-cyan-200/70"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" /> Nvult online</div>
             <div className="relative flex h-48 w-40 items-center justify-center">
               <div className="absolute bottom-2 h-7 w-32 rounded-full bg-cyan-400/10 blur-xl" />
-              <div className="absolute bottom-5 left-5 h-20 w-8 -rotate-12 rounded-xl border border-slate-500/70 bg-gradient-to-b from-slate-500 to-slate-900" />
-              <div className="absolute bottom-5 right-5 h-20 w-8 rotate-12 rounded-xl border border-slate-500/70 bg-gradient-to-b from-slate-500 to-slate-900" />
-              <div className={'absolute bottom-12 h-24 w-24 rounded-[28px] border bg-gradient-to-br from-slate-500 via-slate-800 to-slate-950 shadow-[0_0_35px_rgba(34,211,238,.12)] ' + (equipped.includes('armor-pulse') ? 'border-sky-300 shadow-[0_0_24px_rgba(56,189,248,.28)]' : 'border-slate-500/80')} />
+              {/* The spider-like silhouette is part of Nvult's own body, not a separate companion. */}
+              <div className="absolute bottom-12 left-[2.1rem] h-16 w-7 -rotate-[42deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-400/90 to-slate-900 shadow-[0_0_10px_rgba(34,211,238,.12)]" />
+              <div className="absolute bottom-[4.8rem] left-[1.65rem] h-14 w-6 rotate-[28deg] origin-top rounded-full border border-slate-500/80 bg-gradient-to-b from-slate-400 to-slate-900" />
+              <div className="absolute bottom-12 right-[2.1rem] h-16 w-7 rotate-[42deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-400/90 to-slate-900 shadow-[0_0_10px_rgba(34,211,238,.12)]" />
+              <div className="absolute bottom-[4.8rem] right-[1.65rem] h-14 w-6 -rotate-[28deg] origin-top rounded-full border border-slate-500/80 bg-gradient-to-b from-slate-400 to-slate-900" />
+              <div className={'absolute bottom-12 h-24 w-24 rounded-[28px] border bg-gradient-to-br from-slate-500 via-slate-800 to-slate-950 shadow-[0_0_35px_rgba(34,211,238,.12)] ' + (equipped.includes('armor-pulse') ? 'border-sky-300 shadow-[0_0_24px_rgba(56,189,248,.28)]' : 'border-slate-500/80')} >
+                <div className="absolute inset-x-4 top-5 h-1 rounded-full bg-cyan-300/80 shadow-[0_0_10px_rgba(103,232,249,.9)]" />
+                <div className="absolute inset-x-5 bottom-5 h-1 rounded-full bg-cyan-300/45" />
+              </div>
               <div className="absolute bottom-[7.7rem] h-[4.7rem] w-[4.8rem] rounded-[22px] border border-slate-400/80 bg-gradient-to-br from-slate-300 via-slate-700 to-slate-950 shadow-lg">
                 <div className="absolute left-2 right-2 top-5 flex h-4 items-center justify-center gap-2 rounded-md border border-cyan-200/30 bg-slate-950">
                   <span className="h-1.5 w-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" /><span className="h-1.5 w-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
@@ -97,7 +92,7 @@ export function NvultPrototype({ equippedSkin, level, xp, badges, totalSwaps }: 
                 <div className="absolute -left-2 top-5 h-5 w-2 rounded border border-slate-400 bg-slate-700" /><div className="absolute -right-2 top-5 h-5 w-2 rounded border border-slate-400 bg-slate-700" />
                 {equipped.includes('helmet-visor') && <div className="absolute -top-2 left-1/2 h-3 w-14 -translate-x-1/2 rounded-t-lg border border-violet-300 bg-violet-300/30 shadow-[0_0_14px_rgba(167,139,250,.6)]" />}
               </div>
-              {equipped.includes('sword-plasma') && <div className="absolute bottom-[4.4rem] right-1 h-24 w-2 rotate-[-24deg] rounded-full bg-gradient-to-t from-cyan-200 via-blue-300 to-white shadow-[0_0_12px_rgba(103,232,249,.9)]" />}
+              {equipped.includes('sword-plasma') && <div className="absolute bottom-[5.4rem] right-0 h-24 w-2 rotate-[-24deg] rounded-full bg-gradient-to-t from-cyan-200 via-blue-300 to-white shadow-[0_0_12px_rgba(103,232,249,.9)]" />}
               {equipped.includes('skin-neon') && <div className="absolute bottom-14 h-20 w-20 rounded-[24px] border border-cyan-300/70 shadow-[0_0_20px_rgba(34,211,238,.35)]" />}
             </div>
             <div className="text-center"><div className="text-lg font-semibold text-white">Nvult <span className="text-xs font-mono text-cyan-300">#{String(level).padStart(3, '0')}</span></div><div className="mt-1 text-[10px] font-mono text-slate-500">SKIN ATUAL: {equippedSkin.toUpperCase()}</div></div>
@@ -113,18 +108,6 @@ export function NvultPrototype({ equippedSkin, level, xp, badges, totalSwaps }: 
               <div className="mb-2 flex items-center justify-between text-[10px]"><span className="text-slate-300">Progresso da Temporada 0</span><span className="font-mono text-cyan-200">{Math.min(100, Math.round((xp % 100) || 0))}%</span></div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: Math.min(100, (xp % 100) || 0) + '%' }} /></div>
               <p className="mt-2 text-[9px] text-slate-500">Interface de demonstração. Progresso sazonal real será conectado depois.</p>
-            </div>
-            <div className="rounded-xl border border-violet-300/15 bg-violet-300/[.035] p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-violet-200"><Award size={13} /> Insígnias do perfil <span className="ml-auto font-mono text-violet-200">{badges.length}/{BADGES.length}</span></div>
-              <div className="flex flex-wrap gap-1.5">
-                {BADGES.map((badge, index) => {
-                  const unlocked = badges.includes(badge.id);
-                  return <span key={badge.id} title={badge.id} className={'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] ' + (unlocked ? 'border-violet-300/35 bg-violet-300/10 text-violet-200' : 'border-white/10 bg-white/[.02] text-slate-600')}>
-                    {unlocked ? <Check size={10} /> : <LockKeyhole size={9} />} {badge.id.replace('swapper-', '').replace('first-swap', 'Primeiro swap')}
-                  </span>;
-                })}
-              </div>
-              <p className="mt-2 text-[9px] text-slate-500">{totalSwaps} swaps registrados · Insígnias reais do Perfil</p>
             </div>
             <div className="rounded-xl border border-amber-300/20 bg-amber-300/[.04] p-3">
               <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-200"><LockKeyhole size={13} /> Economia de teste</div>
