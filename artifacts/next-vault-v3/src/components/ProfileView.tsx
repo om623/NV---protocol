@@ -616,8 +616,6 @@ export function ProfileView({
           equippedSkin={gamification.equippedSkin}
           level={level}
           xp={gamification.xp}
-          badges={gamification.unlockedBadges}
-          totalSwaps={gamification.totalSwaps}
         />
       )}
     </div>
