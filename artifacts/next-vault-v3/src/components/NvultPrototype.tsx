@@ -76,14 +76,21 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
             <div className="mb-3 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/5 px-3 py-1 text-[9px] font-mono uppercase tracking-widest text-cyan-200/70"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" /> Nvult online</div>
             <div className="relative flex h-48 w-40 items-center justify-center">
               <div className="absolute bottom-2 h-7 w-32 rounded-full bg-cyan-400/10 blur-xl" />
-              {/* The spider-like silhouette is part of Nvult's own body, not a separate companion. */}
-              <div className="absolute bottom-12 left-[2.1rem] h-16 w-7 -rotate-[42deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-400/90 to-slate-900 shadow-[0_0_10px_rgba(34,211,238,.12)]" />
-              <div className="absolute bottom-[4.8rem] left-[1.65rem] h-14 w-6 rotate-[28deg] origin-top rounded-full border border-slate-500/80 bg-gradient-to-b from-slate-400 to-slate-900" />
-              <div className="absolute bottom-12 right-[2.1rem] h-16 w-7 rotate-[42deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-400/90 to-slate-900 shadow-[0_0_10px_rgba(34,211,238,.12)]" />
-              <div className="absolute bottom-[4.8rem] right-[1.65rem] h-14 w-6 -rotate-[28deg] origin-top rounded-full border border-slate-500/80 bg-gradient-to-b from-slate-400 to-slate-900" />
-              <div className={'absolute bottom-12 h-24 w-24 rounded-[28px] border bg-gradient-to-br from-slate-500 via-slate-800 to-slate-950 shadow-[0_0_35px_rgba(34,211,238,.12)] ' + (equipped.includes('armor-pulse') ? 'border-sky-300 shadow-[0_0_24px_rgba(56,189,248,.28)]' : 'border-slate-500/80')} >
-                <div className="absolute inset-x-4 top-5 h-1 rounded-full bg-cyan-300/80 shadow-[0_0_10px_rgba(103,232,249,.9)]" />
-                <div className="absolute inset-x-5 bottom-5 h-1 rounded-full bg-cyan-300/45" />
+              {/* Nvult's cyber-spider identity is built into its own armored body: eight articulated legs attached to the core, no separate floating object. */}
+              <div className="absolute bottom-[5.7rem] left-[0.15rem] h-16 w-7 -rotate-[48deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-300 via-slate-600 to-slate-950 shadow-[0_0_10px_rgba(34,211,238,.14)]" />
+              <div className="absolute bottom-[4.5rem] left-[0.45rem] h-14 w-6 -rotate-[24deg] origin-top rounded-full border border-slate-400/70 bg-gradient-to-b from-slate-400 to-slate-950" />
+              <div className="absolute bottom-[3.6rem] left-[1.1rem] h-12 w-5 rotate-[8deg] origin-top rounded-full border border-cyan-300/30 bg-gradient-to-b from-slate-500 to-slate-950" />
+              <div className="absolute bottom-[2.9rem] left-[2.1rem] h-10 w-4 rotate-[30deg] origin-top rounded-full border border-slate-500/80 bg-gradient-to-b from-slate-500 to-slate-950" />
+              <div className="absolute bottom-[5.7rem] right-[0.15rem] h-16 w-7 rotate-[48deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-300 via-slate-600 to-slate-950 shadow-[0_0_10px_rgba(34,211,238,.14)]" />
+              <div className="absolute bottom-[4.5rem] right-[0.45rem] h-14 w-6 rotate-[24deg] origin-top rounded-full border border-slate-400/70 bg-gradient-to-b from-slate-400 to-slate-950" />
+              <div className="absolute bottom-[3.6rem] right-[1.1rem] h-12 w-5 -rotate-[8deg] origin-top rounded-full border border-cyan-300/30 bg-gradient-to-b from-slate-500 to-slate-950" />
+              <div className="absolute bottom-[2.9rem] right-[2.1rem] h-10 w-4 -rotate-[30deg] origin-top rounded-full border border-slate-500/80 bg-gradient-to-b from-slate-500 to-slate-950" />
+              <div className={'absolute bottom-12 z-[1] h-24 w-24 rounded-[25px] border bg-gradient-to-br from-slate-300 via-slate-700 to-slate-950 shadow-[0_0_35px_rgba(34,211,238,.16)] ' + (equipped.includes('armor-pulse') ? 'border-sky-300 shadow-[0_0_24px_rgba(56,189,248,.28)]' : 'border-slate-400/80')} >
+                <div className="absolute inset-x-3 top-4 h-5 rounded-md border border-cyan-200/30 bg-slate-950/90">
+                  <div className="mx-auto mt-2 h-1 w-8 rounded-full bg-cyan-300/80 shadow-[0_0_10px_rgba(103,232,249,.9)]" />
+                </div>
+                <div className="absolute inset-x-4 bottom-5 h-1 rounded-full bg-cyan-300/50 shadow-[0_0_8px_rgba(103,232,249,.45)]" />
+                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 rounded-full border border-cyan-100 bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,.8)]" />
               </div>
               <div className="absolute bottom-[7.7rem] h-[4.7rem] w-[4.8rem] rounded-[22px] border border-slate-400/80 bg-gradient-to-br from-slate-300 via-slate-700 to-slate-950 shadow-lg">
                 <div className="absolute left-2 right-2 top-5 flex h-4 items-center justify-center gap-2 rounded-md border border-cyan-200/30 bg-slate-950">
