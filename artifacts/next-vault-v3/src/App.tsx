@@ -584,13 +584,13 @@ function Home() {
   // isRealSwap: wallet connected AND active network has a CCTP config (testnet or mainnet)
   const isRealSwap = isConnected && getCctpNetwork(activeNetwork.id) !== null;
 
-  const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string) => {
+  const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string): Promise<Record<string, number> | null> => {
     try {
       const tokenMap = getTokensForNetwork(activeNetwork);
-      const bal = await getAllBalances(prov, addr, tokenMap);
-      setRealBalances(bal);
+      return await getAllBalances(prov, addr, tokenMap);
     } catch {
-      // non-fatal
+      // Balance reads are non-fatal; wallet connection should remain successful.
+      return null;
     }
   }, [activeNetwork]);
 
@@ -616,13 +616,16 @@ function Home() {
 
       // Load chain and balances in the background. Network switching remains user-initiated.
       void (async () => {
-        const [chainResult] = await Promise.allSettled([
+        const [chainResult, balancesResult] = await Promise.allSettled([
           getChainId(prov),
           refreshBalances(prov, addr),
         ]);
         if (walletSessionRef.current !== session) return;
         if (chainResult.status === 'fulfilled') setWalletChainId(chainResult.value);
         else setWalletChainId(null);
+        if (balancesResult.status === 'fulfilled' && balancesResult.value) {
+          setRealBalances(balancesResult.value);
+        }
       })();
     } catch (err) {
       const code = (err as { code?: number })?.code;
