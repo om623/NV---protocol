@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
+import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink, Bot } from 'lucide-react';
+import { NvultPrototype } from './NvultPrototype';
 import { useI18n, useFormat } from '../i18n';
 import {
   BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS,
@@ -46,7 +47,7 @@ export function ProfileView({
 }: ProfileViewProps) {
   const { t } = useI18n();
   const { number } = useFormat();
-  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop' | 'nvult'>('overview');
 
   const level = computeLevel(gamification);
   const milestone = nextMilestone(gamification);
@@ -136,7 +137,7 @@ export function ProfileView({
       <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
           {/* Avatar */}
-          <div className={`relative w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 ${
+          <div style={{ clipPath: "polygon(18% 0, 82% 0, 100% 22%, 100% 78%, 82% 100%, 18% 100%, 0 78%, 0 22%)" }} className={`relative w-20 h-20 flex items-center justify-center shrink-0 shadow-[0_0_24px_rgba(34,211,238,.10)] ${
             gamification.equippedSkin === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/30' :
             gamification.equippedSkin === 'silver' ? 'bg-gradient-to-br from-slate-300/15 to-slate-500/10 border border-slate-300/25' :
             gamification.equippedSkin === 'bronze' ? 'bg-gradient-to-br from-orange-400/15 to-orange-600/10 border border-orange-400/25' :
@@ -146,7 +147,7 @@ export function ProfileView({
             'bg-primary/10 border border-primary/20'
           }`}>
             <span className="text-2xl font-bold text-primary">{level >= 1000 ? '' : ''}{level >= 2000 ? '' : ''}</span>
-            <Shield size={32} className="text-primary/80" />
+            <Shield size={32} className="text-primary/90 drop-shadow-[0_0_8px_rgba(34,211,238,.45)]" />
             {gamification.equippedTitle && (
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
                 {t(`title.${gamification.equippedTitle}`)}
@@ -175,6 +176,24 @@ export function ProfileView({
             <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground/40">
               <span>{number(gamification.xp, 1)} / {number(milestone.xpNeeded, 0)} XP</span>
               <span>{t('profile.nextMilestone')}: {t('profile.level')} {number(milestone.level, 0)}</span>
+            </div>
+            {/* Existing badges belong to the Profile module, not the Nvult character tab. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/15 bg-gradient-to-r from-primary/[.06] via-transparent to-violet-400/[.04] p-2.5" aria-label="Insígnias do perfil">
+              <span className="mr-1 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[.16em] text-muted-foreground/60"><Award size={12} className="text-primary" /> Insígnias</span>
+              {BADGES.slice(0, 5).map(badge => {
+                const unlocked = gamification.unlockedBadges.includes(badge.id);
+                const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
+                return (
+                  <div key={badge.id} title={t(`badge.${badge.id}`)} className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
+                    unlocked ? 'border-primary/35 bg-primary/10 text-primary shadow-[0_0_12px_rgba(0,229,188,0.08)]' : 'border-border/30 bg-secondary/20 text-muted-foreground/25'
+                  }`}>
+                    {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                  </div>
+                );
+              })}
+              <button onClick={() => setActiveTab('badges')} className="text-[9px] font-mono text-primary/70 hover:text-primary">
+                Ver todas <ChevronRight size={10} className="inline" />
+              </button>
             </div>
           </div>
         </div>
@@ -224,7 +243,8 @@ export function ProfileView({
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border/30 overflow-x-auto">
         {([
           { key: 'overview',    label: t('profile.tabOverview'),    Icon: TrendingUp },
-          { key: 'badges',      label: t('profile.tabBadges'),      Icon: Award },
+          { key: 'nvult',       label: 'Nvult',                      Icon: Bot },
+          { key: 'badges',      label: t('profile.tabBadges'),       Icon: Award },
           { key: 'skins',       label: t('profile.tabSkins'),       Icon: Shield },
           { key: 'leaderboard', label: t('profile.tabLeaderboard'), Icon: Users },
           { key: 'shop',        label: t('profile.tabShop'),        Icon: ShoppingCart },
@@ -606,6 +626,15 @@ export function ProfileView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Nvult prototype: local demo only; no real token or payment is used. */}
+      {activeTab === 'nvult' && (
+        <NvultPrototype
+          equippedSkin={gamification.equippedSkin}
+          level={level}
+          xp={gamification.xp}
+        />
       )}
     </div>
   );
