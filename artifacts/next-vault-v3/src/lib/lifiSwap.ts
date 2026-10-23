@@ -109,15 +109,19 @@ export async function executeLifiSameChainSwap(args: {
   if (!tx?.to || !tx.data) throw new Error('A cotação recebida não contém uma transação executável.');
   
   // ERC-20 allowance: request approval only when needed; native tokens do not need approval.
-  if (!sourceToken.isNative && quote.estimate?.approvalAddress) {
-    const allowanceData = `0xdd62ed3e${walletAddress.slice(2).toLowerCase().padStart(64, '0')}${quote.estimate.approvalAddress.slice(2).toLowerCase().padStart(64, '0')}`;
+  if (!sourceToken.isNative) {
+    const approvalAddress = quote.estimate?.approvalAddress;
+    if (!approvalAddress) {
+      throw new Error('A cotação LI.FI não informou o contrato de aprovação. Nenhuma troca foi enviada.');
+    }
+    const allowanceData = `0xdd62ed3e${walletAddress.slice(2).toLowerCase().padStart(64, '0')}${approvalAddress.slice(2).toLowerCase().padStart(64, '0')}`;
     const allowanceRaw = await provider.request({
       method: 'eth_call',
       params: [{ to: sourceToken.address, data: allowanceData }, 'latest'],
     }) as string;
     const allowance = BigInt(allowanceRaw || '0x0');
     if (allowance < fromAmount) {
-      const approveData = `0x095ea7b3${quote.estimate.approvalAddress.slice(2).toLowerCase().padStart(64, '0')}${MAX_UINT256.slice(2)}`;
+      const approveData = `0x095ea7b3${approvalAddress.slice(2).toLowerCase().padStart(64, '0')}${MAX_UINT256.slice(2)}`;
       const approvalHash = await sendTransaction(provider, walletAddress, sourceToken.address!, approveData);
       await waitForReceipt(provider, approvalHash);
     }
