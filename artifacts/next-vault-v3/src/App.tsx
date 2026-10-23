@@ -50,6 +50,7 @@ import {
 } from './networks';
 import { getAsset, refreshFromApis, getMarketSentiment, getAllAssets } from './lib/marketData';
 import { isValidNum, safeBalance, safeBalanceFmt, dedupTokens } from './lib/utils';
+import { executeLifiSameChainSwap } from './lib/lifiSwap';
 import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
@@ -653,23 +654,86 @@ function Home() {
       return;
     }
 
-    // ── Same-chain non-CCTP swap guard ─────────────────────────────────────────
-    // CCTP is cross-chain only. Same-chain USDC→EURC is not supported.
-    if (sourceToken !== 'USDC' || destToken !== 'USDC') {
-      // Cross-chain USDC→USDC is the only supported flow.
-      // Same-chain or non-USDC swaps surface an explicit message.
-      if (sourceToken !== 'USDC') {
+    // Mainnet same-chain swaps use LI.FI. Existing USDC CCTP transfers remain unchanged.
+    if (activeNetwork.type === 'mainnet' && !(sourceToken === 'USDC' && destToken === 'USDC')) {
+      const tokens = dedupTokens(getNetworkTokens(activeNetwork), activeNetwork.chainId);
+      const sourceMatches = tokens.filter(token => token.symbol === sourceToken);
+      const destinationMatches = tokens.filter(token => token.symbol === destToken);
+      if (sourceMatches.length !== 1 || destinationMatches.length !== 1) {
         toast({
-          title: 'Token not supported',
-          description: `Cross-chain transfers only support USDC as the source token. Select USDC to continue.`,
+          title: 'Token route is ambiguous',
+          description: 'This network has more than one token entry with the selected symbol. No transaction was sent; the token must be identified by its contract address.',
           variant: 'destructive',
         });
         return;
       }
-      // sourceToken is USDC but destToken is not USDC (e.g. EURC on same chain)
+      let from = connectedAddress;
+      if (!from) {
+        try {
+          const accounts = await getAccounts(prov);
+          from = accounts?.[0] ?? null;
+        } catch { /* handled below */ }
+      }
+      if (!from) {
+        toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' });
+        return;
+      }
+      setSwapCctpRunning(true);
+      setSwapCctpStep('Requesting LI.FI route…');
+      setSwapCctpError(null);
+      try {
+        const result = await executeLifiSameChainSwap({
+          provider: prov,
+          walletAddress: from,
+          network: activeNetwork,
+          sourceToken: sourceMatches[0],
+          destinationToken: destinationMatches[0],
+          amount,
+        });
+        logNVActivity({
+          category: 'swap',
+          action: 'Mainnet swap concluído',
+          details: `${amount} ${sourceToken} → ${destToken} via ${result.tool}`,
+          txHash: result.transactionHash,
+          network: activeNetwork.name,
+        });
+        setTransactions(prev => [{
+          id: result.transactionHash,
+          fromToken: sourceToken,
+          toToken: destToken,
+          fromAmount: n,
+          toAmount: result.estimatedOutput ? Number(result.estimatedOutput) / (10 ** destinationMatches[0].decimals) : 0,
+          time: 'Just now',
+          status: 'Success',
+        }, ...prev]);
+        const xpGained = gamification.recordSwap(result.transactionHash);
+        toast({
+          title: 'Swap concluído ✓',
+          description: `${sourceToken} → ${destToken} confirmado em ${activeNetwork.name}. TX: ${result.transactionHash.slice(0, 16)}…`,
+        });
+        if (xpGained > 0) toast({ title: `+${xpGained} XP` });
+        setSwapCctpStep('Swap confirmed');
+        setAmount('');
+        if (from) await refreshBalances(prov, from);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Falha ao executar o swap via LI.FI.';
+        setSwapCctpError(msg);
+        setSwapCctpStep(null);
+        toast({ title: t('wallet.swapFailed'), description: msg, variant: 'destructive' });
+        console.error('LI.FI SWAP ERROR:', err);
+      } finally {
+        setSwapCctpRunning(false);
+      }
+      return;
+    }
+
+    // CCTP is the existing cross-chain USDC → USDC route. Do not replace it.
+    if (sourceToken !== 'USDC' || destToken !== 'USDC') {
       toast({
-        title: 'Same-chain USDC → EURC unavailable',
-        description: 'Same-chain USDC → EURC swap is temporarily unavailable. Cross-chain USDC transfers are currently supported.',
+        title: 'Token pair not supported on this route',
+        description: activeNetwork.type === 'testnet'
+          ? 'The existing testnet route supports cross-chain USDC transfers only. No swap was simulated.'
+          : 'Select USDC → USDC to use the existing cross-chain transfer route.',
         variant: 'destructive',
       });
       return;
@@ -880,7 +944,7 @@ function Home() {
       setShowWalletPicker(true);
       return;
     }
-    if (!isRealSwap) {
+    if (!isRealSwap && activeNetwork.type !== 'mainnet') {
       toast({ title: 'Network not supported', description: 'Choose a network that supports Circle CCTP transfers.', variant: 'destructive' });
       return;
     }
