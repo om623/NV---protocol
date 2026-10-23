@@ -441,6 +441,7 @@ function Home() {
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [realBalances, setRealBalances] = useState<Record<string, number> | null>(null);
+  const walletSessionRef = useRef(0);
 
   // View + coming-soon state
   const [activeView, setActiveView] = useState<SidebarView>('dashboard');
@@ -591,24 +592,38 @@ function Home() {
     } catch {
       // non-fatal
     }
-  }, []);
+  }, [activeNetwork]);
 
   const connectWithWallet = async (wallet: WalletInfo) => {
     const prov = wallet.provider;
+    const session = ++walletSessionRef.current;
     try {
+      // Request account access first; do not block the connected UI on network switching or RPC balances.
       const accounts = await getAccounts(prov);
       const addr = accounts?.[0];
-      if (!addr) { toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' }); return; }
-      await ensureNetwork(prov, networkChainParams(activeNetwork));
-      const chainId = await getChainId(prov);
+      if (!addr) {
+        toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' });
+        return;
+      }
+
+      // Show the connected state immediately after wallet authorization.
       setProvider(prov);
       setConnectedAddress(addr);
       setIsConnected(true);
-      setWalletChainId(chainId);
       setActiveWalletName(wallet.name);
       setShowWalletPicker(false);
-      await refreshBalances(prov, addr);
-      toast({ title: t('wallet.connected'), description: `${wallet.name} · ${shortAddress(addr)}` });
+      toast({ title: t('wallet.connected'), description: `${wallet.name} · `${shortAddress(addr)}` });
+
+      // Load chain and balances in the background. Network switching remains user-initiated.
+      void (async () => {
+        const [chainResult] = await Promise.allSettled([
+          getChainId(prov),
+          refreshBalances(prov, addr),
+        ]);
+        if (walletSessionRef.current !== session) return;
+        if (chainResult.status === 'fulfilled') setWalletChainId(chainResult.value);
+        else setWalletChainId(null);
+      })();
     } catch (err) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) toast({ title: t('wallet.connectionRefused'), variant: 'destructive' });
@@ -624,6 +639,7 @@ function Home() {
   };
 
   const handleDisconnect = () => {
+    walletSessionRef.current += 1;
     setIsConnected(false);
     setProvider(null);
     setConnectedAddress(null);
