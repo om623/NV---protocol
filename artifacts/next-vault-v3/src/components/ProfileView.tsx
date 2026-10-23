@@ -137,7 +137,7 @@ export function ProfileView({
       <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
           {/* Avatar */}
-          <div className={`relative w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 ${
+          <div style={{ clipPath: "polygon(18% 0, 82% 0, 100% 22%, 100% 78%, 82% 100%, 18% 100%, 0 78%, 0 22%)" }} className={`relative w-20 h-20 flex items-center justify-center shrink-0 shadow-[0_0_24px_rgba(34,211,238,.10)] ${
             gamification.equippedSkin === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/30' :
             gamification.equippedSkin === 'silver' ? 'bg-gradient-to-br from-slate-300/15 to-slate-500/10 border border-slate-300/25' :
             gamification.equippedSkin === 'bronze' ? 'bg-gradient-to-br from-orange-400/15 to-orange-600/10 border border-orange-400/25' :
@@ -147,7 +147,7 @@ export function ProfileView({
             'bg-primary/10 border border-primary/20'
           }`}>
             <span className="text-2xl font-bold text-primary">{level >= 1000 ? '' : ''}{level >= 2000 ? '' : ''}</span>
-            <Shield size={32} className="text-primary/80" />
+            <Shield size={32} className="text-primary/90 drop-shadow-[0_0_8px_rgba(34,211,238,.45)]" />
             {gamification.equippedTitle && (
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
                 {t(`title.${gamification.equippedTitle}`)}
@@ -178,8 +178,8 @@ export function ProfileView({
               <span>{t('profile.nextMilestone')}: {t('profile.level')} {number(milestone.level, 0)}</span>
             </div>
             {/* Existing badges belong to the Profile module, not the Nvult character tab. */}
-            <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Insígnias do perfil">
-              <span className="mr-1 text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40">Insígnias</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/15 bg-gradient-to-r from-primary/[.06] via-transparent to-violet-400/[.04] p-2.5" aria-label="Insígnias do perfil">
+              <span className="mr-1 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[.16em] text-muted-foreground/60"><Award size={12} className="text-primary" /> Insígnias</span>
               {BADGES.slice(0, 5).map(badge => {
                 const unlocked = gamification.unlockedBadges.includes(badge.id);
                 const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
