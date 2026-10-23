@@ -225,11 +225,11 @@ export function ProfileView({
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border/30 overflow-x-auto">
         {([
           { key: 'overview',    label: t('profile.tabOverview'),    Icon: TrendingUp },
-          { key: 'badges',      label: t('profile.tabBadges'),      Icon: Award },
+          { key: 'nvult',       label: 'Nvult',                      Icon: Bot },
+          { key: 'badges',      label: t('profile.tabBadges'),       Icon: Award },
           { key: 'skins',       label: t('profile.tabSkins'),       Icon: Shield },
           { key: 'leaderboard', label: t('profile.tabLeaderboard'), Icon: Users },
           { key: 'shop',        label: t('profile.tabShop'),        Icon: ShoppingCart },
-          { key: 'nvult',       label: 'Nvult',                      Icon: Bot },
         ] as const).map(({ key, label, Icon }) => (
           <button key={key} onClick={() => setActiveTab(key)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
@@ -616,6 +616,8 @@ export function ProfileView({
           equippedSkin={gamification.equippedSkin}
           level={level}
           xp={gamification.xp}
+          badges={gamification.unlockedBadges}
+          totalSwaps={gamification.totalSwaps}
         />
       )}
     </div>
