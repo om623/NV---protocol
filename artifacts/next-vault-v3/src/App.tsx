@@ -612,7 +612,7 @@ function Home() {
       setIsConnected(true);
       setActiveWalletName(wallet.name);
       setShowWalletPicker(false);
-      toast({ title: t('wallet.connected'), description: `${wallet.name} · `${shortAddress(addr)}` });
+      toast({ title: t('wallet.connected'), description: `${wallet.name} · ${shortAddress(addr)}` });
 
       // Load chain and balances in the background. Network switching remains user-initiated.
       void (async () => {
