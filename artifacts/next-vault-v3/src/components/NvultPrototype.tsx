@@ -57,25 +57,26 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
 
   return (
     <section className="space-y-4" aria-label="Protótipo Nvult">
-      <div className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#07111d] p-4 sm:p-6">
-        <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 35%, rgba(34,211,238,.18), transparent 45%), linear-gradient(rgba(56,189,248,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.05) 1px, transparent 1px)', backgroundSize: 'auto, 24px 24px, 24px 24px' }} />
+      <div className="relative overflow-hidden rounded-[1.5rem] border border-cyan-400/25 bg-[#030a15] p-4 shadow-[0_0_40px_rgba(8,145,178,.08)] sm:p-6">
+        <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(ellipse at 22% 38%, rgba(37,99,235,.22), transparent 42%), radial-gradient(circle at 82% 16%, rgba(34,211,238,.12), transparent 32%), linear-gradient(rgba(56,189,248,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.045) 1px, transparent 1px)', backgroundSize: 'auto, auto, 26px 26px, 26px 26px' }} />
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[.24em] text-cyan-300/70"><Sparkles size={12} /> NV PROTOCOL · SEASON 0</div>
             <h2 className="text-2xl font-bold tracking-tight text-white">Conheça <span className="text-cyan-300">Nvult</span></h2>
             <p className="mt-1 max-w-lg text-xs leading-relaxed text-slate-400">Seu guardião digital. Evolua, colecione equipamentos e personalize sua identidade no ecossistema NV.</p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-xl border border-amber-300/35 bg-gradient-to-br from-amber-300/15 to-amber-500/[.03] px-3 py-2 shadow-[inset_0_0_18px_rgba(251,191,36,.04)]">
             <Coins size={17} className="text-amber-300" />
             <div><div className="text-[9px] uppercase tracking-wider text-amber-200/60">Saldo de teste</div><div className="font-mono text-lg font-bold text-amber-200">{balance.toLocaleString('pt-BR')} NvA</div></div>
           </div>
         </div>
 
         <div className="relative mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-cyan-300/15 bg-slate-950/60 p-4">
+          <div className="relative flex min-h-[330px] flex-col items-center justify-center overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-b from-[#07172a] via-[#040d1a] to-[#020712] p-4">
             <div className="mb-3 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/5 px-3 py-1 text-[9px] font-mono uppercase tracking-widest text-cyan-200/70"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" /> Nvult online</div>
-            <div className="relative flex h-48 w-40 items-center justify-center">
-              <div className="absolute bottom-2 h-7 w-32 rounded-full bg-cyan-400/10 blur-xl" />
+            <div className="relative z-[1] flex h-52 w-48 items-center justify-center">
+              <div className="absolute inset-0 opacity-50" style={{ backgroundImage: "radial-gradient(circle at 50% 48%, rgba(34,211,238,.12), transparent 40%), linear-gradient(140deg, transparent 40%, rgba(37,99,235,.12), transparent 75%)" }} />
+              <div className="absolute bottom-2 h-7 w-32 rounded-full bg-cyan-400/20 blur-xl" />
               {/* Nvult's cyber-spider identity is built into its own armored body: eight articulated legs attached to the core, no separate floating object. */}
               <div className="absolute bottom-[5.7rem] left-[0.15rem] h-16 w-7 -rotate-[48deg] origin-top rounded-full border border-cyan-300/45 bg-gradient-to-b from-slate-300 via-slate-600 to-slate-950 shadow-[0_0_10px_rgba(34,211,238,.14)]" />
               <div className="absolute bottom-[4.5rem] left-[0.45rem] h-14 w-6 -rotate-[24deg] origin-top rounded-full border border-slate-400/70 bg-gradient-to-b from-slate-400 to-slate-950" />
@@ -92,8 +93,8 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
                 <div className="absolute inset-x-4 bottom-5 h-1 rounded-full bg-cyan-300/50 shadow-[0_0_8px_rgba(103,232,249,.45)]" />
                 <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 rounded-full border border-cyan-100 bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,.8)]" />
               </div>
-              <div className="absolute bottom-[7.7rem] h-[4.7rem] w-[4.8rem] rounded-[22px] border border-slate-400/80 bg-gradient-to-br from-slate-300 via-slate-700 to-slate-950 shadow-lg">
-                <div className="absolute left-2 right-2 top-5 flex h-4 items-center justify-center gap-2 rounded-md border border-cyan-200/30 bg-slate-950">
+              <div className="absolute bottom-[8.2rem] z-[2] h-[4.7rem] w-[4.8rem] rounded-[20px] border border-slate-300/90 bg-gradient-to-br from-slate-200 via-slate-600 to-slate-950 shadow-[inset_2px_2px_8px_rgba(255,255,255,.25),0_0_22px_rgba(34,211,238,.12)]">
+                <div className="absolute left-2 right-2 top-5 flex h-4 items-center justify-center gap-2 rounded-md border border-cyan-200/40 bg-slate-950 shadow-[0_0_12px_rgba(34,211,238,.15)]">
                   <span className="h-1.5 w-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" /><span className="h-1.5 w-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
                 </div>
                 <div className="absolute -left-2 top-5 h-5 w-2 rounded border border-slate-400 bg-slate-700" /><div className="absolute -right-2 top-5 h-5 w-2 rounded border border-slate-400 bg-slate-700" />
@@ -102,8 +103,8 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
               {equipped.includes('sword-plasma') && <div className="absolute bottom-[5.4rem] right-0 h-24 w-2 rotate-[-24deg] rounded-full bg-gradient-to-t from-cyan-200 via-blue-300 to-white shadow-[0_0_12px_rgba(103,232,249,.9)]" />}
               {equipped.includes('skin-neon') && <div className="absolute bottom-14 h-20 w-20 rounded-[24px] border border-cyan-300/70 shadow-[0_0_20px_rgba(34,211,238,.35)]" />}
             </div>
-            <div className="text-center"><div className="text-lg font-semibold text-white">Nvult <span className="text-xs font-mono text-cyan-300">#{String(level).padStart(3, '0')}</span></div><div className="mt-1 text-[10px] font-mono text-slate-500">SKIN ATUAL: {equippedSkin.toUpperCase()}</div></div>
-            <div className="mt-3 flex flex-wrap justify-center gap-1.5">{activeItems.length ? activeItems.map(item => <span key={item.id} className={'rounded-full border px-2 py-1 text-[9px] ' + ACCENTS[item.accent]}>{item.name}</span>) : <span className="text-[10px] text-slate-500">Equipe itens para transformar seu Nvult</span>}</div>
+            <div className="relative z-[1] text-center"><div className="text-lg font-semibold tracking-wide text-white">Nvult <span className="text-xs font-mono text-cyan-300">LVL {String(level).padStart(3, '0')}</span></div><div className="mt-1 text-[9px] font-mono tracking-[.18em] text-slate-500">UNIDADE CIBERNÉTICA · {equippedSkin.toUpperCase()}</div></div>
+            <div className="relative z-[1] mt-3 flex flex-wrap justify-center gap-1.5">{activeItems.length ? activeItems.map(item => <span key={item.id} className={'rounded-full border px-2 py-1 text-[9px] ' + ACCENTS[item.accent]}>{item.name}</span>) : <span className="text-[10px] text-slate-500">Equipamentos aparecerão no próprio Nvult</span>}</div>
           </div>
 
           <div className="flex flex-col gap-3">
@@ -111,7 +112,7 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
               <div className="rounded-xl border border-white/10 bg-white/[.03] p-3"><div className="text-[9px] uppercase tracking-wider text-slate-500">Nível</div><div className="mt-1 text-xl font-bold text-white">{level}</div></div>
               <div className="rounded-xl border border-white/10 bg-white/[.03] p-3"><div className="text-[9px] uppercase tracking-wider text-slate-500">XP acumulado</div><div className="mt-1 text-xl font-bold text-cyan-200">{xp.toLocaleString('pt-BR')}</div></div>
             </div>
-            <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[.04] p-3">
+            <div className="rounded-xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/[.07] to-blue-500/[.025] p-3">
               <div className="mb-2 flex items-center justify-between text-[10px]"><span className="text-slate-300">Progresso da Temporada 0</span><span className="font-mono text-cyan-200">{Math.min(100, Math.round((xp % 100) || 0))}%</span></div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: Math.min(100, (xp % 100) || 0) + '%' }} /></div>
               <p className="mt-2 text-[9px] text-slate-500">Interface de demonstração. Progresso sazonal real será conectado depois.</p>
@@ -128,7 +129,7 @@ export function NvultPrototype({ equippedSkin, level, xp }: { equippedSkin: stri
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border/40 bg-card/80 p-4">
+      <div className="rounded-2xl border border-cyan-400/15 bg-gradient-to-br from-[#071321] to-card p-4 shadow-[0_0_25px_rgba(8,145,178,.04)]">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="flex items-center gap-2 text-sm font-semibold text-foreground"><ShoppingBag size={15} className="text-amber-400" /> Laboratório de equipamentos</h3><p className="mt-1 text-[10px] text-muted-foreground/50">Valores temporários para testar a experiência — não são preços finais.</p></div><div className="flex flex-wrap gap-1">{(['Todos', 'Skin', 'Capacete', 'Armadura', 'Arma'] as const).map(value => <button key={value} onClick={() => setFilter(value)} className={'rounded-lg border px-2 py-1 text-[10px] transition-colors ' + (filter === value ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/30 text-muted-foreground hover:text-foreground')}>{value}</button>)}</div></div>
         <div className="grid gap-2 sm:grid-cols-2">
           {visibleItems.map(item => {
