@@ -72,7 +72,6 @@ import { requestNavigation } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 import { logNVActivity } from '../lib/activityLog';
-import { NVAgentAutomations } from './NVAgentAutomations';
 
 // ─── Badge components ─────────────────────────────────────────────────────────
 
@@ -1426,7 +1425,6 @@ export function NVIntelligence() {
       {activeTab === 'agent' && (
         <div className="space-y-4">
           <NVAgentPanel news={news} agentCtx={agentCtx} />
-          <NVAgentAutomations />
           {news.length > 0 && (
             <div className="rounded-xl border border-border/30 bg-secondary/10 px-4 py-3">
               <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
