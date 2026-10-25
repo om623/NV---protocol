@@ -441,6 +441,7 @@ function Home() {
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [realBalances, setRealBalances] = useState<Record<string, number> | null>(null);
+  const [isBalanceLoading, setIsBalanceLoading] = useState(false);
   const walletSessionRef = useRef(0);
 
   // View + coming-soon state
@@ -593,6 +594,31 @@ function Home() {
       return null;
     }
   }, [activeNetwork]);
+
+  // Refresh token balances whenever the connected wallet or selected network changes.
+  // This keeps the Swap panel current after switching networks without blocking connection.
+  useEffect(() => {
+    if (!isConnected || !provider || !connectedAddress) {
+      setRealBalances(null);
+      setIsBalanceLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const session = walletSessionRef.current;
+    setRealBalances(null);
+    setIsBalanceLoading(true);
+
+    void refreshBalances(provider, connectedAddress).then((balances) => {
+      if (cancelled || walletSessionRef.current !== session) return;
+      setRealBalances(balances);
+      setIsBalanceLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, provider, connectedAddress, activeNetwork, refreshBalances]);
 
   const connectWithWallet = async (wallet: WalletInfo) => {
     const prov = wallet.provider;
@@ -1382,7 +1408,7 @@ function Home() {
                                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                                         <span>${isValidNum(sourceUsd) ? sourceUsd.toFixed(2) : '—'}</span>
                                         <span className="flex items-center gap-2">
-                                          {t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[sourceToken]) : '—'}
+                                          {t('swap.balance')}: {isBalanceLoading ? 'Carregando…' : realBalances ? safeBalanceFmt(realBalances[sourceToken] ?? 0) : '—'}
                                           <button onClick={handleMax} className="text-primary hover:text-primary-foreground hover:bg-primary px-1.5 py-0.5 rounded transition-colors bg-primary/10 cursor-pointer text-[10px]">{t('action.max')}</button>
                                         </span>
                                       </div>
@@ -1403,7 +1429,7 @@ function Home() {
                                       </div>
                                       <div className="text-xs text-muted-foreground/50 mt-3 font-mono flex justify-between h-5 items-center">
                                         <span>${isValidNum(destUsd) ? destUsd.toFixed(2) : '—'}</span>
-                                        <span>{t('swap.balance')}: {realBalances ? safeBalanceFmt(realBalances[destToken]) : '—'}</span>
+                                        <span>{t('swap.balance')}: {isBalanceLoading ? 'Carregando…' : realBalances ? safeBalanceFmt(realBalances[destToken] ?? 0) : '—'}</span>
                                       </div>
                                     </div>
                                   </div>
