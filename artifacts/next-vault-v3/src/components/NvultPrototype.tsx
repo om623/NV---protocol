@@ -26,53 +26,62 @@ function NvultFigure({ equipped, level, equippedSkin }: { equipped: string[]; le
   const blade = equipped.includes('sword-plasma');
   const accent = armor ? '#7dd3fc' : skin ? '#67e8f9' : '#5eead4';
   return (
-    <svg viewBox="0 0 360 390" role="img" aria-label="Nvult, personagem cibernético original com corpo mecânico aracnídeo" className="h-full w-full max-w-[340px] overflow-visible">
+    <svg viewBox="0 0 360 390" role="img" aria-label="Nvult, robô humanoide cibernético original com dois braços e duas pernas" className="h-full w-full max-w-[340px] overflow-visible">
       <defs>
-        <linearGradient id="nv-metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#dbeafe"/><stop offset=".28" stopColor="#64748b"/><stop offset=".65" stopColor="#1e293b"/><stop offset="1" stopColor="#020617"/></linearGradient>
-        <linearGradient id="nv-dark" x1="0" y1="0" x2="0.9" y2="1"><stop offset="0" stopColor="#334155"/><stop offset=".5" stopColor="#111827"/><stop offset="1" stopColor="#020617"/></linearGradient>
-        <linearGradient id="nv-core" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={accent} stopOpacity=".95"/><stop offset=".5" stopColor="#0e7490" stopOpacity=".45"/><stop offset="1" stopColor="#020617" stopOpacity=".95"/></linearGradient>
-        <radialGradient id="nv-aura"><stop offset="0" stopColor={accent} stopOpacity=".32"/><stop offset="1" stopColor={accent} stopOpacity="0"/></radialGradient>
-        <filter id="nv-glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="nv-metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#e2e8f0"/><stop offset=".22" stopColor="#94a3b8"/><stop offset=".58" stopColor="#334155"/><stop offset="1" stopColor="#0b1120"/></linearGradient>
+        <linearGradient id="nv-dark" x1="0" y1="0" x2="0.9" y2="1"><stop offset="0" stopColor="#475569"/><stop offset=".45" stopColor="#172033"/><stop offset="1" stopColor="#020617"/></linearGradient>
+        <linearGradient id="nv-core" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={accent}/><stop offset=".5" stopColor="#0e7490" stopOpacity=".5"/><stop offset="1" stopColor="#020617"/></linearGradient>
+        <radialGradient id="nv-aura"><stop offset="0" stopColor={accent} stopOpacity=".27"/><stop offset="1" stopColor={accent} stopOpacity="0"/></radialGradient>
+        <filter id="nv-glow"><feGaussianBlur stdDeviation="3.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
-      <ellipse cx="180" cy="190" rx="150" ry="165" fill="url(#nv-aura)" opacity=".6"/>
-      <ellipse cx="180" cy="352" rx="98" ry="12" fill={accent} opacity=".12" filter="url(#nv-glow)"/>
-      {/* Six articulated limbs grow directly out of the chassis; there is no floating companion or decorative ring. */}
-      <g stroke="#64748b" strokeWidth="17" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <path d="M137 215 L94 240 L58 286 L31 300"/><path d="M130 242 L90 272 L79 318 L54 335"/><path d="M145 267 L124 301 L132 337 L117 355"/>
-        <path d="M223 215 L266 240 L302 286 L329 300"/><path d="M230 242 L270 272 L281 318 L306 335"/><path d="M215 267 L236 301 L228 337 L243 355"/>
+      <ellipse cx="180" cy="190" rx="145" ry="168" fill="url(#nv-aura)" opacity=".55"/>
+      <ellipse cx="180" cy="352" rx="76" ry="10" fill={accent} opacity=".16" filter="url(#nv-glow)"/>
+      {/* Two legs: articulated thighs, knees, shins and feet. */}
+      <g stroke="#64748b" strokeWidth="2" strokeLinejoin="round">
+        <path d="M143 259 L169 267 L165 307 L151 331 L128 327 L136 297 Z" fill="url(#nv-metal)"/>
+        <path d="M191 267 L217 259 L224 297 L232 327 L209 331 L195 307 Z" fill="url(#nv-metal)"/>
+        <path d="M128 327 L151 331 L149 345 L119 352 L109 346 L116 335 Z" fill="url(#nv-dark)"/>
+        <path d="M209 331 L232 327 L244 335 L251 346 L241 352 L211 345 Z" fill="url(#nv-dark)"/>
+        <path d="M139 282 L166 289 M194 289 L221 282" fill="none" stroke={accent} strokeWidth="2"/>
       </g>
-      <g stroke={accent} strokeWidth="1.5" strokeLinecap="round" fill="none" opacity=".8">
-        <path d="M137 215 L94 240 L58 286 L31 300"/><path d="M130 242 L90 272 L79 318 L54 335"/><path d="M145 267 L124 301 L132 337 L117 355"/>
-        <path d="M223 215 L266 240 L302 286 L329 300"/><path d="M230 242 L270 272 L281 318 L306 335"/><path d="M215 267 L236 301 L228 337 L243 355"/>
+      <g fill="#0f172a" stroke={accent} strokeWidth="1.5">
+        <circle cx="151" cy="304" r="7"/><circle cx="209" cy="304" r="7"/>
+        <circle cx="151" cy="304" r="2.5" fill={accent}/><circle cx="209" cy="304" r="2.5" fill={accent}/>
       </g>
-      <g fill="url(#nv-metal)" stroke="#94a3b8" strokeWidth="1.5">
-        {[ [94,240],[58,286],[90,272],[79,318],[124,301],[132,337],[266,240],[302,286],[270,272],[281,318],[236,301],[228,337] ].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i%3===0?7:5}/>)}
+      {/* Two arms only, attached directly to the shoulder assembly. */}
+      <g stroke="#94a3b8" strokeWidth="2" strokeLinejoin="round">
+        <path d="M130 174 L106 186 L89 220 L100 234 L116 224 L135 201 Z" fill="url(#nv-metal)"/>
+        <path d="M230 174 L254 186 L271 220 L260 234 L244 224 L225 201 Z" fill="url(#nv-metal)"/>
+        <path d="M89 220 L78 244 L89 253 L101 234 Z" fill="url(#nv-dark)"/>
+        <path d="M271 220 L282 244 L271 253 L259 234 Z" fill="url(#nv-dark)"/>
       </g>
-      {/* Rear chassis and shoulder plating */}
-      <path d="M135 177 L109 190 L100 225 L121 250 L147 235 L151 199 Z" fill="url(#nv-metal)" stroke="#94a3b8" strokeWidth="1.5"/>
-      <path d="M225 177 L251 190 L260 225 L239 250 L213 235 L209 199 Z" fill="url(#nv-metal)" stroke="#94a3b8" strokeWidth="1.5"/>
-      {/* Torso: tapered armored core, with layered plates and exposed seams */}
-      <path d="M139 166 Q180 150 221 166 L240 228 L218 287 Q180 310 142 287 L120 228 Z" fill="url(#nv-dark)" stroke={accent} strokeOpacity=".65" strokeWidth="2"/>
-      <path d="M145 177 L180 190 L215 177 L224 224 L207 272 L180 284 L153 272 L136 224 Z" fill="url(#nv-metal)" stroke="#cbd5e1" strokeOpacity=".65" strokeWidth="1.5"/>
-      <path d="M151 190 L180 201 L209 190 L203 218 L180 232 L157 218 Z" fill="#0f172a" stroke={accent} strokeOpacity=".8"/>
-      <path d="M180 204 L193 218 L180 234 L167 218 Z" fill="url(#nv-core)" stroke={accent} strokeWidth="1.5" filter="url(#nv-glow)"/>
-      <path d="M151 245 L169 255 L180 250 L191 255 L209 245" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round"/>
-      <path d="M157 267 L180 275 L203 267" fill="none" stroke="#94a3b8" strokeWidth="2"/>
-      {/* Neck and head assembly */}
-      <path d="M162 151 L164 166 L196 166 L198 151" fill="url(#nv-dark)" stroke="#94a3b8" strokeWidth="1.5"/>
-      <path d="M143 78 L154 60 L206 60 L217 78 L224 125 L210 153 L180 165 L150 153 L136 125 Z" fill="url(#nv-metal)" stroke="#cbd5e1" strokeWidth="2"/>
-      <path d="M149 87 L163 73 L197 73 L211 87 L208 111 L195 126 L165 126 L152 111 Z" fill="#020617" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M157 96 L173 96 M187 96 L203 96" stroke={accent} strokeWidth="8" strokeLinecap="round" filter="url(#nv-glow)"/>
-      <path d="M170 116 L180 120 L190 116" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round"/>
-      <path d="M140 92 L129 101 L130 120 L140 126 M220 92 L231 101 L230 120 L220 126" fill="url(#nv-dark)" stroke="#94a3b8" strokeWidth="2"/>
-      {helmet && <g><path d="M137 92 L140 67 L157 48 L203 48 L220 67 L223 92 L210 81 L150 81 Z" fill="#6d28d9" fillOpacity=".75" stroke="#c4b5fd" strokeWidth="2"/><path d="M151 69 L209 69" stroke="#ddd6fe" strokeWidth="3" filter="url(#nv-glow)"/></g>}
-      {skin && <g stroke={accent} strokeWidth="2.2" fill="none" filter="url(#nv-glow)"><path d="M144 174 L131 225 L150 274"/><path d="M216 174 L229 225 L210 274"/><path d="M155 239 L180 248 L205 239"/></g>}
-      {armor && <g><path d="M127 190 L145 177 L156 196 L143 229 L124 218 Z" fill="#38bdf8" fillOpacity=".4" stroke="#bae6fd" strokeWidth="1.5"/><path d="M233 190 L215 177 L204 196 L217 229 L236 218 Z" fill="#38bdf8" fillOpacity=".4" stroke="#bae6fd" strokeWidth="1.5"/></g>}
-      {blade && <g filter="url(#nv-glow)"><path d="M257 213 L285 148 Q288 142 291 149 L273 224 Z" fill="#e0f2fe" stroke="#67e8f9" strokeWidth="2"/><path d="M251 221 L273 230" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round"/></g>}
-      {/* Unique crest and level insignia */}
+      <g fill="#0f172a" stroke={accent} strokeWidth="1.5">
+        <circle cx="109" cy="191" r="7"/><circle cx="251" cy="191" r="7"/>
+        <circle cx="109" cy="191" r="2.5" fill={accent}/><circle cx="251" cy="191" r="2.5" fill={accent}/>
+      </g>
+      <path d="M132 165 L111 178 L121 206 L143 218 L155 190 Z M228 165 L249 178 L239 206 L217 218 L205 190 Z" fill="url(#nv-metal)" stroke="#94a3b8" strokeWidth="1.5"/>
+      {/* Main torso: layered chest plates, shoulder guards and luminous reactor. */}
+      <path d="M145 158 L215 158 L234 190 L221 259 Q180 284 139 259 L126 190 Z" fill="url(#nv-dark)" stroke={accent} strokeOpacity=".75" strokeWidth="2"/>
+      <path d="M148 169 L180 181 L212 169 L222 197 L207 246 L180 260 L153 246 L138 197 Z" fill="url(#nv-metal)" stroke="#cbd5e1" strokeOpacity=".8" strokeWidth="1.5"/>
+      <path d="M151 183 L180 193 L209 183 L202 213 L180 227 L158 213 Z" fill="#0b1220" stroke={accent} strokeWidth="1.5"/>
+      <path d="M180 194 L194 207 L180 222 L166 207 Z" fill="url(#nv-core)" stroke={accent} strokeWidth="1.5" filter="url(#nv-glow)"/>
+      <path d="M151 229 L164 239 L180 234 L196 239 L209 229" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M159 250 L180 255 L201 250" fill="none" stroke="#cbd5e1" strokeWidth="2"/>
+      <path d="M143 194 L151 215 M217 194 L209 215" stroke="#e2e8f0" strokeOpacity=".75" strokeWidth="2"/>
+      {/* Neck and compact helmeted head; no extra appendages. */}
+      <path d="M164 143 L164 163 L196 163 L196 143 Z" fill="url(#nv-dark)" stroke="#94a3b8" strokeWidth="1.5"/>
+      <path d="M147 73 L160 57 L200 57 L213 73 L220 111 L208 143 L180 155 L152 143 L140 111 Z" fill="url(#nv-metal)" stroke="#cbd5e1" strokeWidth="2"/>
+      <path d="M151 84 L164 72 L196 72 L209 84 L206 109 L194 124 L166 124 L154 109 Z" fill="#020617" stroke="#64748b" strokeWidth="1.5"/>
+      <path d="M159 94 L173 94 M187 94 L201 94" stroke={accent} strokeWidth="7" strokeLinecap="round" filter="url(#nv-glow)"/>
+      <path d="M169 113 L180 117 L191 113" stroke="#cbd5e1" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <path d="M145 90 L135 99 L136 116 L145 122 M215 90 L225 99 L224 116 L215 122" fill="url(#nv-dark)" stroke="#94a3b8" strokeWidth="2"/>
+      {helmet && <g><path d="M139 91 L141 68 L157 48 L203 48 L219 68 L221 91 L209 81 L151 81 Z" fill="#6d28d9" fillOpacity=".88" stroke="#c4b5fd" strokeWidth="2"/><path d="M151 68 L209 68" stroke="#ede9fe" strokeWidth="3" filter="url(#nv-glow)"/></g>}
+      {skin && <g stroke={accent} strokeWidth="2.2" fill="none" filter="url(#nv-glow)"><path d="M143 174 L132 204 L145 246"/><path d="M217 174 L228 204 L215 246"/><path d="M155 229 L180 239 L205 229"/></g>}
+      {armor && <g><path d="M124 181 L143 167 L155 190 L144 218 L126 205 Z" fill="#38bdf8" fillOpacity=".55" stroke="#bae6fd" strokeWidth="1.5"/><path d="M236 181 L217 167 L205 190 L216 218 L234 205 Z" fill="#38bdf8" fillOpacity=".55" stroke="#bae6fd" strokeWidth="1.5"/></g>}
+      {blade && <g filter="url(#nv-glow)"><path d="M269 218 L292 149 Q295 142 298 149 L282 229 Z" fill="#e0f2fe" stroke="#67e8f9" strokeWidth="2"/><path d="M263 226 L283 234" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round"/></g>}
       <path d="M180 48 L187 36 L180 20 L173 36 Z" fill={accent} stroke="#cffafe" strokeWidth="1.5" filter="url(#nv-glow)"/>
-      <text x="180" y="382" fill="#a5f3fc" fontSize="11" textAnchor="middle" letterSpacing="3" fontFamily="monospace">NV-{String(level).padStart(3,'0')}</text>
-      <text x="180" y="22" fill="#94a3b8" fontSize="8" textAnchor="middle" letterSpacing="2" fontFamily="monospace">{equippedSkin.toUpperCase()}</text>
+      <text x="180" y="379" fill="#a5f3fc" fontSize="11" textAnchor="middle" letterSpacing="3" fontFamily="monospace">NV-{String(level).padStart(3,'0')}</text>
+      <text x="180" y="18" fill="#94a3b8" fontSize="8" textAnchor="middle" letterSpacing="2" fontFamily="monospace">{equippedSkin.toUpperCase()}</text>
     </svg>
   );
 }
