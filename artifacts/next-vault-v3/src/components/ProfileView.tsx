@@ -146,8 +146,12 @@ export function ProfileView({
             gamification.equippedSkin === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/50' :
             'bg-primary/10 border border-primary/20'
           }`}>
-            <span className="text-2xl font-bold text-primary">{level >= 1000 ? '' : ''}{level >= 2000 ? '' : ''}</span>
-            <Shield size={32} className="text-primary/90 drop-shadow-[0_0_8px_rgba(34,211,238,.45)]" />
+            <div className="absolute inset-1 rounded-[inherit] border border-primary/20" />
+            <div className="absolute inset-2 rounded-[inherit] opacity-60" style={{ backgroundImage: 'linear-gradient(135deg, transparent 38%, rgba(45,212,191,.12), transparent 70%)' }} />
+            <div className="relative flex flex-col items-center gap-0.5">
+              <Shield size={25} className="text-primary drop-shadow-[0_0_10px_rgba(34,211,238,.6)]" />
+              <span className="text-[10px] font-mono font-bold tracking-wider text-primary">{String(level).padStart(3, '0')}</span>
+            </div>
             {gamification.equippedTitle && (
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
                 {t(`title.${gamification.equippedTitle}`)}
@@ -377,70 +381,63 @@ export function ProfileView({
 
       {/* ── Skins Tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'skins' && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          {SKINS.map(skin => {
-            const serverOwned = skin.premium ? isSkinOwned(skin.id) : false;
-            const unlocked = skin.premium ? serverOwned : gamification.unlockedSkins.includes(skin.id);
-            const equipped = gamification.equippedSkin === skin.id;
-            const busy = isProductBusy(skin.id);
-            const canBuy = canBuyProduct(skin.id);
-            return (
-              <div key={skin.id} className={`rounded-xl border p-3 transition-all relative overflow-hidden ${
-                equipped ? 'border-primary/30 bg-primary/8' : unlocked ? 'border-border/30 bg-secondary/20' : 'border-border/20 bg-secondary/10'
-              }`}>
-                {/* Skin preview gradient */}
-                <div className={`h-12 rounded-lg mb-2 ${
-                  skin.id === 'default' ? 'bg-primary/10 border border-primary/20' :
-                  skin.id === 'bronze' ? 'bg-gradient-to-br from-orange-400/20 to-orange-600/10 border border-orange-400/25' :
-                  skin.id === 'silver' ? 'bg-gradient-to-br from-slate-300/20 to-slate-500/10 border border-slate-300/25' :
-                  skin.id === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/25' :
-                  skin.id === 'platinum' ? 'bg-gradient-to-br from-cyan-300/20 to-cyan-500/10 border border-cyan-300/25' :
-                  skin.id === 'premium-500' ? 'bg-gradient-to-br from-amber-400/25 to-amber-600/15 border border-amber-400/35' :
-                  skin.id === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/45' :
-                  'bg-secondary/40'
-                }`}>
-                  <div className="w-full h-full flex items-center justify-center">
-                    {skin.premium && <Crown size={16} className="text-amber-400/60" />}
-                  </div>
-                </div>
-                <div className="text-xs font-medium text-foreground mb-1">{t(`skin.${skin.id}`)}</div>
-                {!unlocked && skin.premium && (
-                  <div className="text-[10px] font-mono text-amber-400/70 mb-1.5">${skin.price} {PAYMENT_TOKEN_SYMBOL}</div>
-                )}
-                {!unlocked && !skin.premium && (
-                  <div className="text-[9px] font-mono text-muted-foreground/40">{t('profile.level')} {skin.levelRequired}</div>
-                )}
-                {equipped ? (
-                  <div className="text-[9px] font-mono text-primary flex items-center gap-1">
-                    <Check size={10} /> {t('profile.equipped')}
-                  </div>
-                ) : unlocked ? (
-                  <button onClick={() => onEquipSkin(skin.id)}
-                    className="text-[9px] font-mono text-primary/60 hover:text-primary transition-colors cursor-pointer">
-                    {t('profile.equip')}
-                  </button>
-                ) : skin.premium ? (
-                  <>
-                    <button
-                      onClick={() => onBuySkin(skin.id)}
-                      disabled={busy || !walletAddress || !canBuy}
-                      className="text-[9px] font-mono text-amber-400/70 hover:text-amber-400 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      {!walletAddress ? t('purchase.connectWallet') :
-                       !canBuy ? t('purchase.limitReached') :
-                       busy ? t('purchase.processing') :
-                       t('profile.buy')}
-                    </button>
-                    {renderPurchaseStatus(skin.id)}
-                  </>
-                ) : (
-                  <div className="text-[9px] font-mono text-muted-foreground/30 flex items-center gap-1">
-                    <Lock size={9} /> {t('profile.locked')}
-                  </div>
-                )}
+        <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-[#081521] via-card to-[#0d1020] p-4 sm:p-5">
+            <div className="pointer-events-none absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(34,211,238,.12), transparent 35%), radial-gradient(circle at 90% 80%, rgba(139,92,246,.10), transparent 35%)' }} />
+            <div className="relative flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="mb-1 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[.22em] text-primary/70"><Sparkles size={11} /> Character lab / 02</div>
+                <h3 className="text-base font-semibold text-white">Coleção de skins</h3>
+                <p className="mt-1 max-w-md text-[10px] leading-relaxed text-slate-400">Personalize sua identidade no Perfil. Cada skin tem uma assinatura visual e pode ser equipada quando desbloqueada.</p>
               </div>
-            );
-          })}
+              <div className="rounded-xl border border-primary/20 bg-primary/[.07] px-3 py-2">
+                <div className="text-[8px] font-mono uppercase tracking-wider text-primary/60">Coleção</div>
+                <div className="text-lg font-semibold text-white">{gamification.unlockedSkins.length}<span className="ml-1 text-xs font-normal text-slate-500">/ {SKINS.length}</span></div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {SKINS.map(skin => {
+              const serverOwned = skin.premium ? isSkinOwned(skin.id) : false;
+              const unlocked = skin.premium ? serverOwned : gamification.unlockedSkins.includes(skin.id);
+              const equipped = gamification.equippedSkin === skin.id;
+              const busy = isProductBusy(skin.id);
+              const canBuy = canBuyProduct(skin.id);
+              const theme = skin.id === 'bronze' ? { edge: '#fb923c', light: 'rgba(251,146,60,.17)', label: 'BRONZE / FORGED' } :
+                skin.id === 'silver' ? { edge: '#cbd5e1', light: 'rgba(203,213,225,.17)', label: 'SILVER / TITANIUM' } :
+                skin.id === 'gold' ? { edge: '#fbbf24', light: 'rgba(251,191,36,.18)', label: 'GOLD / ASCENSION' } :
+                skin.id === 'platinum' ? { edge: '#67e8f9', light: 'rgba(103,232,249,.17)', label: 'PLATINUM / OVERDRIVE' } :
+                skin.id === 'premium-500' ? { edge: '#fb7185', light: 'rgba(251,113,133,.18)', label: 'PREMIUM / PHANTOM' } :
+                skin.id === 'premium-1000' ? { edge: '#c4b5fd', light: 'rgba(196,181,253,.2)', label: 'PREMIUM / SINGULARITY' } :
+                { edge: '#2dd4bf', light: 'rgba(45,212,191,.16)', label: 'GENESIS / STANDARD' };
+              return (
+                <article key={skin.id} className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${equipped ? 'border-primary/50 bg-primary/[.06] shadow-[0_0_24px_rgba(45,212,191,.08)]' : 'border-border/40 bg-card/70 hover:border-primary/25'}`}>
+                  <div className="relative h-32 overflow-hidden border-b border-white/[.06]" style={{ background: 'radial-gradient(ellipse at 50% 70%, ' + theme.light + ', transparent 60%), linear-gradient(135deg, #101827, #050a13)' }}>
+                    <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,.12) 1px, transparent 1px),linear-gradient(90deg,rgba(148,163,184,.12) 1px,transparent 1px)', backgroundSize: '18px 18px' }} />
+                    <div className="absolute left-3 top-3 flex items-center gap-1.5 text-[8px] font-mono tracking-[.16em]" style={{ color: theme.edge }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 8px ' + theme.edge }} /> {theme.label}</div>
+                    <div className="absolute bottom-[-17px] left-1/2 h-24 w-24 -translate-x-1/2 rounded-[28px] border bg-gradient-to-br from-slate-300/70 via-slate-700 to-slate-950 shadow-[0_0_28px_rgba(0,0,0,.3)]" style={{ borderColor: theme.edge + '99', boxShadow: '0 0 28px ' + theme.light }}>
+                      <div className="absolute left-1/2 top-[-18px] h-9 w-9 -translate-x-1/2 rounded-[12px] border border-slate-300/70 bg-gradient-to-br from-slate-200 via-slate-600 to-slate-950" style={{ boxShadow: '0 0 12px ' + theme.light }}>
+                        <div className="absolute left-1 right-1 top-3 flex h-2 items-center justify-center gap-1 rounded-sm bg-slate-950"><span className="h-1 w-2 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 6px ' + theme.edge }} /><span className="h-1 w-2 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 6px ' + theme.edge }} /></div>
+                      </div>
+                      <div className="absolute left-3 right-3 top-7 h-1 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 8px ' + theme.edge }} />
+                      <div className="absolute bottom-3 left-1/2 h-4 w-4 -translate-x-1/2 rounded-full border" style={{ borderColor: theme.edge, background: theme.light, boxShadow: '0 0 10px ' + theme.edge }} />
+                    </div>
+                    {skin.premium && <div className="absolute right-3 top-3 rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[8px] font-mono text-amber-200"><Crown size={10} className="mr-1 inline" /> PREMIUM</div>}
+                    {equipped && <div className="absolute bottom-3 right-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[8px] font-mono text-emerald-200"><Check size={10} className="mr-1 inline" /> ATIVA</div>}
+                  </div>
+                  <div className="p-3.5">
+                    <div className="flex items-start justify-between gap-2"><div><h4 className="text-sm font-semibold text-foreground">{t(`skin.${skin.id}`)}</h4><p className="mt-1 text-[9px] font-mono text-muted-foreground/50">{skin.premium ? 'PERSONALIZAÇÃO PREMIUM' : 'RECOMPENSA DE PROGRESSÃO'}</p></div><div className="text-right">{!unlocked && skin.premium ? <div className="font-mono text-sm font-semibold text-amber-300">${skin.price}<span className="ml-1 text-[9px] text-muted-foreground/50">{PAYMENT_TOKEN_SYMBOL}</span></div> : !unlocked ? <div className="text-[9px] font-mono text-muted-foreground/50">NÍVEL {skin.levelRequired}</div> : <div className="text-[9px] font-mono text-emerald-300">DESBLOQUEADA</div>}</div></div>
+                    <div className="mt-3">
+                      {equipped ? <div className="flex items-center gap-1.5 text-[10px] font-mono text-primary"><Check size={12} /> {t('profile.equipped')}</div> :
+                       unlocked ? <button onClick={() => onEquipSkin(skin.id)} className="w-full rounded-lg border border-primary/25 bg-primary/[.07] px-3 py-2 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/[.12]">{t('profile.equip')} skin</button> :
+                       skin.premium ? <><button onClick={() => onBuySkin(skin.id)} disabled={busy || !walletAddress || !canBuy} className="w-full rounded-lg border border-amber-300/25 bg-amber-300/[.07] px-3 py-2 text-[10px] font-semibold text-amber-200 transition-colors hover:bg-amber-300/[.12] disabled:cursor-not-allowed disabled:opacity-30">{!walletAddress ? t('purchase.connectWallet') : !canBuy ? t('purchase.limitReached') : busy ? t('purchase.processing') : t('profile.buy')}</button>{renderPurchaseStatus(skin.id)}{renderLimitBadge(skin.id)}</> :
+                       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40"><Lock size={11} /> Desbloqueie ao alcançar o nível exigido</div>}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </div>
       )}
 
