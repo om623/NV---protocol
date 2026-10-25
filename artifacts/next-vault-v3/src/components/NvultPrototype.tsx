@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Award, Check, Coins, LockKeyhole, Package, Shield, ShoppingBag, Sparkles, Sword, WandSparkles, Zap } from 'lucide-react';
+import { Check, Coins, LockKeyhole, Package, Shield, ShoppingBag, Sparkles, Sword, WandSparkles, Zap } from 'lucide-react';
 
 type Slot = 'Skin' | 'Capacete' | 'Armadura' | 'Arma';
 type Rarity = 'Raro' | 'Épico' | 'Lendário';
