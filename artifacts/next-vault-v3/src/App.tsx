@@ -12,7 +12,7 @@ import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
   getAllBalances, shortAddress,
-  getTokensForNetwork, ARC_TOKENS,
+  getTokensForNetwork, ARC_TOKENS, transferErc20, transferNative,
 } from './lib/arc';
 import { type WalletInfo, getLegacyProvider } from './lib/walletDiscovery';
 import {
@@ -52,6 +52,7 @@ import {
 import { getAsset, refreshFromApis, getMarketSentiment, getAllAssets } from './lib/marketData';
 import { isValidNum, safeBalance, safeBalanceFmt, dedupTokens } from './lib/utils';
 import { executeLifiSameChainSwap } from './lib/lifiSwap';
+import { executeBridge } from './lib/cctpBridgeExecutor';
 import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
 import { LanguageSelector } from './components/LanguageSelector';
@@ -460,60 +461,63 @@ function Home() {
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
-  // ── Execute reviewed NV Agent actions through the same app-owned flows ──────
+  // ── Execute reviewed NV Agent actions while keeping Intelligence open ───────
   useEffect(() => subscribeAgentExecution(async (request) => {
     try {
+      const prov = provider ?? getLegacyProvider();
+      if (!prov || !connectedAddress) throw new Error('Conecte uma carteira EVM antes de executar a operação.');
+
+      if (request.type === 'transfer') {
+        const value = Number(request.params.amount);
+        const recipient = String(request.params.recipient ?? '');
+        const symbol = String(request.params.token ?? 'USDC');
+        if (!(value > 0)) throw new Error('Informe um valor válido.');
+        if (!recipient.startsWith('0x') || recipient.length !== 42) throw new Error('Informe um endereço EVM de destino válido.');
+        const token = getNetworkTokens(activeNetwork).find(item => item.symbol === symbol);
+        if (!token) throw new Error('O token solicitado não está disponível na rede atual.');
+        await ensureNetwork(prov, networkChainParams(activeNetwork));
+        let hash: string;
+        if (token.isNative) hash = await transferNative(prov, connectedAddress, recipient, value);
+        else if (token.address) hash = await transferErc20(prov, connectedAddress, token.address, recipient, value, token.decimals);
+        else throw new Error('Configuração do token incompleta.');
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Transferência enviada. Hash: ' + hash, txHash: hash });
+        return;
+      }
+
       if (request.type === 'swap') {
-        const requestedAmount = request.params.amount;
-        if (typeof requestedAmount === 'number' && requestedAmount > 0) setAmount(String(requestedAmount));
-        setActiveView('swap');
-        publishAgentExecutionResult({
-          id: request.id,
-          ok: true,
-          message: 'Swap preparado no módulo nativo do NV. Confirme os tokens/rede e assine pela carteira.',
-        });
+        const value = Number(request.params.amount);
+        const fromSymbol = String(request.params.sourceToken ?? sourceToken);
+        const toSymbol = String(request.params.destinationToken ?? destToken);
+        if (!(value > 0)) throw new Error('Informe o valor do swap no chat.');
+        if (activeNetwork.type !== 'mainnet') throw new Error('O executor direto LI.FI está disponível nas mainnets compatíveis.');
+        const tokens = getNetworkTokens(activeNetwork);
+        const from = tokens.find(item => item.symbol === fromSymbol);
+        const to = tokens.find(item => item.symbol === toSymbol);
+        if (!from || !to) throw new Error('Informe dois tokens disponíveis na rede atual.');
+        await ensureNetwork(prov, networkChainParams(activeNetwork));
+        const result = await executeLifiSameChainSwap({ provider: prov, walletAddress: connectedAddress, network: activeNetwork, sourceToken: from, destinationToken: to, amount: String(value) });
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Swap concluído via ' + result.tool + '. Hash: ' + result.transactionHash, txHash: result.transactionHash });
         return;
       }
 
       if (request.type === 'bridge') {
-        setActiveView('bridge');
-        publishAgentExecutionResult({
-          id: request.id,
-          ok: true,
-          message: 'Bridge preparada no executor CCTP V2 nativo do NV. Confirme rota/valor e assine pela carteira.',
-        });
+        const value = Number(request.params.amount);
+        const fromNetwork = String(request.params.fromNetwork ?? activeNetwork.id);
+        const toNetwork = String(request.params.toNetwork ?? '');
+        if (!(value > 0)) throw new Error('Informe o valor da Bridge no chat.');
+        if (!toNetwork) throw new Error('Informe a rede de destino da Bridge no chat.');
+        const result = await executeBridge({ provider: prov, fromNetwork, toNetwork, walletAddress: connectedAddress, amount: value });
+        if (!result.success) throw new Error(result.error ?? 'Bridge não concluída.');
+        const hash = result.mintTxHash ?? result.burnTxHash;
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Bridge concluída. Hash: ' + (hash ?? 'indisponível'), txHash: hash });
         return;
       }
 
-      if (request.type === 'transfer') {
-        setActiveView('carteira');
-        publishAgentExecutionResult({
-          id: request.id,
-          ok: true,
-          message: 'Transferência preparada na carteira do NV. Revise destinatário, token e valor antes da assinatura.',
-        });
-        return;
-      }
-
-      if (request.type === 'payment') {
-        setActiveView('perfil');
-        publishAgentExecutionResult({
-          id: request.id,
-          ok: true,
-          message: 'Pagamento preparado no fluxo nativo do NV. Revise a compra antes de assinar.',
-        });
-        return;
-      }
-
-      publishAgentExecutionResult({ id: request.id, ok: false, message: 'Ação não suportada.' });
+      throw new Error('Esta ação ainda precisa de parâmetros adicionais no chat.');
     } catch (error) {
-      publishAgentExecutionResult({
-        id: request.id,
-        ok: false,
-        message: error instanceof Error ? error.message : 'Falha inesperada ao preparar a operação.',
-      });
+      publishAgentExecutionResult({ id: request.id, ok: false, message: error instanceof Error ? error.message : 'Falha inesperada.' });
     }
-  }), []);
+  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken]);
 
   // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
   const setNVEvmWallet = useSetNVEvmWallet();
