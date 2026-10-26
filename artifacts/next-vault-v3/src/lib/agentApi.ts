@@ -710,6 +710,28 @@ function parseAddress(q: string): string | null {
   return null;
 }
 
+function parseSwapPair(question: string): { sourceToken: string | null; destinationToken: string | null } {
+  const symbols = ['USDC', 'EURC', 'ETH', 'SOL', 'POL', 'AVAX'];
+  const found = symbols.filter(symbol => question.toUpperCase().includes(symbol));
+  return { sourceToken: found[0] ?? null, destinationToken: found[1] ?? null };
+}
+
+function parseAgentNetworks(question: string): string[] {
+  const q = question.toLowerCase();
+  const aliases: Array<[string, string]> = [
+    ['base sepolia', 'base-sepolia'], ['arc testnet', 'arc-testnet'],
+    ['ethereum sepolia', 'sepolia'], ['arbitrum sepolia', 'arbitrum-sepolia'],
+    ['optimism sepolia', 'optimism-sepolia'], ['arc mainnet', 'arc-mainnet'],
+    ['arbitrum', 'arbitrum'], ['optimism', 'optimism'], ['ethereum', 'ethereum'],
+    ['polygon', 'polygon'], ['avalanche', 'avalanche'], ['base', 'base'], ['arc', 'arc-mainnet'],
+  ];
+  const found: string[] = [];
+  for (const [name, id] of aliases) {
+    if (q.includes(name) && !found.includes(id)) found.push(id);
+  }
+  return found;
+}
+
 function answerActionTransfer(
   question: string,
   ctx: NVAgentContext,
@@ -758,6 +780,7 @@ function answerActionBridge(
   const evm = ctx.evmWallet;
   const sol = ctx.solanaWallet;
   const amount = parseAmount(question);
+  const networks = parseAgentNetworks(question);
 
   const lq = question.toLowerCase();
   const isSolanaSource =
@@ -800,7 +823,7 @@ function answerActionBridge(
     type: 'bridge',
       executeInChat: true,
     navigateTo: 'bridge',
-    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0 },
+    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0, fromNetwork: networks[0] ?? null, toNetwork: networks[1] ?? null },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
@@ -813,6 +836,7 @@ function answerActionSwap(
 ): AgentResponse {
   const evm = ctx.evmWallet;
   const amount = parseAmount(question);
+  const pair = parseSwapPair(question);
 
   const lines = [t('agent.action.swapTitle'), ''];
   lines.push(t('agent.action.swapDescription'));
@@ -835,7 +859,7 @@ function answerActionSwap(
     type: 'swap',
       executeInChat: true,
     navigateTo: 'swap',
-    params: { amount: amount ?? null },
+    params: { amount: amount ?? null, sourceToken: pair.sourceToken, destinationToken: pair.destinationToken },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
