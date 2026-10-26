@@ -871,6 +871,13 @@ function answerActionPayment(
   t: (k: string) => string,
 ): AgentResponse {
   const evm = ctx.evmWallet;
+  const q = question.toLowerCase();
+  let product: string | null = null;
+  if (q.includes('1000')) product = 'premium-1000';
+  else if (q.includes('500')) product = 'premium-500';
+  else if (q.includes('trimestral') || q.includes('quarterly') || q.includes('300 xp')) product = 'xp-quarterly';
+  else if (q.includes('semanal') || q.includes('weekly') || q.includes('60 xp')) product = 'xp-weekly';
+  else if (q.includes('diário') || q.includes('diario') || q.includes('daily') || q.includes('30 xp')) product = 'xp-daily';
 
   const lines = [t('agent.action.paymentTitle'), ''];
   lines.push(t('agent.action.paymentDescription'));
@@ -893,7 +900,7 @@ function answerActionPayment(
     type: 'payment',
       executeInChat: true,
     navigateTo: 'perfil',
-    params: {},
+    params: { product },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
