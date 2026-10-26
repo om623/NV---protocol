@@ -707,7 +707,15 @@ function parseAmount(q: string): number | null {
   // Require a financial unit next to the number. This prevents chain IDs,
   // addresses, dates and arbitrary numbers from becoming transaction amounts.
   const m = q.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(usdc|eurc|usd|eth|sol|pol|matic|avax)\b/i);
-  if (!m) return null;
+  if (!m) {
+    // Natural action requests often say "no valor de 0.001" and omit the
+    // token because Bridge is USDC-only. Accept an explicitly labelled value,
+    // while still refusing arbitrary numbers such as chain IDs.
+    const labelled = q.match(/(?:valor(?:\\s+de)?|amount(?:\\s+of)?|value(?:\\s+of)?)\\s*[:=]?\\s*(\\d+(?:[.,]\\d+)?)/i);
+    if (!labelled) return null;
+    const n = parseFloat(labelled[1].replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
   const n = parseFloat(m[1].replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
@@ -809,52 +817,43 @@ function answerActionBridge(
   const sol = ctx.solanaWallet;
   const amount = parseAmount(question);
   const networks = parseAgentNetworks(question);
-
+  const fromNetwork = networks[0] ?? null;
+  const toNetwork = networks[1] ?? null;
   const lq = question.toLowerCase();
-  const isSolanaSource =
-    lq.includes('solana') || lq.includes('from sol') || lq.includes('de solana');
-
-  const lines = [t('agent.action.bridgeTitle'), ''];
-
-  // Supported routes
-  lines.push('Supported routes:');
-  lines.push('  • EVM ↔ EVM via CCTP V2 (Arc, Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche +18)');
-  lines.push('  • Solana → EVM via CCTP V2 (Arc, Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche)');
-  lines.push('');
-
-  if (isSolanaSource) {
-    if (sol?.walletState.status === 'connected') {
-      const { address } = sol.walletState as { status: 'connected'; address: string };
-      lines.push(`From: Solana (${address})`);
-      if (sol.usdcBalanceState.status === 'loaded') {
-        const usdc = (sol.usdcBalanceState as { status: 'loaded'; usdc: number }).usdc;
-        lines.push(`Solana USDC: ${usdc.toFixed(2)}`);
-      }
-    } else {
-      lines.push(t('intel.agentSolNotConnected'));
-    }
-  } else {
-    if (evm?.connected && evm.address) {
-      lines.push(`From: ${evm.network ?? 'EVM'} (${evm.address})`);
-      if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
-    } else {
-      lines.push(t('intel.agentEvmNotConnected'));
-    }
-  }
-
-  if (amount !== null) lines.push(`Amount: ${amount} USDC`);
-  lines.push('');
-  lines.push(t('agent.action.reviewInWallet'));
-  lines.push(''); lines.push(t('agent.action.noAutoExecute'));
+  const isSolanaSource = lq.includes('solana') || lq.includes('from sol') || lq.includes('de solana');
+  const missing: string[] = [];
+  if (amount === null) missing.push('valor em USDC');
+  if (!isSolanaSource && !fromNetwork) missing.push('rede de origem');
+  if (!toNetwork) missing.push('rede de destino');
 
   const action: AgentAction = {
-    type: 'bridge',
-      executeInChat: true,
-    navigateTo: 'bridge',
-    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0, fromNetwork: networks[0] ?? null, toNetwork: networks[1] ?? null },
+    type: 'bridge', executeInChat: true, navigateTo: 'bridge',
+    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0, fromNetwork, toNetwork },
   };
 
-  return { answer: lines.join('\n'), sources: [], action };
+  if (missing.length) {
+    return {
+      answer: `Entendi que você quer fazer uma Bridge. Falta apenas: ${missing.join(', ')}. Informe ${missing.length === 1 ? 'esse dado' : 'esses dados'} para eu preparar a operação.`,
+      sources: [],
+    };
+  }
+
+  const walletReady = isSolanaSource
+    ? sol?.walletState.status === 'connected'
+    : Boolean(evm?.connected && evm.address);
+  const sourceLabel = isSolanaSource ? 'Solana' : fromNetwork;
+  const lines = [
+    'Bridge pronta para revisão:',
+    `• Origem: ${sourceLabel}`,
+    `• Destino: ${toNetwork}`,
+    `• Valor: ${amount} USDC`,
+    '• Rota: CCTP V2',
+    '',
+    walletReady
+      ? 'Revise os dados abaixo e execute no chat. A carteira solicitará a assinatura necessária.'
+      : 'Os parâmetros estão completos. Conecte a carteira correspondente para executar.',
+  ];
+  return { answer: lines.join('\\n'), sources: [], action };
 }
 
 function answerActionSwap(
