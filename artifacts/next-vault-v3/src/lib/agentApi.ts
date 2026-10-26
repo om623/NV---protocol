@@ -718,25 +718,35 @@ function parseAddress(q: string): string | null {
 }
 
 function parseSwapPair(question: string): { sourceToken: string | null; destinationToken: string | null } {
-  const symbols = ['USDC', 'EURC', 'ETH', 'SOL', 'POL', 'AVAX'];
-  const found = symbols.filter(symbol => question.toUpperCase().includes(symbol));
-  return { sourceToken: found[0] ?? null, destinationToken: found[1] ?? null };
+  const symbols = ['USDC', 'EURC', 'ETH', 'SOL', 'POL', 'MATIC', 'AVAX'];
+  const upper = question.toUpperCase();
+  const found = symbols
+    .flatMap(symbol => {
+      const match = new RegExp('\\\\b' + symbol + '\\\\b', 'i').exec(upper);
+      return match ? [{ symbol: symbol === 'MATIC' ? 'POL' : symbol, index: match.index }] : [];
+    })
+    .sort((a, b) => a.index - b.index)
+    .filter((item, index, arr) => index === arr.findIndex(x => x.symbol === item.symbol));
+  return { sourceToken: found[0]?.symbol ?? null, destinationToken: found[1]?.symbol ?? null };
 }
 
 function parseAgentNetworks(question: string): string[] {
-  const q = question.toLowerCase();
+  let q = question.toLowerCase();
   const aliases: Array<[string, string]> = [
-    ['base sepolia', 'base-sepolia'], ['arc testnet', 'arc-testnet'],
-    ['ethereum sepolia', 'sepolia'], ['arbitrum sepolia', 'arbitrum-sepolia'],
-    ['optimism sepolia', 'optimism-sepolia'], ['arc mainnet', 'arc-mainnet'],
+    ['arbitrum sepolia', 'arbitrum-sepolia'], ['optimism sepolia', 'optimism-sepolia'],
+    ['ethereum sepolia', 'sepolia'], ['base sepolia', 'base-sepolia'],
+    ['arc testnet', 'arc-testnet'], ['arc mainnet', 'arc-mainnet'],
     ['arbitrum', 'arbitrum'], ['optimism', 'optimism'], ['ethereum', 'ethereum'],
     ['polygon', 'polygon'], ['avalanche', 'avalanche'], ['base', 'base'], ['arc', 'arc-mainnet'],
   ];
-  const found: string[] = [];
+  const found: Array<{ id: string; index: number }> = [];
   for (const [name, id] of aliases) {
-    if (q.includes(name) && !found.includes(id)) found.push(id);
+    const index = q.indexOf(name);
+    if (index < 0) continue;
+    found.push({ id, index });
+    q = q.slice(0, index) + ' '.repeat(name.length) + q.slice(index + name.length);
   }
-  return found;
+  return found.sort((a, b) => a.index - b.index).map(x => x.id);
 }
 
 function answerActionTransfer(
