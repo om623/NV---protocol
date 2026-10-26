@@ -28,6 +28,8 @@ type QueryIntent =
   | 'market_movers'   // gainers / losers
   | 'market_status'   // compact situational awareness
   | 'capabilities'    // what NV Agent can currently inspect/do
+  | 'mode_assisted'   // assisted transaction mode explanation
+  | 'mode_authorized' // authorized transaction mode explanation
   | 'mode_assisted'   // assisted transaction mode
   | 'mode_authorized' // policy-authorized transaction mode
   | 'tvl_chain'       // TVL for a specific chain
@@ -109,6 +111,17 @@ const MODE_AUTHORIZED_KW = [
   'política de autorização',
 ];
 
+const MODE_ASSISTED_KW = [
+  'manual assisted', 'assisted manual', 'assisted mode', 'modo manual assistido',
+  'manual assistido', 'modo assistido', 'use assisted', 'activate assisted',
+];
+
+const MODE_AUTHORIZED_KW = [
+  'authorized mode', 'modo autorizado', 'autorização prioritária', 'autorizacao prioritaria',
+  'authorize agent', 'autorizar agente', 'policy authorization', 'política de autorização',
+  'politica de autorizacao',
+];
+
 const CAPABILITIES_KW = [
   'what can you do', 'what do you know', 'your capabilities', 'help me',
   'o que você faz', 'o que voce faz', 'o que você sabe', 'o que voce sabe',
@@ -173,6 +186,8 @@ function detectIntent(q: string): QueryIntent {
   if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw)))  return 'action_payment';
 
   // Query intents — most specific first
+  if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
+  if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
   if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
   if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
   if (CAPABILITIES_KW.some(kw => lq.includes(kw))) return 'capabilities';
@@ -509,6 +524,33 @@ function answerAuthorizedMode(): AgentResponse {
   ].join('\n\n'), sources: [] };
 }
 
+function answerTransactionMode(mode: 'assisted' | 'authorized'): AgentResponse {
+  if (mode === 'assisted') {
+    return {
+      answer: [
+        'Assisted Manual Mode.',
+        '',
+        'Tell me the operation you want. I will interpret the request, validate the available transaction details and prepare the operation for review.',
+        'You remain the signer: execution requires your wallet signature.',
+        '',
+        'Example: “Send 5 USDC to 0x…”',
+      ].join('\n'),
+      sources: [],
+    };
+  }
+  return {
+    answer: [
+      'Authorized Mode.',
+      '',
+      'This mode is governed by a prior, limited and revocable authorization policy.',
+      'Networks, tokens, recipients, per-operation limits, cumulative limits and validity must be explicitly defined and confirmed before autonomous execution.',
+      '',
+      'Selecting the mode alone does not grant financial authorization.',
+    ].join('\n'),
+    sources: [],
+  };
+}
+
 function answerCapabilities(ctx: NVAgentContext): AgentResponse {
   const liveAssets = ctx.market?.assets.filter(a => a.isLive).length ?? 0;
   const tvlLoaded = ctx.tvl?.entries.filter(e => e.status === 'loaded').length ?? 0;
@@ -806,6 +848,12 @@ export function agentQuery(
   const intent = detectIntent(question);
 
   switch (intent) {
+    case 'mode_assisted':
+      return answerTransactionMode('assisted');
+
+    case 'mode_authorized':
+      return answerTransactionMode('authorized');
+
     case 'mode_assisted':
       return answerAssistedMode();
 
