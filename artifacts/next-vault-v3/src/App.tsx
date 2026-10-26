@@ -59,7 +59,7 @@ import { NVIntelligence } from './components/NVIntelligence';
 import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
-import { subscribeNavigation, requestIntelligenceTab } from './lib/navigationStore';
+import { subscribeNavigation, requestIntelligenceTab, subscribeAgentExecution, publishAgentExecutionResult } from './lib/navigationStore';
 import { HistoryModule, ReportsModule, SettingsModule, HelpModule, logNVModuleView } from './components/ProtocolModules';
 import { logNVActivity } from './lib/activityLog';
 
@@ -458,6 +458,61 @@ function Home() {
     // Only navigate to views that actually exist in the sidebar
     const valid: SidebarView[] = ['dashboard', 'swap', 'carteira', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
+  }), []);
+
+  // ── Execute reviewed NV Agent actions through the same app-owned flows ──────
+  useEffect(() => subscribeAgentExecution(async (request) => {
+    try {
+      if (request.type === 'swap') {
+        const requestedAmount = request.params.amount;
+        if (typeof requestedAmount === 'number' && requestedAmount > 0) setAmount(String(requestedAmount));
+        setActiveView('swap');
+        publishAgentExecutionResult({
+          id: request.id,
+          ok: true,
+          message: 'Swap preparado no módulo nativo do NV. Confirme os tokens/rede e assine pela carteira.',
+        });
+        return;
+      }
+
+      if (request.type === 'bridge') {
+        setActiveView('bridge');
+        publishAgentExecutionResult({
+          id: request.id,
+          ok: true,
+          message: 'Bridge preparada no executor CCTP V2 nativo do NV. Confirme rota/valor e assine pela carteira.',
+        });
+        return;
+      }
+
+      if (request.type === 'transfer') {
+        setActiveView('carteira');
+        publishAgentExecutionResult({
+          id: request.id,
+          ok: true,
+          message: 'Transferência preparada na carteira do NV. Revise destinatário, token e valor antes da assinatura.',
+        });
+        return;
+      }
+
+      if (request.type === 'payment') {
+        setActiveView('perfil');
+        publishAgentExecutionResult({
+          id: request.id,
+          ok: true,
+          message: 'Pagamento preparado no fluxo nativo do NV. Revise a compra antes de assinar.',
+        });
+        return;
+      }
+
+      publishAgentExecutionResult({ id: request.id, ok: false, message: 'Ação não suportada.' });
+    } catch (error) {
+      publishAgentExecutionResult({
+        id: request.id,
+        ok: false,
+        message: error instanceof Error ? error.message : 'Falha inesperada ao preparar a operação.',
+      });
+    }
   }), []);
 
   // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
