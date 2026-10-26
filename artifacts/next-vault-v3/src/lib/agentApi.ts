@@ -831,11 +831,10 @@ function answerActionSwap(
   lines.push(t('agent.action.reviewInWallet'));
   lines.push(''); lines.push(t('agent.action.noAutoExecute'));
 
-  // Swap in NV Protocol = CCTP cross-chain transfer (no DEX)
   const action: AgentAction = {
     type: 'swap',
       executeInChat: true,
-    navigateTo: 'bridge',
+    navigateTo: 'swap',
     params: { amount: amount ?? null },
   };
 
