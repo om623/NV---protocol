@@ -20,6 +20,19 @@
 export type SidebarView = string; // mirror of App.tsx SidebarView — kept loose to avoid coupling
 
 type NavigationListener = (view: SidebarView) => void;
+type IntelligenceTab = 'feed' | 'agent' | 'nvnews';
+type IntelligenceTabListener = (tab: IntelligenceTab) => void;
+
+const _intelligenceTabListeners = new Set<IntelligenceTabListener>();
+
+export function requestIntelligenceTab(tab: IntelligenceTab): void {
+  for (const fn of _intelligenceTabListeners) fn(tab);
+}
+
+export function subscribeIntelligenceTab(fn: IntelligenceTabListener): () => void {
+  _intelligenceTabListeners.add(fn);
+  return () => _intelligenceTabListeners.delete(fn);
+}
 
 const _listeners = new Set<NavigationListener>();
 
