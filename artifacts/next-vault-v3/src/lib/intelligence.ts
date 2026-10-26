@@ -105,8 +105,10 @@ export interface AgentMessage {
 
 export interface AgentAction {
   type: 'transfer' | 'bridge' | 'swap' | 'payment';
-  /** Sidebar view to navigate to */
+  /** Sidebar view used by legacy/fallback navigation */
   navigateTo: string;
+  /** Keep the action inside the Agent chat when supported by the UI. */
+  executeInChat?: boolean;
   /** Pre-filled parameters parsed from the message */
   params?: Record<string, string | number | null>;
 }

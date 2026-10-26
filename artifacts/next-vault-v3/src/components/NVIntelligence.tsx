@@ -68,7 +68,7 @@ import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
 import { getPaymentState, subscribePaymentState } from '../lib/payments';
 import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
-import { requestNavigation, subscribeIntelligenceTab } from '../lib/navigationStore';
+import { requestNavigation, requestAgentExecution, subscribeAgentExecutionResult, subscribeIntelligenceTab } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 import { logNVActivity } from '../lib/activityLog';
@@ -716,6 +716,9 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     },
   ]);
   const [input, setInput] = useState('');
+  const [executingActionId, setExecutingActionId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const speechRecognitionRef = useRef<{ stop: () => void } | null>(null);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -821,6 +824,81 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     if (!voiceMuted) enqueueNVVoice(answer, locale);
   }
 
+  function executeAgentAction(action: NonNullable<AgentMessage['action']>) {
+    const id = `agent-action-${Date.now()}`;
+    setExecutingActionId(id);
+    requestAgentExecution({ id, type: action.type, params: action.params ?? {} });
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: locale === 'pt-BR'
+        ? 'Entendido. Vou encaminhar esta operação para a infraestrutura do NV. Revise qualquer solicitação exibida pela sua carteira antes de assinar.'
+        : 'Understood. I am sending this operation to NV execution infrastructure. Review any wallet prompt before signing.',
+      timestamp: Date.now(),
+    }]);
+  }
+
+  useEffect(() => subscribeAgentExecutionResult(result => {
+    setExecutingActionId(current => current === result.id ? null : current);
+    const content = result.ok
+      ? (locale === 'pt-BR' ? `Operação concluída. ${result.message}` : `Operation completed. ${result.message}`)
+      : (locale === 'pt-BR' ? `Não consegui concluir a operação. ${result.message}` : `I could not complete the operation. ${result.message}`);
+    setMessages(prev => [...prev, { role: 'assistant', content, timestamp: Date.now() }]);
+  }), [locale]);
+
+  function toggleSpeechInput() {
+    if (listening) {
+      speechRecognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const w = window as unknown as {
+      SpeechRecognition?: new () => any;
+      webkitSpeechRecognition?: new () => any;
+    };
+    const Recognition = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Recognition) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: locale === 'pt-BR'
+          ? 'O reconhecimento de voz não está disponível neste navegador. Você ainda pode digitar normalmente.'
+          : 'Speech recognition is not available in this browser. You can still type normally.',
+        timestamp: Date.now(),
+      }]);
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = locale === 'pt-BR' ? 'pt-BR' : locale;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) transcript += event.results[i][0].transcript;
+      if (transcript.trim()) setInput(transcript.trim());
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    speechRecognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  }
+
+  async function understandSemantically(question: string) {
+    try {
+      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+      const response = await fetch('/api/nv-agent-understand', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: question, history }),
+      });
+      if (!response.ok) return null;
+      return await response.json() as {
+        intent: string; rewritten: string; amount: number | null; token: string | null;
+        sourceToken: string | null; destinationToken: string | null; recipient: string | null;
+        fromNetwork: string | null; toNetwork: string | null; product: string | null;
+        needsClarification: boolean; clarification: string | null;
+      };
+    } catch { return null; }
+  }
+
   async function handleSend(q = input) {
     const question = q.trim();
     if (!question || loading) return;
@@ -832,11 +910,32 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       // Normalize the question to English for intent detection, then localize the
       // answer back into the user's selected language. The original user text is
       // always kept in the chat, and financial identifiers remain unchanged.
-      const normalizedQuestion = locale === 'en' ? question : await localizeText(question, 'en');
+      const semantic = await understandSemantically(question);
+      if (semantic?.needsClarification && semantic.clarification) {
+        const clarification = await localizeText(semantic.clarification, locale);
+        setMessages(prev => [...prev, { role: 'assistant', content: clarification, sources: [], timestamp: Date.now() }]);
+        if (!voiceMuted) enqueueNVVoice(clarification, locale);
+        return;
+      }
+      const semanticQuestion = semantic?.rewritten?.trim() || question;
+      const normalizedQuestion = locale === 'en' ? semanticQuestion : await localizeText(semanticQuestion, 'en');
       rememberNVAgentIntent({ text: question, normalizedText: normalizedQuestion, mode: agentMode });
       const response = agentCtx
         ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
         : agentQuery(normalizedQuestion, news, locale, t);
+      if (response.action && semantic) {
+        response.action.params = {
+          ...response.action.params,
+          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
+          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
+          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
+          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
+          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
+          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
+          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
+          ...(semantic.product ? { product: semantic.product } : {}),
+        };
+      }
       const { answer, sources, action } = response;
       const localizedAnswer = await localizeText(answer, locale);
       setMessages(prev => [...prev, {
@@ -964,16 +1063,26 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
               }`}
             >
               {msg.content}
-              {/* NavigateCard — shown for action intents */}
+              {/* Financial action card — stays inside chat; navigation is only a fallback. */}
               {msg.role === 'assistant' && msg.action?.navigateTo && (
                 <div className="mt-2 pt-2 border-t border-primary/20">
+                  {msg.action.executeInChat && (
+                    <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-2 text-[9px] text-muted-foreground/70">
+                      {locale === 'pt-BR'
+                        ? 'Ação preparada no NV Agent. Revise os parâmetros abaixo. No modo Manual Assistido, a carteira ainda deverá confirmar e assinar a operação.'
+                        : 'Action prepared in NV Agent. Review the parameters below. In Assisted Manual Mode, your wallet must still confirm and sign the operation.'}
+                    </div>
+                  )}
                   <button
                     type="button"
-                    onClick={() => requestNavigation(msg.action!.navigateTo)}
+                    onClick={() => msg.action!.executeInChat ? executeAgentAction(msg.action!) : requestNavigation(msg.action!.navigateTo)}
+                    disabled={Boolean(executingActionId)}
                     className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-primary/10 border border-primary/25 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-all cursor-pointer"
                   >
                     <ArrowRight size={10} />
-                    {t('agent.action.goTo')} {msg.action.navigateTo}
+                    {msg.action.executeInChat
+                      ? (locale === 'pt-BR' ? 'Revisar e executar no chat' : 'Review and execute in chat')
+                      : <>{t('agent.action.goTo')} {msg.action.navigateTo}</>}
                   </button>
                 </div>
               )}
@@ -1023,6 +1132,16 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             disabled={loading}
             className="flex-1 bg-background/60 border border-border/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 disabled:opacity-50 transition-colors"
           />
+          <button
+            type="button"
+            onClick={toggleSpeechInput}
+            disabled={loading}
+            aria-label={locale === 'pt-BR' ? (listening ? 'Parar gravação de voz' : 'Falar com o NV Agent') : (listening ? 'Stop voice input' : 'Speak to NV Agent')}
+            title={locale === 'pt-BR' ? (listening ? 'Ouvindo… toque para parar' : 'Falar em vez de digitar') : (listening ? 'Listening… tap to stop' : 'Speak instead of typing')}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${listening ? 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse' : 'bg-secondary/30 border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30'} disabled:opacity-30`}
+          >
+            <Mic size={13} />
+          </button>
           <button
             type="button"
             onClick={() => handleSend()}

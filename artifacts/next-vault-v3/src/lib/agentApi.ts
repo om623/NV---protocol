@@ -28,10 +28,11 @@ type QueryIntent =
   | 'market_movers'   // gainers / losers
   | 'market_status'   // compact situational awareness
   | 'capabilities'    // what NV Agent can currently inspect/do
-  | 'mode_assisted'   // assisted transaction mode explanation
-  | 'mode_authorized' // authorized transaction mode explanation
   | 'mode_assisted'   // assisted transaction mode
   | 'mode_authorized' // policy-authorized transaction mode
+  | 'greeting'
+  | 'thanks'
+  | 'news'
   | 'tvl_chain'       // TVL for a specific chain
   | 'tvl_top'         // top chains by TVL
   | 'wallet_evm'      // EVM wallet info
@@ -42,8 +43,7 @@ type QueryIntent =
   | 'action_bridge'   // user wants to execute a bridge
   | 'action_swap'     // user wants to execute a swap
   | 'action_payment'  // user wants to make a gamification purchase
-  | 'news'            // news/events query
-  | 'unknown';        // fallback → news
+  | 'unknown';        // precise clarification fallback
 
 // Keyword lists — order matters: more specific first in detectIntent()
 const WALLET_SOL_KW = [
@@ -109,6 +109,26 @@ const MODE_AUTHORIZED_KW = [
   'authorized mode', 'authorised mode', 'modo autorizado', 'ativar modo autorizado',
   'activate authorized', 'activate authorised', 'authorization policy', 'politica de autorizacao',
   'política de autorização',
+];
+
+const GREETING_KW = [
+  'olá', 'ola', 'oi', 'bom dia', 'boa tarde', 'boa noite', 'hello', 'hi', 'hey',
+  'welcome', 'bem vindo', 'bem-vindo',
+];
+
+const THANKS_KW = [
+  'obrigado', 'obrigada', 'thanks', 'thank you', 'valeu', 'agradeço', 'agradeco',
+];
+
+const NEWS_KW = [
+  'news', 'notícias', 'noticias', 'novidades', 'latest news', 'breaking news',
+  'what happened', 'o que aconteceu', 'acontecimentos', 'eventos recentes',
+  'mercado hoje', 'market news', 'recent events',
+];
+
+const LEARNING_KW = [
+  'aprender', 'learn', 'estudar', 'study', 'livro', 'book', 'explicar', 'explain',
+  'por que', 'porque', 'why', 'como funciona', 'how does',
 ];
 
 const CAPABILITIES_KW = [
@@ -177,11 +197,12 @@ function detectIntent(q: string): QueryIntent {
   // Query intents — most specific first
   if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
   if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
-  if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
-  if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
+  if (GREETING_KW.some(kw => lq.includes(kw))) return 'greeting';
+  if (THANKS_KW.some(kw => lq.includes(kw))) return 'thanks';
   if (CAPABILITIES_KW.some(kw => lq.includes(kw))) return 'capabilities';
   if (STATUS_KW.some(kw => lq.includes(kw))) return 'market_status';
   if (MOVERS_KW.some(kw => lq.includes(kw))) return 'market_movers';
+  if (NEWS_KW.some(kw => lq.includes(kw))) return 'news';
   if (WALLET_SOL_KW.some(kw => lq.includes(kw))) return 'wallet_solana';
   if (WALLET_EVM_KW.some(kw => lq.includes(kw))) return 'wallet_evm';
   if (BRIDGE_KW.some(kw => lq.includes(kw)))     return 'bridge_info';
@@ -200,7 +221,7 @@ function detectIntent(q: string): QueryIntent {
     return TOP_KW.some(kw => lq.includes(kw)) ? 'market_top' : 'market_price';
   }
 
-  return 'news';
+  return 'unknown';
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -513,6 +534,24 @@ function answerAuthorizedMode(): AgentResponse {
   ].join('\n\n'), sources: [] };
 }
 
+function answerGreeting(locale: string): AgentResponse {
+  return {
+    answer: locale === 'pt-BR'
+      ? 'Bem-vindo. Como posso servi-lo? Estou à disposição para analisar o mercado, consultar dados do NV ou preparar uma operação quando você solicitar.'
+      : 'Welcome. How may I serve you? I can help analyze the market, inspect NV data, or prepare an operation when you ask.',
+    sources: [],
+  };
+}
+
+function answerThanks(locale: string): AgentResponse {
+  return {
+    answer: locale === 'pt-BR'
+      ? 'Será um prazer. Se quiser, posso continuar daqui — analisar alguma coisa, acompanhar uma situação ou preparar a próxima ação.'
+      : 'My pleasure. If you like, we can continue from here — analyze something, follow a situation, or prepare the next action.',
+    sources: [],
+  };
+}
+
 function answerTransactionMode(mode: 'assisted' | 'authorized'): AgentResponse {
   if (mode === 'assisted') {
     return {
@@ -536,6 +575,48 @@ function answerTransactionMode(mode: 'assisted' | 'authorized'): AgentResponse {
       '',
       'Selecting the mode alone does not grant financial authorization.',
     ].join('\n'),
+    sources: [],
+  };
+}
+
+function addSpontaneousGuidance(
+  response: AgentResponse,
+  question: string,
+  intent: QueryIntent,
+  ctx: NVAgentContext,
+  locale: string,
+): AgentResponse {
+  const q = question.toLowerCase();
+  const learning = LEARNING_KW.some(k => q.includes(k));
+  const marketRelated = ['market_price', 'market_top', 'market_movers', 'market_status', 'news'].includes(intent);
+  if (learning || !marketRelated || !ctx.market?.assets?.length) return response;
+
+  // Deterministic variation keeps the Agent lively without pretending to have
+  // independent thoughts or interrupting transactional flows.
+  const seed = Array.from(question).reduce((n, ch) => n + ch.charCodeAt(0), 0) % 5;
+  const pt = [
+    'Se quiser, posso ir além dos números e separar sinais, riscos e hipóteses desse cenário.',
+    'Posso também comparar isso com outro ativo, período ou rede para dar mais contexto.',
+    'Quer uma referência para aprofundar? Posso sugerir um livro relacionado ao assunto e resumir por que ele pode ser útil.',
+    'Se preferir, posso transformar esses dados em uma leitura curta: o que mudou, o que importa e o que ainda não sabemos.',
+    'Há mais de uma forma de olhar para isso. Posso montar uma visão técnica, fundamental ou de risco usando os dados disponíveis no NV.',
+  ];
+  const en = [
+    'If you want, I can go beyond the numbers and separate signals, risks and hypotheses in this scenario.',
+    'I can also compare this with another asset, period or network to add context.',
+    'Want a reference to go deeper? I can suggest a relevant book and summarize why it may be useful.',
+    'If you prefer, I can turn these data into a short read: what changed, what matters, and what we still do not know.',
+    'There is more than one way to read this. I can build a technical, fundamental, or risk view using the data available in NV.',
+  ];
+  const suggestion = (locale === 'pt-BR' ? pt : en)[seed];
+  return { ...response, answer: response.answer + '\n\n' + suggestion };
+}
+
+function answerUnknown(locale: string): AgentResponse {
+  return {
+    answer: locale === 'pt-BR'
+      ? 'Entendi. Quero responder com precisão em vez de presumir o que você quis dizer. Você pode me dizer se deseja analisar o mercado, consultar um ativo, verificar TVL ou carteira, acompanhar notícias ou preparar uma operação?'
+      : 'I understand. I would rather be precise than assume what you mean. Tell me whether you want to analyze the market, inspect an asset, check TVL or a wallet, follow news, or prepare an operation.',
     sources: [],
   };
 }
@@ -613,10 +694,17 @@ function answerMarketStatus(ctx: NVAgentContext): AgentResponse {
 // renders as a NavigateCard. They NEVER initiate a transaction themselves.
 
 function parseAmount(q: string): number | null {
-  const m = q.match(/(\d+(?:[.,]\d+)?)\s*(?:usdc|usd|eth|sol|matic|avax)?/i);
+  // Require a financial unit next to the number. This prevents chain IDs,
+  // addresses, dates and arbitrary numbers from becoming transaction amounts.
+  const m = q.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(usdc|eurc|usd|eth|sol|pol|matic|avax)\b/i);
   if (!m) return null;
   const n = parseFloat(m[1].replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function parseTransferToken(q: string): string | null {
+  const m = q.match(/\b(USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\b/i);
+  return m ? m[1].toUpperCase() : null;
 }
 
 function parseAddress(q: string): string | null {
@@ -629,6 +717,28 @@ function parseAddress(q: string): string | null {
   return null;
 }
 
+function parseSwapPair(question: string): { sourceToken: string | null; destinationToken: string | null } {
+  const symbols = ['USDC', 'EURC', 'ETH', 'SOL', 'POL', 'AVAX'];
+  const found = symbols.filter(symbol => question.toUpperCase().includes(symbol));
+  return { sourceToken: found[0] ?? null, destinationToken: found[1] ?? null };
+}
+
+function parseAgentNetworks(question: string): string[] {
+  const q = question.toLowerCase();
+  const aliases: Array<[string, string]> = [
+    ['base sepolia', 'base-sepolia'], ['arc testnet', 'arc-testnet'],
+    ['ethereum sepolia', 'sepolia'], ['arbitrum sepolia', 'arbitrum-sepolia'],
+    ['optimism sepolia', 'optimism-sepolia'], ['arc mainnet', 'arc-mainnet'],
+    ['arbitrum', 'arbitrum'], ['optimism', 'optimism'], ['ethereum', 'ethereum'],
+    ['polygon', 'polygon'], ['avalanche', 'avalanche'], ['base', 'base'], ['arc', 'arc-mainnet'],
+  ];
+  const found: string[] = [];
+  for (const [name, id] of aliases) {
+    if (q.includes(name) && !found.includes(id)) found.push(id);
+  }
+  return found;
+}
+
 function answerActionTransfer(
   question: string,
   ctx: NVAgentContext,
@@ -637,6 +747,7 @@ function answerActionTransfer(
   const evm = ctx.evmWallet;
   const amount = parseAmount(question);
   const recipient = parseAddress(question);
+  const token = parseTransferToken(question) ?? 'USDC';
 
   const lines = [t('agent.action.transferTitle'), ''];
 
@@ -647,7 +758,7 @@ function answerActionTransfer(
     lines.push(`From: ${evm.address}`);
     if (evm.network) lines.push(`Network: ${evm.network}`);
     if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
-    if (amount !== null) lines.push(`Amount: ${amount} USDC`);
+    if (amount !== null) lines.push(`Amount: ${amount} ${token}`);
     if (recipient) lines.push(`To: ${recipient}`);
     lines.push('');
     lines.push(t('agent.action.reviewInWallet'));
@@ -657,11 +768,12 @@ function answerActionTransfer(
 
   const action: AgentAction = {
     type: 'transfer',
+      executeInChat: true,
     navigateTo: 'carteira',
     params: {
       amount: amount ?? null,
       recipient: recipient ?? null,
-      token: 'USDC',
+      token,
     },
   };
 
@@ -676,6 +788,7 @@ function answerActionBridge(
   const evm = ctx.evmWallet;
   const sol = ctx.solanaWallet;
   const amount = parseAmount(question);
+  const networks = parseAgentNetworks(question);
 
   const lq = question.toLowerCase();
   const isSolanaSource =
@@ -716,8 +829,9 @@ function answerActionBridge(
 
   const action: AgentAction = {
     type: 'bridge',
+      executeInChat: true,
     navigateTo: 'bridge',
-    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0 },
+    params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0, fromNetwork: networks[0] ?? null, toNetwork: networks[1] ?? null },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
@@ -730,6 +844,7 @@ function answerActionSwap(
 ): AgentResponse {
   const evm = ctx.evmWallet;
   const amount = parseAmount(question);
+  const pair = parseSwapPair(question);
 
   const lines = [t('agent.action.swapTitle'), ''];
   lines.push(t('agent.action.swapDescription'));
@@ -748,11 +863,11 @@ function answerActionSwap(
   lines.push(t('agent.action.reviewInWallet'));
   lines.push(''); lines.push(t('agent.action.noAutoExecute'));
 
-  // Swap in NV Protocol = CCTP cross-chain transfer (no DEX)
   const action: AgentAction = {
     type: 'swap',
-    navigateTo: 'bridge',
-    params: { amount: amount ?? null },
+      executeInChat: true,
+    navigateTo: 'swap',
+    params: { amount: amount ?? null, sourceToken: pair.sourceToken, destinationToken: pair.destinationToken },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
@@ -764,6 +879,13 @@ function answerActionPayment(
   t: (k: string) => string,
 ): AgentResponse {
   const evm = ctx.evmWallet;
+  const q = question.toLowerCase();
+  let product: string | null = null;
+  if (q.includes('1000')) product = 'premium-1000';
+  else if (q.includes('500')) product = 'premium-500';
+  else if (q.includes('trimestral') || q.includes('quarterly') || q.includes('300 xp')) product = 'xp-quarterly';
+  else if (q.includes('semanal') || q.includes('weekly') || q.includes('60 xp')) product = 'xp-weekly';
+  else if (q.includes('diário') || q.includes('diario') || q.includes('daily') || q.includes('30 xp')) product = 'xp-daily';
 
   const lines = [t('agent.action.paymentTitle'), ''];
   lines.push(t('agent.action.paymentDescription'));
@@ -784,8 +906,9 @@ function answerActionPayment(
 
   const action: AgentAction = {
     type: 'payment',
+      executeInChat: true,
     navigateTo: 'perfil',
-    params: {},
+    params: { product },
   };
 
   return { answer: lines.join('\n'), sources: [], action };
@@ -838,25 +961,25 @@ export function agentQuery(
 
   switch (intent) {
     case 'mode_assisted':
-      return answerTransactionMode('assisted');
+      return addSpontaneousGuidance(answerTransactionMode('assisted'), question, intent, ctx, locale);
 
     case 'mode_authorized':
-      return answerTransactionMode('authorized');
+      return addSpontaneousGuidance(answerTransactionMode('authorized'), question, intent, ctx, locale);
 
-    case 'mode_assisted':
-      return answerAssistedMode();
+    case 'greeting':
+      return answerGreeting(locale);
 
-    case 'mode_authorized':
-      return answerAuthorizedMode();
+    case 'thanks':
+      return answerThanks(locale);
 
     case 'capabilities':
       return answerCapabilities(ctx);
 
     case 'market_status':
-      return answerMarketStatus(ctx);
+      return addSpontaneousGuidance(answerMarketStatus(ctx), question, intent, ctx, locale);
 
     case 'market_movers':
-      if (ctx.market?.assets.length) return answerMarketMovers(question, ctx.market.assets);
+      if (ctx.market?.assets.length) return addSpontaneousGuidance(answerMarketMovers(question, ctx.market.assets), question, intent, ctx, locale);
       break;
 
     case 'wallet_evm':
@@ -892,27 +1015,28 @@ export function agentQuery(
       break;
 
     case 'market_price':
-      if (ctx.market?.assets.length) return answerMarketPrice(question, ctx.market.assets, t);
+      if (ctx.market?.assets.length) return addSpontaneousGuidance(answerMarketPrice(question, ctx.market.assets, t), question, intent, ctx, locale);
       break;
 
     case 'market_top':
-      if (ctx.market?.assets.length) return answerMarketTop(question, ctx.market.assets, t);
+      if (ctx.market?.assets.length) return addSpontaneousGuidance(answerMarketTop(question, ctx.market.assets, t), question, intent, ctx, locale);
       break;
 
     case 'news':
+      break;
     case 'unknown':
     default:
-      break;
+      return answerUnknown(locale);
   }
 
-  // Always fall back to the news corpus — never return empty if news is loaded
+  // News is an explicit intent, not a generic fallback.
   if (ctx.news?.items.length) {
-    return answerFromNews(
+    return addSpontaneousGuidance(answerFromNews(
       question,
       ctx.news.items,
       locale as Parameters<typeof answerFromNews>[2],
       t as (key: string, vars?: Record<string, string | number>) => string,
-    );
+    ), question, intent, ctx, locale);
   }
 
   return { answer: t('intel.agentNoData'), sources: [] };
