@@ -710,7 +710,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
       role: 'assistant',
-      content: locale === 'pt-BR' ? 'Bem-vindo. Sou o NV Agent. Como posso servi-lo?' : 'Welcome. I am NV Agent. How may I serve you?',
+      content: locale === 'pt-BR' ? 'Bem-vindo. Como posso servi-lo?' : 'Welcome. How may I serve you?',
       sources: [],
       timestamp: Date.now(),
     },
@@ -771,7 +771,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   useEffect(() => {
     setMessages([{
       role: 'assistant',
-      content: locale === 'pt-BR' ? 'Bem-vindo. Sou o NV Agent. Como posso servi-lo?' : 'Welcome. I am NV Agent. How may I serve you?',
+      content: locale === 'pt-BR' ? 'Bem-vindo. Como posso servi-lo?' : 'Welcome. How may I serve you?',
       sources: [],
       timestamp: Date.now(),
     }]);
