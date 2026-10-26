@@ -513,11 +513,27 @@ function Home() {
         return;
       }
 
+      if (request.type === 'payment') {
+        const raw = String(request.params.product ?? request.params.productId ?? '').toLowerCase();
+        const skin = SKINS.find(item => item.premium && (raw.includes(item.id) || raw.includes(String(item.price ?? ''))));
+        const xpPackage = XP_PACKAGES.find(item => raw.includes(item.id) || raw.includes(String(item.xp)) || raw.includes(item.duration));
+        const productId = skin?.id ?? xpPackage?.id;
+        if (!productId) throw new Error('Diga qual produto deseja: skin premium 500/1000 ou pacote XP diário, semanal ou trimestral.');
+        const limit = await purchases.getLimit(productId);
+        if (!limit.canBuyNow) throw new Error('O limite de compra deste produto foi atingido.');
+        const result = skin
+          ? await purchases.buyProduct({ provider: prov, productId, productType: 'skin', amountUsd: skin.price ?? 0 })
+          : await purchases.buyProduct({ provider: prov, productId, productType: 'xp', amountUsd: xpPackage!.price, xpAmount: xpPackage!.xp });
+        if (!result.success) throw new Error(result.error ?? 'Pagamento não confirmado.');
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Compra confirmada: ' + productId + '.' });
+        return;
+      }
+
       throw new Error('Esta ação ainda precisa de parâmetros adicionais no chat.');
     } catch (error) {
       publishAgentExecutionResult({ id: request.id, ok: false, message: error instanceof Error ? error.message : 'Falha inesperada.' });
     }
-  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken]);
+  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken, purchases]);
 
   // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
   const setNVEvmWallet = useSetNVEvmWallet();
