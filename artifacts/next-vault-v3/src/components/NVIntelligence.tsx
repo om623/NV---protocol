@@ -882,6 +882,23 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     recognition.start();
   }
 
+  async function understandSemantically(question: string) {
+    try {
+      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+      const response = await fetch('/api/nv-agent-understand', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: question, history }),
+      });
+      if (!response.ok) return null;
+      return await response.json() as {
+        intent: string; rewritten: string; amount: number | null; token: string | null;
+        sourceToken: string | null; destinationToken: string | null; recipient: string | null;
+        fromNetwork: string | null; toNetwork: string | null; product: string | null;
+        needsClarification: boolean; clarification: string | null;
+      };
+    } catch { return null; }
+  }
+
   async function handleSend(q = input) {
     const question = q.trim();
     if (!question || loading) return;
@@ -893,11 +910,32 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       // Normalize the question to English for intent detection, then localize the
       // answer back into the user's selected language. The original user text is
       // always kept in the chat, and financial identifiers remain unchanged.
-      const normalizedQuestion = locale === 'en' ? question : await localizeText(question, 'en');
+      const semantic = await understandSemantically(question);
+      if (semantic?.needsClarification && semantic.clarification) {
+        const clarification = await localizeText(semantic.clarification, locale);
+        setMessages(prev => [...prev, { role: 'assistant', content: clarification, sources: [], timestamp: Date.now() }]);
+        if (!voiceMuted) enqueueNVVoice(clarification, locale);
+        return;
+      }
+      const semanticQuestion = semantic?.rewritten?.trim() || question;
+      const normalizedQuestion = locale === 'en' ? semanticQuestion : await localizeText(semanticQuestion, 'en');
       rememberNVAgentIntent({ text: question, normalizedText: normalizedQuestion, mode: agentMode });
       const response = agentCtx
         ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
         : agentQuery(normalizedQuestion, news, locale, t);
+      if (response.action && semantic) {
+        response.action.params = {
+          ...response.action.params,
+          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
+          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
+          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
+          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
+          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
+          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
+          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
+          ...(semantic.product ? { product: semantic.product } : {}),
+        };
+      }
       const { answer, sources, action } = response;
       const localizedAnswer = await localizeText(answer, locale);
       setMessages(prev => [...prev, {
