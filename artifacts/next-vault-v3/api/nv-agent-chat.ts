@@ -35,8 +35,8 @@ BEHAVIOR
 CURRENT NV CONTEXT (read-only, may contain live data):
 ${JSON.stringify(context)}`;
  try{
-  const body:any={model:process.env.NV_AGENT_MODEL||'gpt-6.1-sol',instructions,input:[...history,{role:'user',content:message}]};
-  if(process.env.NV_AGENT_WEB_SEARCH!=='off') body.tools=[{type:'web_search'}];
+  const body:any={model:process.env.NV_AGENT_MODEL||'gpt-5.1',instructions,input:[...history,{role:'user',content:message}]};
+  if(process.env.NV_AGENT_WEB_SEARCH!=='off') body.tools=[{type:'web_search',search_context_size:'medium'}];
   const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!upstream.ok){const detail=await upstream.text(); console.error('[NV Agent] provider',upstream.status,detail.slice(0,500));res.status(502).json({error:'agent_provider_failed'});return;}
   const data=await upstream.json() as any;
