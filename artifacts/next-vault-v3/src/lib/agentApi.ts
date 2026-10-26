@@ -190,11 +190,15 @@ function detectIntent(q: string): QueryIntent {
   const lq = q.toLowerCase().replace(/[?!.,;:]/g, ' ');
   const words = lq.split(/\s+/);
 
-  // Action intents — checked FIRST (they have specific multi-word phrases)
+  // Action intents — checked FIRST. A request that says "swap" but names two
+  // different networks is cross-chain and must go through Bridge, never the
+  // same-chain swap executor.
   if (ACTION_TRANSFER_KW.some(kw => lq.includes(kw))) return 'action_transfer';
-  if (ACTION_BRIDGE_KW.some(kw => lq.includes(kw)))   return 'action_bridge';
-  if (ACTION_SWAP_KW.some(kw => lq.includes(kw)))     return 'action_swap';
-  if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw)))  return 'action_payment';
+  const requestedNetworks = parseAgentNetworks(lq);
+  const asksSwap = ACTION_SWAP_KW.some(kw => lq.includes(kw));
+  if (ACTION_BRIDGE_KW.some(kw => lq.includes(kw)) || (asksSwap && requestedNetworks.length >= 2)) return 'action_bridge';
+  if (asksSwap) return 'action_swap';
+  if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw))) return 'action_payment';
 
   // Query intents — most specific first
   if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
