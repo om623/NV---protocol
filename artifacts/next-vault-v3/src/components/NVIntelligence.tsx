@@ -872,6 +872,46 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         <p className="text-[9px] text-amber-400/80 leading-relaxed">{t('intel.agentDisclaimer')}</p>
       </div>
 
+      {/* Transaction mode selector — educational choice, no authorization is granted here */}
+      {messages.length <= 1 && (
+        <div className="mx-4 mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <div className="text-xs font-semibold text-foreground mb-2">
+            {locale === 'pt-BR' ? 'Deseja acionar o modo manual assistido ou o modo autorizado?' : 'Would you like Assisted Manual Mode or Authorized Mode?'}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleSend(locale === 'pt-BR' ? 'Quero usar o modo manual assistido para minhas transações.' : 'I want to use assisted manual mode for my transactions.')}
+              className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-left hover:bg-cyan-500/10 transition-colors"
+            >
+              <div className="text-[11px] font-semibold text-cyan-400">1 · {locale === 'pt-BR' ? 'Manual assistido' : 'Assisted manual'}</div>
+              <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/70">
+                {locale === 'pt-BR'
+                  ? 'Você pede a operação ao NV Agent. Ele interpreta, verifica os dados e prepara a transação; você revisa e assina na carteira antes da execução.'
+                  : 'Ask NV Agent for an operation. It interprets, checks and prepares it; you review and sign in your wallet before execution.'}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSend(locale === 'pt-BR' ? 'Quero conhecer o modo autorizado e definir uma política de autorização para o NV Agent.' : 'I want to learn about authorized mode and define an authorization policy for NV Agent.')}
+              className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5 text-left hover:bg-violet-500/10 transition-colors"
+            >
+              <div className="text-[11px] font-semibold text-violet-400">2 · {locale === 'pt-BR' ? 'Modo autorizado' : 'Authorized mode'}</div>
+              <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/70">
+                {locale === 'pt-BR'
+                  ? 'Você concede previamente uma autorização limitada e revogável. O Agent só poderá executar operações dentro das redes, tokens, destinatários, valores e validade definidos por você.'
+                  : 'You grant a limited, revocable authorization in advance. The Agent may only execute within the networks, tokens, recipients, amounts and validity you define.'}
+              </div>
+            </button>
+          </div>
+          <div className="mt-2 text-[8px] leading-relaxed text-muted-foreground/50">
+            {locale === 'pt-BR'
+              ? 'Selecionar uma opção aqui não assina nem concede permissão financeira. Autorizações reais exigirão confirmação explícita da carteira.'
+              : 'Choosing an option here does not sign or grant financial permission. Real authorization will require explicit wallet confirmation.'}
+          </div>
+        </div>
+      )}
+
       {/* Suggestion chips */}
       {messages.length <= 1 && (
         <div className="px-4 py-2 flex flex-wrap gap-1.5">
