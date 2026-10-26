@@ -28,10 +28,11 @@ type QueryIntent =
   | 'market_movers'   // gainers / losers
   | 'market_status'   // compact situational awareness
   | 'capabilities'    // what NV Agent can currently inspect/do
-  | 'mode_assisted'   // assisted transaction mode explanation
-  | 'mode_authorized' // authorized transaction mode explanation
   | 'mode_assisted'   // assisted transaction mode
   | 'mode_authorized' // policy-authorized transaction mode
+  | 'greeting'
+  | 'thanks'
+  | 'news'
   | 'tvl_chain'       // TVL for a specific chain
   | 'tvl_top'         // top chains by TVL
   | 'wallet_evm'      // EVM wallet info
@@ -111,6 +112,33 @@ const MODE_AUTHORIZED_KW = [
   'política de autorização',
 ];
 
+const GREETING_KW = [
+  'olá', 'ola', 'oi', 'bom dia', 'boa tarde', 'boa noite', 'hello', 'hi', 'hey',
+  'welcome', 'bem vindo', 'bem-vindo',
+];
+
+const THANKS_KW = [
+  'obrigado', 'obrigada', 'thanks', 'thank you', 'valeu', 'agradeço', 'agradeco',
+];
+
+const NEWS_KW = [
+  'news', 'notícias', 'noticias', 'novidades', 'latest news', 'breaking news',
+  'what happened', 'o que aconteceu', 'acontecimentos', 'eventos recentes',
+  'mercado hoje', 'market news', 'recent events',
+];
+
+const EMOTIONAL_FINANCE_KW = [
+  'medo', 'fear', 'panic', 'pânico', 'panico', 'ansioso', 'ansiedade', 'anxiety',
+  'perdi', 'perdas', 'loss', 'losses', 'perder tudo', 'sell everything',
+  'vender tudo', 'desespero', 'revenge trade', 'vingança', 'vinganca',
+  'fomo', 'euforia', 'ganância', 'ganancia', 'greed',
+];
+
+const LEARNING_KW = [
+  'aprender', 'learn', 'estudar', 'study', 'livro', 'book', 'explicar', 'explain',
+  'por que', 'porque', 'why', 'como funciona', 'how does',
+];
+
 const CAPABILITIES_KW = [
   'what can you do', 'what do you know', 'your capabilities', 'help me',
   'o que você faz', 'o que voce faz', 'o que você sabe', 'o que voce sabe',
@@ -177,11 +205,12 @@ function detectIntent(q: string): QueryIntent {
   // Query intents — most specific first
   if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
   if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
-  if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
-  if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
+  if (GREETING_KW.some(kw => lq.includes(kw))) return 'greeting';
+  if (THANKS_KW.some(kw => lq.includes(kw))) return 'thanks';
   if (CAPABILITIES_KW.some(kw => lq.includes(kw))) return 'capabilities';
   if (STATUS_KW.some(kw => lq.includes(kw))) return 'market_status';
   if (MOVERS_KW.some(kw => lq.includes(kw))) return 'market_movers';
+  if (NEWS_KW.some(kw => lq.includes(kw))) return 'news';
   if (WALLET_SOL_KW.some(kw => lq.includes(kw))) return 'wallet_solana';
   if (WALLET_EVM_KW.some(kw => lq.includes(kw))) return 'wallet_evm';
   if (BRIDGE_KW.some(kw => lq.includes(kw)))     return 'bridge_info';
@@ -513,6 +542,24 @@ function answerAuthorizedMode(): AgentResponse {
   ].join('\n\n'), sources: [] };
 }
 
+function answerGreeting(locale: string): AgentResponse {
+  return {
+    answer: locale === 'pt-BR'
+      ? 'Bem-vindo. Como posso servi-lo? Estou à disposição para analisar o mercado, consultar dados do NV ou preparar uma operação quando você solicitar.'
+      : 'Welcome. How may I serve you? I can help analyze the market, inspect NV data, or prepare an operation when you ask.',
+    sources: [],
+  };
+}
+
+function answerThanks(locale: string): AgentResponse {
+  return {
+    answer: locale === 'pt-BR'
+      ? 'Será um prazer. Se quiser, posso continuar daqui — analisar alguma coisa, acompanhar uma situação ou preparar a próxima ação.'
+      : 'My pleasure. If you like, we can continue from here — analyze something, follow a situation, or prepare the next action.',
+    sources: [],
+  };
+}
+
 function answerTransactionMode(mode: 'assisted' | 'authorized'): AgentResponse {
   if (mode === 'assisted') {
     return {
@@ -536,6 +583,47 @@ function answerTransactionMode(mode: 'assisted' | 'authorized'): AgentResponse {
       '',
       'Selecting the mode alone does not grant financial authorization.',
     ].join('\n'),
+    sources: [],
+  };
+}
+
+function addSpontaneousGuidance(
+  response: AgentResponse,
+  question: string,
+  intent: QueryIntent,
+  ctx: NVAgentContext,
+  locale: string,
+): AgentResponse {
+  const q = question.toLowerCase();
+  const emotional = EMOTIONAL_FINANCE_KW.some(k => q.includes(k));
+  const learning = LEARNING_KW.some(k => q.includes(k));
+  const marketRelated = ['market_price', 'market_top', 'market_movers', 'market_status', 'news'].includes(intent);
+
+  if (emotional && (marketRelated || intent === 'unknown')) {
+    const suggestion = locale === 'pt-BR'
+      ? 'Uma observação, já que isso toca em comportamento financeiro: decisões tomadas sob medo, euforia ou FOMO costumam merecer uma pausa. Se quiser, posso lhe sugerir um livro de psicologia financeira e resumir as ideias mais úteis.'
+      : 'A small observation, since this touches financial behavior: decisions made under fear, euphoria or FOMO often deserve a pause. If you want, I can suggest a financial-psychology book and summarize the most useful ideas.';
+    return { ...response, answer: response.answer + '\n\n' + suggestion };
+  }
+
+  if (!learning && marketRelated && ctx.market?.assets?.length) {
+    const first = ctx.market.assets.find(a => a.isLive && Number.isFinite(a.change24h));
+    if (first) {
+      const suggestion = locale === 'pt-BR'
+        ? 'Se quiser ir além do número: posso também explicar o que pode estar por trás desse movimento, quais indicadores observar e o que seria importante não concluir precipitadamente.'
+        : 'If you want to go beyond the number, I can also explain what may be behind the move, which indicators to watch, and what you should avoid concluding too quickly.';
+      return { ...response, answer: response.answer + '\n\n' + suggestion };
+    }
+  }
+
+  return response;
+}
+
+function answerUnknown(locale: string): AgentResponse {
+  return {
+    answer: locale === 'pt-BR'
+      ? 'Entendi. Quero responder com precisão em vez de presumir o que você quis dizer. Você pode me dizer se deseja analisar o mercado, consultar um ativo, verificar TVL ou carteira, acompanhar notícias ou preparar uma operação?'
+      : 'I understand. I would rather be precise than assume what you mean. Tell me whether you want to analyze the market, inspect an asset, check TVL or a wallet, follow news, or prepare an operation.',
     sources: [],
   };
 }
@@ -838,16 +926,16 @@ export function agentQuery(
 
   switch (intent) {
     case 'mode_assisted':
-      return answerTransactionMode('assisted');
+      return addSpontaneousGuidance(answerTransactionMode('assisted'), question, intent, ctx, locale);
 
     case 'mode_authorized':
-      return answerTransactionMode('authorized');
+      return addSpontaneousGuidance(answerTransactionMode('authorized'), question, intent, ctx, locale);
 
-    case 'mode_assisted':
-      return answerAssistedMode();
+    case 'greeting':
+      return answerGreeting(locale);
 
-    case 'mode_authorized':
-      return answerAuthorizedMode();
+    case 'thanks':
+      return answerThanks(locale);
 
     case 'capabilities':
       return answerCapabilities(ctx);
@@ -900,12 +988,13 @@ export function agentQuery(
       break;
 
     case 'news':
+      break;
     case 'unknown':
     default:
-      break;
+      return answerUnknown(locale);
   }
 
-  // Always fall back to the news corpus — never return empty if news is loaded
+  // News is an explicit intent, not a generic fallback.
   if (ctx.news?.items.length) {
     return answerFromNews(
       question,
