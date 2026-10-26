@@ -68,7 +68,7 @@ import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
 import { getPaymentState, subscribePaymentState } from '../lib/payments';
 import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
-import { requestNavigation, subscribeIntelligenceTab } from '../lib/navigationStore';
+import { requestNavigation, requestAgentExecution, subscribeAgentExecutionResult, subscribeIntelligenceTab } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 import { logNVActivity } from '../lib/activityLog';
@@ -716,6 +716,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     },
   ]);
   const [input, setInput] = useState('');
+  const [executingActionId, setExecutingActionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -820,6 +821,27 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     }]);
     if (!voiceMuted) enqueueNVVoice(answer, locale);
   }
+
+  function executeAgentAction(action: NonNullable<AgentMessage['action']>) {
+    const id = `agent-action-${Date.now()}`;
+    setExecutingActionId(id);
+    requestAgentExecution({ id, type: action.type, params: action.params ?? {} });
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: locale === 'pt-BR'
+        ? 'Entendido. Vou encaminhar esta operação para a infraestrutura do NV. Revise qualquer solicitação exibida pela sua carteira antes de assinar.'
+        : 'Understood. I am sending this operation to NV execution infrastructure. Review any wallet prompt before signing.',
+      timestamp: Date.now(),
+    }]);
+  }
+
+  useEffect(() => subscribeAgentExecutionResult(result => {
+    setExecutingActionId(current => current === result.id ? null : current);
+    const content = result.ok
+      ? (locale === 'pt-BR' ? `Operação concluída. ${result.message}` : `Operation completed. ${result.message}`)
+      : (locale === 'pt-BR' ? `Não consegui concluir a operação. ${result.message}` : `I could not complete the operation. ${result.message}`);
+    setMessages(prev => [...prev, { role: 'assistant', content, timestamp: Date.now() }]);
+  }), [locale]);
 
   async function handleSend(q = input) {
     const question = q.trim();
@@ -976,11 +998,14 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
                   )}
                   <button
                     type="button"
-                    onClick={() => requestNavigation(msg.action!.navigateTo)}
+                    onClick={() => msg.action!.executeInChat ? executeAgentAction(msg.action!) : requestNavigation(msg.action!.navigateTo)}
+                    disabled={Boolean(executingActionId)}
                     className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-primary/10 border border-primary/25 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-all cursor-pointer"
                   >
                     <ArrowRight size={10} />
-                    {t('agent.action.goTo')} {msg.action.navigateTo}
+                    {msg.action.executeInChat
+                      ? (locale === 'pt-BR' ? 'Revisar e executar no chat' : 'Review and execute in chat')
+                      : <>{t('agent.action.goTo')} {msg.action.navigateTo}</>}
                   </button>
                 </div>
               )}
