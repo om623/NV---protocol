@@ -964,9 +964,16 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
               }`}
             >
               {msg.content}
-              {/* NavigateCard — shown for action intents */}
+              {/* Financial action card — stays inside chat; navigation is only a fallback. */}
               {msg.role === 'assistant' && msg.action?.navigateTo && (
                 <div className="mt-2 pt-2 border-t border-primary/20">
+                  {msg.action.executeInChat && (
+                    <div className="mb-2 rounded-lg border border-primary/20 bg-primary/5 p-2 text-[9px] text-muted-foreground/70">
+                      {locale === 'pt-BR'
+                        ? 'Ação preparada no NV Agent. Revise os parâmetros abaixo. No modo Manual Assistido, a carteira ainda deverá confirmar e assinar a operação.'
+                        : 'Action prepared in NV Agent. Review the parameters below. In Assisted Manual Mode, your wallet must still confirm and sign the operation.'}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => requestNavigation(msg.action!.navigateTo)}
