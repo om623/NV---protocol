@@ -91,7 +91,9 @@ const ACTION_BRIDGE_KW = [
 const ACTION_SWAP_KW = [
   'swap usdc', 'swap from', 'executar swap', 'fazer swap', 'quero fazer swap',
   'swap tokens', 'i want to swap', 'start a swap', 'iniciar swap',
-  'swap usdc to', 'swap eth for',
+  'swap usdc to', 'swap eth for', 'operação de swap', 'operacao de swap',
+  'faça um swap', 'faca um swap', 'faça uma operação de swap', 'faca uma operacao de swap',
+  'troque ', 'trocar ', 'converter ', 'converta ',
 ];
 
 const ACTION_PAYMENT_KW = [
@@ -256,10 +258,14 @@ function answerMarketPrice(
 ): AgentResponse {
   const q = question.toLowerCase().replace(/[?!.,;:]/g, ' ');
 
-  const match = assets.find(a =>
-    q.includes(a.symbol.toLowerCase()) ||
-    q.includes(a.name.toLowerCase())
-  );
+  const tokens = q.split(/\\s+/).filter(Boolean);
+  const match = assets.find(a => {
+    const symbol = a.symbol.toLowerCase();
+    const name = a.name.toLowerCase();
+    // Symbols such as OP, ARB and SOL must match complete tokens. Substring
+    // matching made Portuguese words like "operação" look like the OP asset.
+    return tokens.includes(symbol) || (name.length >= 4 && q.includes(name));
+  });
 
   if (!match) {
     // No specific asset found — show top 8 by market cap across all categories
