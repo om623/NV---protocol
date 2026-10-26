@@ -43,8 +43,7 @@ type QueryIntent =
   | 'action_bridge'   // user wants to execute a bridge
   | 'action_swap'     // user wants to execute a swap
   | 'action_payment'  // user wants to make a gamification purchase
-  | 'news'            // news/events query
-  | 'unknown';        // fallback → news
+  | 'unknown';        // precise clarification fallback
 
 // Keyword lists — order matters: more specific first in detectIntent()
 const WALLET_SOL_KW = [
@@ -607,13 +606,19 @@ function addSpontaneousGuidance(
   }
 
   if (!learning && marketRelated && ctx.market?.assets?.length) {
-    const first = ctx.market.assets.find(a => a.isLive && Number.isFinite(a.change24h));
-    if (first) {
-      const suggestion = locale === 'pt-BR'
-        ? 'Se quiser ir além do número: posso também explicar o que pode estar por trás desse movimento, quais indicadores observar e o que seria importante não concluir precipitadamente.'
-        : 'If you want to go beyond the number, I can also explain what may be behind the move, which indicators to watch, and what you should avoid concluding too quickly.';
-      return { ...response, answer: response.answer + '\n\n' + suggestion };
-    }
+    const seed = Array.from(question).reduce((n, ch) => n + ch.charCodeAt(0), 0) % 3;
+    const suggestion = seed === 0
+      ? (locale === 'pt-BR'
+        ? 'A propósito: se você quiser desenvolver uma relação mais consciente com dinheiro e risco, posso lhe sugerir um livro de psicologia financeira — e não apenas jogar o título, mas explicar como aplicar as ideias ao seu contexto.'
+        : 'By the way: if you want to develop a more conscious relationship with money and risk, I can suggest a financial-psychology book and explain how to apply its ideas to your context.')
+      : seed === 1
+        ? (locale === 'pt-BR'
+          ? 'Se quiser ir além do número: posso explicar o que pode estar por trás desse movimento, quais indicadores observar e o que seria precipitado concluir.'
+          : 'If you want to go beyond the number, I can explain what may be behind the move, which indicators to watch, and what would be premature to conclude.')
+        : (locale === 'pt-BR'
+          ? 'Uma coisa que posso fazer por você: transformar esse dado em contexto — comparar períodos, destacar riscos e separar o que sabemos do que ainda é apenas hipótese.'
+          : 'One thing I can do for you: turn this data into context — compare periods, highlight risks, and separate what we know from what is still only a hypothesis.');
+    return { ...response, answer: response.answer + '\n\n' + suggestion };
   }
 
   return response;
@@ -941,10 +946,10 @@ export function agentQuery(
       return answerCapabilities(ctx);
 
     case 'market_status':
-      return answerMarketStatus(ctx);
+      return addSpontaneousGuidance(answerMarketStatus(ctx), question, intent, ctx, locale);
 
     case 'market_movers':
-      if (ctx.market?.assets.length) return answerMarketMovers(question, ctx.market.assets);
+      if (ctx.market?.assets.length) return addSpontaneousGuidance(answerMarketMovers(question, ctx.market.assets), question, intent, ctx, locale);
       break;
 
     case 'wallet_evm':
@@ -980,11 +985,11 @@ export function agentQuery(
       break;
 
     case 'market_price':
-      if (ctx.market?.assets.length) return answerMarketPrice(question, ctx.market.assets, t);
+      if (ctx.market?.assets.length) return addSpontaneousGuidance(answerMarketPrice(question, ctx.market.assets, t), question, intent, ctx, locale);
       break;
 
     case 'market_top':
-      if (ctx.market?.assets.length) return answerMarketTop(question, ctx.market.assets, t);
+      if (ctx.market?.assets.length) return addSpontaneousGuidance(answerMarketTop(question, ctx.market.assets, t), question, intent, ctx, locale);
       break;
 
     case 'news':
@@ -996,12 +1001,12 @@ export function agentQuery(
 
   // News is an explicit intent, not a generic fallback.
   if (ctx.news?.items.length) {
-    return answerFromNews(
+    return addSpontaneousGuidance(answerFromNews(
       question,
       ctx.news.items,
       locale as Parameters<typeof answerFromNews>[2],
       t as (key: string, vars?: Record<string, string | number>) => string,
-    );
+    ), question, intent, ctx, locale);
   }
 
   return { answer: t('intel.agentNoData'), sources: [] };
