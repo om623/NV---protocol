@@ -28,6 +28,8 @@ type QueryIntent =
   | 'market_movers'   // gainers / losers
   | 'market_status'   // compact situational awareness
   | 'capabilities'    // what NV Agent can currently inspect/do
+  | 'mode_assisted'   // assisted transaction mode
+  | 'mode_authorized' // policy-authorized transaction mode
   | 'tvl_chain'       // TVL for a specific chain
   | 'tvl_top'         // top chains by TVL
   | 'wallet_evm'      // EVM wallet info
@@ -96,6 +98,17 @@ const ACTION_PAYMENT_KW = [
   'make a purchase', 'fazer uma compra',
 ];
 
+const MODE_ASSISTED_KW = [
+  'assisted manual mode', 'manual assisted mode', 'assisted mode', 'modo manual assistido',
+  'modo assistido', 'ativar modo manual', 'activate assisted', 'use assisted',
+];
+
+const MODE_AUTHORIZED_KW = [
+  'authorized mode', 'authorised mode', 'modo autorizado', 'ativar modo autorizado',
+  'activate authorized', 'activate authorised', 'authorization policy', 'politica de autorizacao',
+  'política de autorização',
+];
+
 const CAPABILITIES_KW = [
   'what can you do', 'what do you know', 'your capabilities', 'help me',
   'o que você faz', 'o que voce faz', 'o que você sabe', 'o que voce sabe',
@@ -160,6 +173,8 @@ function detectIntent(q: string): QueryIntent {
   if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw)))  return 'action_payment';
 
   // Query intents — most specific first
+  if (MODE_ASSISTED_KW.some(kw => lq.includes(kw))) return 'mode_assisted';
+  if (MODE_AUTHORIZED_KW.some(kw => lq.includes(kw))) return 'mode_authorized';
   if (CAPABILITIES_KW.some(kw => lq.includes(kw))) return 'capabilities';
   if (STATUS_KW.some(kw => lq.includes(kw))) return 'market_status';
   if (MOVERS_KW.some(kw => lq.includes(kw))) return 'market_movers';
@@ -478,6 +493,22 @@ function answerBridgeInfo(
   return { answer: lines.join('\n'), sources: [] };
 }
 
+function answerAssistedMode(): AgentResponse {
+  return { answer: [
+    'Assisted Manual Mode is available.',
+    'Tell me the transaction you want to prepare. I will inspect the available context, validate the request and prepare the operation for your review.',
+    'You remain the signer: nothing is executed until you explicitly approve it in your wallet.',
+  ].join('\n\n'), sources: [] };
+}
+
+function answerAuthorizedMode(): AgentResponse {
+  return { answer: [
+    'Authorized Mode uses a limited, revocable policy defined by you.',
+    'The policy can restrict network, token, recipients, per-operation amount, cumulative spend and validity.',
+    'No authorization is assumed from this conversation. A real financial authorization requires explicit wallet confirmation.',
+  ].join('\n\n'), sources: [] };
+}
+
 function answerCapabilities(ctx: NVAgentContext): AgentResponse {
   const liveAssets = ctx.market?.assets.filter(a => a.isLive).length ?? 0;
   const tvlLoaded = ctx.tvl?.entries.filter(e => e.status === 'loaded').length ?? 0;
@@ -775,6 +806,12 @@ export function agentQuery(
   const intent = detectIntent(question);
 
   switch (intent) {
+    case 'mode_assisted':
+      return answerAssistedMode();
+
+    case 'mode_authorized':
+      return answerAuthorizedMode();
+
     case 'capabilities':
       return answerCapabilities(ctx);
 
