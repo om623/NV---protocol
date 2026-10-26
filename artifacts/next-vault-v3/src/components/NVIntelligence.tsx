@@ -708,13 +708,19 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
       role: 'assistant',
-      content: t('intel.agentGreeting'),
+      content: locale === 'pt-BR' ? 'Bem-vindo. Sou o NV Agent. Como posso servi-lo?' : 'Welcome. I am NV Agent. How may I serve you?',
       sources: [],
       timestamp: Date.now(),
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [transactionMode, setTransactionMode] = useState<'assisted' | 'authorized' | null>(() => {
+    try {
+      const saved = localStorage.getItem('nv-agent.transaction-mode');
+      return saved === 'assisted' || saved === 'authorized' ? saved : null;
+    } catch { return null; }
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Suggested queries — locale-aware
@@ -769,7 +775,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   useEffect(() => {
     setMessages([{
       role: 'assistant',
-      content: t('intel.agentGreeting'),
+      content: locale === 'pt-BR' ? 'Bem-vindo. Sou o NV Agent. Como posso servi-lo?' : 'Welcome. I am NV Agent. How may I serve you?',
       sources: [],
       timestamp: Date.now(),
     }]);
@@ -881,7 +887,15 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => handleSend(locale === 'pt-BR' ? 'Quero usar o modo manual assistido para minhas transações.' : 'I want to use assisted manual mode for my transactions.')}
+              onClick={() => {
+                setTransactionMode('assisted');
+                try { localStorage.setItem('nv-agent.transaction-mode', 'assisted'); } catch {}
+                const reply = locale === 'pt-BR'
+                  ? 'Modo Manual Assistido ativado. Neste modo, você pode me solicitar uma operação. Eu verificarei os dados disponíveis, prepararei a transação e apresentarei os detalhes para sua revisão. A execução só ocorrerá depois que você assinar na carteira.\n\nComo posso servi-lo? Ex.: “Envie 5 USDC para 0x…”'
+                  : 'Assisted Manual Mode activated. Ask me for an operation and I will check the available data, prepare it and present it for review. Execution only occurs after you sign in your wallet.\n\nHow may I serve you? Example: “Send 5 USDC to 0x…”';
+                setMessages(prev => [...prev, { role: 'user', content: locale === 'pt-BR' ? 'Ativar modo manual assistido' : 'Activate assisted manual mode', timestamp: Date.now() }, { role: 'assistant', content: reply, sources: [], timestamp: Date.now() }]);
+                if (!voiceMuted) enqueueNVVoice(reply, locale);
+              }}
               className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-left hover:bg-cyan-500/10 transition-colors"
             >
               <div className="text-[11px] font-semibold text-cyan-400">1 · {locale === 'pt-BR' ? 'Manual assistido' : 'Assisted manual'}</div>
@@ -893,7 +907,15 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             </button>
             <button
               type="button"
-              onClick={() => handleSend(locale === 'pt-BR' ? 'Quero conhecer o modo autorizado e definir uma política de autorização para o NV Agent.' : 'I want to learn about authorized mode and define an authorization policy for NV Agent.')}
+              onClick={() => {
+                setTransactionMode('authorized');
+                try { localStorage.setItem('nv-agent.transaction-mode', 'authorized'); } catch {}
+                const reply = locale === 'pt-BR'
+                  ? 'Modo Autorizado selecionado. Este modo serve para permitir operações dentro de uma política limitada e revogável definida por você: redes, tokens, destinatários, valor máximo, limite acumulado e validade.\n\nNenhuma autorização financeira foi concedida ainda. A autorização real exigirá confirmação explícita da sua carteira.\n\nComo posso servi-lo? Você pode começar dizendo quais limites deseja conceder ao NV Agent.'
+                  : 'Authorized Mode selected. This mode is for operations governed by a limited, revocable policy you define: networks, tokens, recipients, maximum amount, cumulative limit and validity.\n\nNo financial authorization has been granted yet. Real authorization will require explicit confirmation from your wallet.\n\nHow may I serve you? You can start by telling me which limits you want to grant NV Agent.';
+                setMessages(prev => [...prev, { role: 'user', content: locale === 'pt-BR' ? 'Selecionar modo autorizado' : 'Select authorized mode', timestamp: Date.now() }, { role: 'assistant', content: reply, sources: [], timestamp: Date.now() }]);
+                if (!voiceMuted) enqueueNVVoice(reply, locale);
+              }}
               className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5 text-left hover:bg-violet-500/10 transition-colors"
             >
               <div className="text-[11px] font-semibold text-violet-400">2 · {locale === 'pt-BR' ? 'Modo autorizado' : 'Authorized mode'}</div>
