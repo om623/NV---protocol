@@ -1,0 +1,10 @@
+{
+  "schedule": "*/5 * * * *",
+  "environment": "testnet",
+  "chainId": 84532,
+  "tokenSymbol": "USDC",
+  "recipient": "0x1111111111111111111111111111111111111111",
+  "maxAmountPerPayment": 25,
+  "maxTotalAmount": 100,
+  "requestedAmount": 5
+}

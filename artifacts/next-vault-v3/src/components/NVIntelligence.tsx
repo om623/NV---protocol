@@ -68,10 +68,11 @@ import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
 import { getPaymentState, subscribePaymentState } from '../lib/payments';
 import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
-import { requestNavigation } from '../lib/navigationStore';
+import { requestNavigation, subscribeIntelligenceTab } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 import { logNVActivity } from '../lib/activityLog';
+import { getNVAgentMode, setNVAgentMode, rememberNVAgentIntent, type NVAgentMode } from '../lib/agentMemory';
 
 // ─── Badge components ─────────────────────────────────────────────────────────
 
@@ -704,11 +705,12 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
 
 function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentContext | null }) {
   const { t, locale } = useI18n();
+  const [agentMode, setAgentModeState] = useState<NVAgentMode>(() => getNVAgentMode());
   const [voiceMuted, setVoiceMuted] = useState(() => isNVVoiceMuted());
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
       role: 'assistant',
-      content: t('intel.agentGreeting'),
+      content: locale === 'pt-BR' ? 'Bem-vindo. Como posso servi-lo?' : 'Welcome. How may I serve you?',
       sources: [],
       timestamp: Date.now(),
     },
@@ -769,7 +771,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   useEffect(() => {
     setMessages([{
       role: 'assistant',
-      content: t('intel.agentGreeting'),
+      content: locale === 'pt-BR' ? 'Bem-vindo. Como posso servi-lo?' : 'Welcome. How may I serve you?',
       sources: [],
       timestamp: Date.now(),
     }]);
@@ -792,6 +794,33 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     }
   }
 
+  function activateTransactionMode(mode: Exclude<NVAgentMode, null>) {
+    setAgentModeState(mode);
+    setNVAgentMode(mode);
+    const isAssisted = mode === 'assisted';
+    const answer = locale === 'pt-BR'
+      ? isAssisted
+        ? 'Modo Manual Assistido ativado.\n\nNeste modo, você me solicita uma operação. Eu interpreto o pedido, verifico os dados disponíveis e preparo a transação para sua revisão. A execução só acontece depois que você revisar e assinar na carteira.\n\nComo posso servi-lo? Você pode dizer, por exemplo: “Envie 5 USDC para 0x…”'
+        : 'Modo Autorizado selecionado.\n\nEste modo foi criado para operações executadas dentro de uma autorização prévia, limitada e revogável. Antes de qualquer execução autônoma, você deverá definir e confirmar na carteira as redes, tokens, destinatários, limites por operação, limite acumulado e validade.\n\nNenhuma permissão financeira foi concedida apenas por selecionar este modo. Como posso servi-lo?'
+      : isAssisted
+        ? 'Assisted Manual Mode activated.\n\nAsk me for an operation and I will interpret it, verify available data and prepare the transaction for your review. Execution only happens after you review and sign in your wallet.\n\nHow may I serve you? For example: “Send 5 USDC to 0x…”'
+        : 'Authorized Mode selected.\n\nThis mode is designed for operations within a prior, limited and revocable authorization. Before autonomous execution, you must define and confirm in your wallet the networks, tokens, recipients, per-operation limits, cumulative limit and validity.\n\nSelecting this mode alone grants no financial permission. How may I serve you?';
+    rememberNVAgentIntent({ text: isAssisted ? 'mode:assisted' : 'mode:authorized', mode });
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: isAssisted
+        ? (locale === 'pt-BR' ? 'Ativar modo Manual Assistido' : 'Activate Assisted Manual Mode')
+        : (locale === 'pt-BR' ? 'Ativar Modo Autorizado' : 'Activate Authorized Mode'),
+      timestamp: Date.now(),
+    }, {
+      role: 'assistant',
+      content: answer,
+      sources: [],
+      timestamp: Date.now(),
+    }]);
+    if (!voiceMuted) enqueueNVVoice(answer, locale);
+  }
+
   async function handleSend(q = input) {
     const question = q.trim();
     if (!question || loading) return;
@@ -804,6 +833,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       // answer back into the user's selected language. The original user text is
       // always kept in the chat, and financial identifiers remain unchanged.
       const normalizedQuestion = locale === 'en' ? question : await localizeText(question, 'en');
+      rememberNVAgentIntent({ text: question, normalizedText: normalizedQuestion, mode: agentMode });
       const response = agentCtx
         ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
         : agentQuery(normalizedQuestion, news, locale, t);
@@ -871,6 +901,40 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         <AlertTriangle size={10} className="text-amber-400 mt-0.5 shrink-0" />
         <p className="text-[9px] text-amber-400/80 leading-relaxed">{t('intel.agentDisclaimer')}</p>
       </div>
+
+      {/* Transaction mode selector — selection is stateful; no financial authorization is granted here */}
+      {messages.length <= 1 && (
+        <div className="mx-4 mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <div className="text-xs font-semibold text-foreground mb-2">
+            {locale === 'pt-BR' ? 'Deseja acionar o modo manual assistido ou o modo autorizado?' : 'Would you like Assisted Manual Mode or Authorized Mode?'}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button type="button" onClick={() => activateTransactionMode('assisted')}
+              className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-left hover:bg-cyan-500/10 transition-colors">
+              <div className="text-[11px] font-semibold text-cyan-400">1 · {locale === 'pt-BR' ? 'Manual assistido' : 'Assisted manual'}</div>
+              <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/70">
+                {locale === 'pt-BR'
+                  ? 'Você solicita a operação. Eu interpreto, verifico e preparo a transação; você revisa e assina na carteira antes da execução.'
+                  : 'You request the operation. I interpret, verify and prepare it; you review and sign in your wallet before execution.'}
+              </div>
+            </button>
+            <button type="button" onClick={() => activateTransactionMode('authorized')}
+              className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5 text-left hover:bg-violet-500/10 transition-colors">
+              <div className="text-[11px] font-semibold text-violet-400">2 · {locale === 'pt-BR' ? 'Modo autorizado' : 'Authorized mode'}</div>
+              <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/70">
+                {locale === 'pt-BR'
+                  ? 'Você define uma autorização limitada e revogável. Eu só poderei operar dentro das redes, tokens, destinatários, valores e validade confirmados por você.'
+                  : 'You define a limited, revocable authorization. I may only operate within the networks, tokens, recipients, amounts and validity you confirm.'}
+              </div>
+            </button>
+          </div>
+          <div className="mt-2 text-[8px] leading-relaxed text-muted-foreground/50">
+            {locale === 'pt-BR'
+              ? 'Escolher um modo não assina transações nem concede permissão financeira. Autorizações reais exigem confirmação explícita da carteira.'
+              : 'Choosing a mode does not sign transactions or grant financial permission. Real authorization requires explicit wallet confirmation.'}
+          </div>
+        </div>
+      )}
 
       {/* Suggestion chips */}
       {messages.length <= 1 && (
@@ -1088,6 +1152,7 @@ export function NVIntelligence() {
   const [lastUpdate, setLastUpdate] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'feed' | 'agent' | 'nvnews'>('feed');
+  useEffect(() => subscribeIntelligenceTab(tab => setActiveTab(tab)), []);
   const [viewMode, setViewMode] = useState<'clusters' | 'flat'>('clusters');
   const [filters, setFilters] = useState<Filters>({
     region: 'all',

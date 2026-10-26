@@ -45,7 +45,7 @@ export function HistoryModule() {
       <div>
         <div className="flex items-center gap-2 text-primary mb-2"><Clock3 size={18} /><span className="text-xs uppercase tracking-[0.2em] font-mono">NV Protocol</span></div>
         <h1 className="text-2xl font-bold">Histórico</h1>
-        <p className={subtle + ' mt-1'}>Hashes de transações e ações registadas neste navegador.</p>
+        <p className={subtle + ' mt-1'}>Hashes de transações registradas neste navegador.</p>
       </div>
       <div className={panel}>
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -68,13 +68,6 @@ export function HistoryModule() {
               </div>
             ))}
           </div>
-        )}
-      </div>
-      <div className={panel}>
-        <h2 className={titleClass}>Atividade recente</h2>
-        <p className={subtle + ' mt-1 mb-4'}>Registos locais do uso do NV Protocol.</p>
-        {items.length === 0 ? <EmptyState>Ainda não há atividades registradas.</EmptyState> : (
-          <div className="space-y-2">{items.slice(0, 12).map(item => <div key={item.id} className="flex gap-3 rounded-lg bg-secondary/30 p-3"><Activity size={15} className="mt-0.5 text-primary shrink-0"/><div className="min-w-0 flex-1"><div className="text-sm font-medium">{item.action}</div>{item.details && <div className="text-xs text-muted-foreground mt-1 break-words">{item.details}</div>}<div className="text-[11px] text-muted-foreground mt-1">{formatDate(item.timestamp)}</div></div></div>)}</div>
         )}
       </div>
     </section>
