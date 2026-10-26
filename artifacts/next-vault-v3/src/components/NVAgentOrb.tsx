@@ -3,6 +3,8 @@ import { Bot, X } from 'lucide-react';
 
 export function NVAgentOrb({ onOpen }: { onOpen: () => void }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const visualPos = useRef({ x: 0, y: 0 });
+  const orbRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [hint, setHint] = useState(false);
   const target = useRef({ x: 0, y: 0 });
@@ -16,6 +18,7 @@ export function NVAgentOrb({ onOpen }: { onOpen: () => void }) {
       posRef.current = { x, y };
       target.current = { x, y };
       setPos({ x, y });
+      visualPos.current = { x, y };
       setReady(true);
     };
     setInitial();
@@ -55,7 +58,8 @@ export function NVAgentOrb({ onOpen }: { onOpen: () => void }) {
         p.y += velocity.current.y * dt;
         p.x = Math.max(28, Math.min(window.innerWidth - 28, p.x));
         p.y = Math.max(76, Math.min(window.innerHeight - 30, p.y));
-        setPos({ x: p.x, y: p.y });
+        visualPos.current = { x: p.x, y: p.y };
+        if (orbRef.current) orbRef.current.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%,-50%)`;
       }
       raf = requestAnimationFrame(frame);
     };
@@ -71,7 +75,7 @@ export function NVAgentOrb({ onOpen }: { onOpen: () => void }) {
 
   if (!ready) return null;
   return (
-    <div className="fixed z-[38] pointer-events-none" style={{ left: pos.x, top: pos.y, transform: 'translate(-50%,-50%)' }}>
+    <div ref={orbRef} className="fixed left-0 top-0 z-[38] pointer-events-none will-change-transform" style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%,-50%)` }}>
       <button
         type="button"
         aria-label="Abrir NV Agent"
