@@ -9,7 +9,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
  const key=process.env.OPENAI_API_KEY; if(!key){res.status(503).json({error:'semantic_not_configured'});return;}
  try{
   const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({
-   model:process.env.NV_AGENT_MODEL||'gpt-6-luna',
+   model:process.env.NV_AGENT_MODEL||'gpt-6.1-sol',
    instructions:'You are the semantic interpretation layer of NV Agent, a non-custodial multichain finance interface. Infer the user intent from the current message plus recent conversation. Never invent balances, prices, routes, permissions or transaction success. Never execute anything. Return ONLY one compact JSON object. For financial actions extract explicit parameters only. If a value is missing use null. Distinguish swap (same-chain token exchange), bridge (cross-chain), transfer (send to recipient), and NV internal purchase. Resolve follow-ups such as "e Ethereum?", "faça o mesmo com 10", or an address supplied after a prior transfer using history. intent must be one of: '+INTENTS.join(', ')+'. JSON keys: intent, rewritten, amount, token, sourceToken, destinationToken, recipient, fromNetwork, toNetwork, product, needsClarification, clarification. rewritten should be a concise standalone user request preserving exact addresses/numbers.',
    input:[...history.map((m:any)=>({role:m.role==='assistant'?'assistant':'user',content:String(m.content??'').slice(0,2000)})),{role:'user',content:message}],
    text:{format:{type:'json_schema',name:'nv_agent_intent',strict:true,schema:{type:'object',additionalProperties:false,properties:{
