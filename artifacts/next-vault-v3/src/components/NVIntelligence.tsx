@@ -899,6 +899,27 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     } catch { return null; }
   }
 
+  async function askConversationalAgent(question: string) {
+    if (!agentCtx) return null;
+    try {
+      const history = messages.slice(-16).map(m => ({ role: m.role, content: m.content }));
+      const response = await fetch('/api/nv-agent-chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: question, history, context: agentCtx, locale }),
+      });
+      if (!response.ok) return null;
+      return await response.json() as {
+        answer: string;
+        sources?: { title: string; url: string; source: string; publishedAt: string }[];
+      };
+    } catch { return null; }
+  }
+
+  function isFinancialActionIntent(intent?: string) {
+    return intent === 'action_transfer' || intent === 'action_swap' ||
+      intent === 'action_bridge' || intent === 'action_payment';
+  }
+
   async function handleSend(q = input) {
     const question = q.trim();
     if (!question || loading) return;
@@ -920,9 +941,22 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       const semanticQuestion = semantic?.rewritten?.trim() || question;
       const normalizedQuestion = locale === 'en' ? semanticQuestion : await localizeText(semanticQuestion, 'en');
       rememberNVAgentIntent({ text: question, normalizedText: normalizedQuestion, mode: agentMode });
-      const response = agentCtx
+
+      // Transactions remain behind the deterministic NV execution layer.
+      // Everything else is answered by the finance-first conversational brain,
+      // with the legacy deterministic engine as an offline/provider fallback.
+      let response = agentCtx
         ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
         : agentQuery(normalizedQuestion, news, locale, t);
+      if (!isFinancialActionIntent(semantic?.intent)) {
+        const conversational = await askConversationalAgent(question);
+        if (conversational?.answer) {
+          response = {
+            answer: conversational.answer,
+            sources: conversational.sources ?? [],
+          };
+        }
+      }
       if (response.action && semantic) {
         response.action.params = {
           ...response.action.params,
