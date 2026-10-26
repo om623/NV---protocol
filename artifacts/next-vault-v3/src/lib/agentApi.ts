@@ -694,10 +694,17 @@ function answerMarketStatus(ctx: NVAgentContext): AgentResponse {
 // renders as a NavigateCard. They NEVER initiate a transaction themselves.
 
 function parseAmount(q: string): number | null {
-  const m = q.match(/(\d+(?:[.,]\d+)?)\s*(?:usdc|usd|eth|sol|matic|avax)?/i);
+  // Require a financial unit next to the number. This prevents chain IDs,
+  // addresses, dates and arbitrary numbers from becoming transaction amounts.
+  const m = q.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(usdc|eurc|usd|eth|sol|pol|matic|avax)\b/i);
   if (!m) return null;
   const n = parseFloat(m[1].replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function parseTransferToken(q: string): string | null {
+  const m = q.match(/\b(USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\b/i);
+  return m ? m[1].toUpperCase() : null;
 }
 
 function parseAddress(q: string): string | null {
@@ -740,6 +747,7 @@ function answerActionTransfer(
   const evm = ctx.evmWallet;
   const amount = parseAmount(question);
   const recipient = parseAddress(question);
+  const token = parseTransferToken(question) ?? 'USDC';
 
   const lines = [t('agent.action.transferTitle'), ''];
 
@@ -750,7 +758,7 @@ function answerActionTransfer(
     lines.push(`From: ${evm.address}`);
     if (evm.network) lines.push(`Network: ${evm.network}`);
     if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
-    if (amount !== null) lines.push(`Amount: ${amount} USDC`);
+    if (amount !== null) lines.push(`Amount: ${amount} ${token}`);
     if (recipient) lines.push(`To: ${recipient}`);
     lines.push('');
     lines.push(t('agent.action.reviewInWallet'));
@@ -765,7 +773,7 @@ function answerActionTransfer(
     params: {
       amount: amount ?? null,
       recipient: recipient ?? null,
-      token: 'USDC',
+      token,
     },
   };
 
