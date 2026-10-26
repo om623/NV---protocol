@@ -864,32 +864,30 @@ function answerActionSwap(
   const evm = ctx.evmWallet;
   const amount = parseAmount(question);
   const pair = parseSwapPair(question);
+  const missing: string[] = [];
+  if (amount === null) missing.push('valor');
+  if (!pair.sourceToken) missing.push('token de origem');
+  if (!pair.destinationToken) missing.push('token de destino');
+  if (pair.sourceToken && pair.destinationToken && pair.sourceToken === pair.destinationToken) missing.push('um token de destino diferente');
 
-  const lines = [t('agent.action.swapTitle'), ''];
-  lines.push(t('agent.action.swapDescription'));
-  lines.push('');
-
-  if (evm?.connected && evm.address) {
-    lines.push(`Wallet: ${evm.address}`);
-    if (evm.network) lines.push(`Network: ${evm.network}`);
-    if (evm.usdcBalance) lines.push(`Available: ${evm.usdcBalance} USDC`);
-  } else {
-    lines.push(t('intel.agentEvmNotConnected'));
+  if (missing.length) {
+    return { answer: `Entendi que você quer fazer um Swap. Falta apenas: ${missing.join(', ')}.`, sources: [] };
   }
 
-  if (amount !== null) lines.push(`Amount: ${amount} USDC`);
-  lines.push('');
-  lines.push(t('agent.action.reviewInWallet'));
-  lines.push(''); lines.push(t('agent.action.noAutoExecute'));
-
   const action: AgentAction = {
-    type: 'swap',
-      executeInChat: true,
-    navigateTo: 'swap',
-    params: { amount: amount ?? null, sourceToken: pair.sourceToken, destinationToken: pair.destinationToken },
+    type: 'swap', executeInChat: true, navigateTo: 'swap',
+    params: { amount, sourceToken: pair.sourceToken, destinationToken: pair.destinationToken },
   };
-
-  return { answer: lines.join('\n'), sources: [], action };
+  const lines = [
+    'Swap pronto para revisão:',
+    `• ${amount} ${pair.sourceToken} → ${pair.destinationToken}`,
+    `• Rede: ${evm?.network ?? 'rede EVM conectada'}`,
+    '',
+    evm?.connected && evm.address
+      ? 'Revise e execute no chat. Sua carteira solicitará a assinatura.'
+      : 'Conecte sua carteira EVM para executar.',
+  ];
+  return { answer: lines.join('\\n'), sources: [], action };
 }
 
 function answerActionPayment(
