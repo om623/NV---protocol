@@ -126,13 +126,6 @@ const NEWS_KW = [
   'mercado hoje', 'market news', 'recent events',
 ];
 
-const EMOTIONAL_FINANCE_KW = [
-  'medo', 'fear', 'panic', 'pânico', 'panico', 'ansioso', 'ansiedade', 'anxiety',
-  'perdi', 'perdas', 'loss', 'losses', 'perder tudo', 'sell everything',
-  'vender tudo', 'desespero', 'revenge trade', 'vingança', 'vinganca',
-  'fomo', 'euforia', 'ganância', 'ganancia', 'greed',
-];
-
 const LEARNING_KW = [
   'aprender', 'learn', 'estudar', 'study', 'livro', 'book', 'explicar', 'explain',
   'por que', 'porque', 'why', 'como funciona', 'how does',
@@ -228,7 +221,7 @@ function detectIntent(q: string): QueryIntent {
     return TOP_KW.some(kw => lq.includes(kw)) ? 'market_top' : 'market_price';
   }
 
-  return 'news';
+  return 'unknown';
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -594,34 +587,29 @@ function addSpontaneousGuidance(
   locale: string,
 ): AgentResponse {
   const q = question.toLowerCase();
-  const emotional = EMOTIONAL_FINANCE_KW.some(k => q.includes(k));
   const learning = LEARNING_KW.some(k => q.includes(k));
   const marketRelated = ['market_price', 'market_top', 'market_movers', 'market_status', 'news'].includes(intent);
+  if (learning || !marketRelated || !ctx.market?.assets?.length) return response;
 
-  if (emotional && (marketRelated || intent === 'unknown')) {
-    const suggestion = locale === 'pt-BR'
-      ? 'Uma observação, já que isso toca em comportamento financeiro: decisões tomadas sob medo, euforia ou FOMO costumam merecer uma pausa. Se quiser, posso lhe sugerir um livro de psicologia financeira e resumir as ideias mais úteis.'
-      : 'A small observation, since this touches financial behavior: decisions made under fear, euphoria or FOMO often deserve a pause. If you want, I can suggest a financial-psychology book and summarize the most useful ideas.';
-    return { ...response, answer: response.answer + '\n\n' + suggestion };
-  }
-
-  if (!learning && marketRelated && ctx.market?.assets?.length) {
-    const seed = Array.from(question).reduce((n, ch) => n + ch.charCodeAt(0), 0) % 3;
-    const suggestion = seed === 0
-      ? (locale === 'pt-BR'
-        ? 'A propósito: se você quiser desenvolver uma relação mais consciente com dinheiro e risco, posso lhe sugerir um livro de psicologia financeira — e não apenas jogar o título, mas explicar como aplicar as ideias ao seu contexto.'
-        : 'By the way: if you want to develop a more conscious relationship with money and risk, I can suggest a financial-psychology book and explain how to apply its ideas to your context.')
-      : seed === 1
-        ? (locale === 'pt-BR'
-          ? 'Se quiser ir além do número: posso explicar o que pode estar por trás desse movimento, quais indicadores observar e o que seria precipitado concluir.'
-          : 'If you want to go beyond the number, I can explain what may be behind the move, which indicators to watch, and what would be premature to conclude.')
-        : (locale === 'pt-BR'
-          ? 'Uma coisa que posso fazer por você: transformar esse dado em contexto — comparar períodos, destacar riscos e separar o que sabemos do que ainda é apenas hipótese.'
-          : 'One thing I can do for you: turn this data into context — compare periods, highlight risks, and separate what we know from what is still only a hypothesis.');
-    return { ...response, answer: response.answer + '\n\n' + suggestion };
-  }
-
-  return response;
+  // Deterministic variation keeps the Agent lively without pretending to have
+  // independent thoughts or interrupting transactional flows.
+  const seed = Array.from(question).reduce((n, ch) => n + ch.charCodeAt(0), 0) % 5;
+  const pt = [
+    'Se quiser, posso ir além dos números e separar sinais, riscos e hipóteses desse cenário.',
+    'Posso também comparar isso com outro ativo, período ou rede para dar mais contexto.',
+    'Quer uma referência para aprofundar? Posso sugerir um livro relacionado ao assunto e resumir por que ele pode ser útil.',
+    'Se preferir, posso transformar esses dados em uma leitura curta: o que mudou, o que importa e o que ainda não sabemos.',
+    'Há mais de uma forma de olhar para isso. Posso montar uma visão técnica, fundamental ou de risco usando os dados disponíveis no NV.',
+  ];
+  const en = [
+    'If you want, I can go beyond the numbers and separate signals, risks and hypotheses in this scenario.',
+    'I can also compare this with another asset, period or network to add context.',
+    'Want a reference to go deeper? I can suggest a relevant book and summarize why it may be useful.',
+    'If you prefer, I can turn these data into a short read: what changed, what matters, and what we still do not know.',
+    'There is more than one way to read this. I can build a technical, fundamental, or risk view using the data available in NV.',
+  ];
+  const suggestion = (locale === 'pt-BR' ? pt : en)[seed];
+  return { ...response, answer: response.answer + '\n\n' + suggestion };
 }
 
 function answerUnknown(locale: string): AgentResponse {
