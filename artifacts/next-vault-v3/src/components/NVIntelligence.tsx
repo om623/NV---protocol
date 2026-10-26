@@ -717,6 +717,8 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   ]);
   const [input, setInput] = useState('');
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const speechRecognitionRef = useRef<{ stop: () => void } | null>(null);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -842,6 +844,43 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       : (locale === 'pt-BR' ? `Não consegui concluir a operação. ${result.message}` : `I could not complete the operation. ${result.message}`);
     setMessages(prev => [...prev, { role: 'assistant', content, timestamp: Date.now() }]);
   }), [locale]);
+
+  function toggleSpeechInput() {
+    if (listening) {
+      speechRecognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const w = window as unknown as {
+      SpeechRecognition?: new () => any;
+      webkitSpeechRecognition?: new () => any;
+    };
+    const Recognition = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Recognition) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: locale === 'pt-BR'
+          ? 'O reconhecimento de voz não está disponível neste navegador. Você ainda pode digitar normalmente.'
+          : 'Speech recognition is not available in this browser. You can still type normally.',
+        timestamp: Date.now(),
+      }]);
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = locale === 'pt-BR' ? 'pt-BR' : locale;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) transcript += event.results[i][0].transcript;
+      if (transcript.trim()) setInput(transcript.trim());
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    speechRecognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  }
 
   async function handleSend(q = input) {
     const question = q.trim();
@@ -1055,6 +1094,16 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             disabled={loading}
             className="flex-1 bg-background/60 border border-border/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 disabled:opacity-50 transition-colors"
           />
+          <button
+            type="button"
+            onClick={toggleSpeechInput}
+            disabled={loading}
+            aria-label={locale === 'pt-BR' ? (listening ? 'Parar gravação de voz' : 'Falar com o NV Agent') : (listening ? 'Stop voice input' : 'Speak to NV Agent')}
+            title={locale === 'pt-BR' ? (listening ? 'Ouvindo… toque para parar' : 'Falar em vez de digitar') : (listening ? 'Listening… tap to stop' : 'Speak instead of typing')}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${listening ? 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse' : 'bg-secondary/30 border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30'} disabled:opacity-30`}
+          >
+            <Mic size={13} />
+          </button>
           <button
             type="button"
             onClick={() => handleSend()}
