@@ -59,7 +59,7 @@ import { NVIntelligence } from './components/NVIntelligence';
 import { SolanaWalletPanel } from './components/SolanaWalletPanel';
 import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
-import { subscribeNavigation } from './lib/navigationStore';
+import { subscribeNavigation, requestIntelligenceTab } from './lib/navigationStore';
 import { HistoryModule, ReportsModule, SettingsModule, HelpModule, logNVModuleView } from './components/ProtocolModules';
 import { logNVActivity } from './lib/activityLog';
 
@@ -1066,7 +1066,7 @@ function Home() {
       <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808009_1px,transparent_1px),linear-gradient(to_bottom,#80808009_1px,transparent_1px)] bg-[size:28px_28px] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,#000_60%,transparent_100%)] pointer-events-none z-0" />
 
          <AnimatedDashboardObject />
-         <NVAgentOrb onOpen={() => setActiveView('intelligence')} />
+         <NVAgentOrb onOpen={() => { requestIntelligenceTab('agent'); setActiveView('intelligence'); }} />
       
       {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-border/40 bg-background/95 backdrop-blur-xl min-h-screen z-10 relative">
