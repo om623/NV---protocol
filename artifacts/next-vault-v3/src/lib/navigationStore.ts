@@ -53,3 +53,38 @@ export function subscribeNavigation(fn: NavigationListener): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);
 }
+
+
+// ─── NV Agent action execution bridge ───────────────────────────────────────
+// Lets the Agent ask App.tsx (the owner of wallet/network transaction state) to
+// execute an already-reviewed action without duplicating signing logic.
+export interface NVAgentExecutionRequest {
+  id: string;
+  type: 'transfer' | 'bridge' | 'swap' | 'payment';
+  params: Record<string, string | number | null>;
+}
+export interface NVAgentExecutionResult {
+  id: string;
+  ok: boolean;
+  message: string;
+  txHash?: string;
+}
+type AgentExecutionListener = (request: NVAgentExecutionRequest) => void;
+type AgentExecutionResultListener = (result: NVAgentExecutionResult) => void;
+const _agentExecutionListeners = new Set<AgentExecutionListener>();
+const _agentExecutionResultListeners = new Set<AgentExecutionResultListener>();
+
+export function requestAgentExecution(request: NVAgentExecutionRequest): void {
+  for (const fn of _agentExecutionListeners) fn(request);
+}
+export function subscribeAgentExecution(fn: AgentExecutionListener): () => void {
+  _agentExecutionListeners.add(fn);
+  return () => _agentExecutionListeners.delete(fn);
+}
+export function publishAgentExecutionResult(result: NVAgentExecutionResult): void {
+  for (const fn of _agentExecutionResultListeners) fn(result);
+}
+export function subscribeAgentExecutionResult(fn: AgentExecutionResultListener): () => void {
+  _agentExecutionResultListeners.add(fn);
+  return () => _agentExecutionResultListeners.delete(fn);
+}
