@@ -738,6 +738,7 @@ function answerActionTransfer(
 
   const action: AgentAction = {
     type: 'transfer',
+      executeInChat: true,
     navigateTo: 'carteira',
     params: {
       amount: amount ?? null,
@@ -797,6 +798,7 @@ function answerActionBridge(
 
   const action: AgentAction = {
     type: 'bridge',
+      executeInChat: true,
     navigateTo: 'bridge',
     params: { amount: amount ?? null, fromSolana: isSolanaSource ? 1 : 0 },
   };
@@ -832,6 +834,7 @@ function answerActionSwap(
   // Swap in NV Protocol = CCTP cross-chain transfer (no DEX)
   const action: AgentAction = {
     type: 'swap',
+      executeInChat: true,
     navigateTo: 'bridge',
     params: { amount: amount ?? null },
   };
@@ -865,6 +868,7 @@ function answerActionPayment(
 
   const action: AgentAction = {
     type: 'payment',
+      executeInChat: true,
     navigateTo: 'perfil',
     params: {},
   };
