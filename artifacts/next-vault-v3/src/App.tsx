@@ -461,6 +461,29 @@ function Home() {
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
+  // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
+  const setNVEvmWallet = useSetNVEvmWallet();
+  useEffect(() => {
+    const usdcBal = realBalances?.['USDC'];
+    setNVEvmWallet({
+      address: connectedAddress,
+      networkName: activeNetwork.name,
+      chainId: activeNetwork.chainId,
+      usdcBalance: usdcBal !== undefined && usdcBal !== null
+        ? usdcBal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : null,
+    });
+  }, [connectedAddress, activeNetwork, realBalances, setNVEvmWallet]);
+
+  // ── Gamification ───────────────────────────────────────────────────────────
+  const gamification = useGamification();
+  const purchases = usePurchases({
+    walletAddress: connectedAddress,
+    onSkinUnlocked: (skinId) => gamification.grantSkin(skinId),
+    onXpGranted: (xpAmount, txHash) => gamification.grantXp(xpAmount, txHash),
+  });
+  const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
+
   // ── Execute reviewed NV Agent actions while keeping Intelligence open ───────
   useEffect(() => subscribeAgentExecution(async (request) => {
     try {
@@ -535,28 +558,7 @@ function Home() {
     }
   }), [provider, connectedAddress, activeNetwork, sourceToken, destToken, purchases]);
 
-  // ── Sync EVM wallet state into NVEvmWalletContext (read-only, for NV Agent) ──
-  const setNVEvmWallet = useSetNVEvmWallet();
-  useEffect(() => {
-    const usdcBal = realBalances?.['USDC'];
-    setNVEvmWallet({
-      address: connectedAddress,
-      networkName: activeNetwork.name,
-      chainId: activeNetwork.chainId,
-      usdcBalance: usdcBal !== undefined && usdcBal !== null
-        ? usdcBal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : null,
-    });
-  }, [connectedAddress, activeNetwork, realBalances, setNVEvmWallet]);
 
-  // ── Gamification ───────────────────────────────────────────────────────────
-  const gamification = useGamification();
-  const purchases = usePurchases({
-    walletAddress: connectedAddress,
-    onSkinUnlocked: (skinId) => gamification.grantSkin(skinId),
-    onXpGranted: (xpAmount, txHash) => gamification.grantXp(xpAmount, txHash),
-  });
-  const [transactions,   setTransactions]   = useState(INITIAL_TRANSACTIONS);
 
   // ── UI state (new) ──────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
