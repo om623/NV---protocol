@@ -49,6 +49,8 @@ export function AnimatedDashboardObject() {
 
     let raf = 0;
     let previous = performance.now();
+    let lastFrame = 0;
+    const FRAME_INTERVAL = 1000 / 30;
 
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
@@ -1067,6 +1069,9 @@ export function AnimatedDashboardObject() {
      */
 
     function frame(now: number) {
+      raf = requestAnimationFrame(frame);
+      if (document.hidden || now - lastFrame < FRAME_INTERVAL) return;
+      lastFrame = now;
       const dt = Math.min(
         32,
         now - previous
@@ -1089,8 +1094,6 @@ export function AnimatedDashboardObject() {
 
       drawCreature(now);
 
-      raf =
-        requestAnimationFrame(frame);
     }
 
     /*
