@@ -111,17 +111,6 @@ const MODE_AUTHORIZED_KW = [
   'política de autorização',
 ];
 
-const MODE_ASSISTED_KW = [
-  'manual assisted', 'assisted manual', 'assisted mode', 'modo manual assistido',
-  'manual assistido', 'modo assistido', 'use assisted', 'activate assisted',
-];
-
-const MODE_AUTHORIZED_KW = [
-  'authorized mode', 'modo autorizado', 'autorização prioritária', 'autorizacao prioritaria',
-  'authorize agent', 'autorizar agente', 'policy authorization', 'política de autorização',
-  'politica de autorizacao',
-];
-
 const CAPABILITIES_KW = [
   'what can you do', 'what do you know', 'your capabilities', 'help me',
   'o que você faz', 'o que voce faz', 'o que você sabe', 'o que voce sabe',
