@@ -25,6 +25,9 @@ export type { AgentResponse } from './intelligence';
 type QueryIntent =
   | 'market_price'    // specific asset price query
   | 'market_top'      // top assets by market cap
+  | 'market_movers'   // gainers / losers
+  | 'market_status'   // compact situational awareness
+  | 'capabilities'    // what NV Agent can currently inspect/do
   | 'tvl_chain'       // TVL for a specific chain
   | 'tvl_top'         // top chains by TVL
   | 'wallet_evm'      // EVM wallet info
@@ -93,6 +96,24 @@ const ACTION_PAYMENT_KW = [
   'make a purchase', 'fazer uma compra',
 ];
 
+const CAPABILITIES_KW = [
+  'what can you do', 'what do you know', 'your capabilities', 'help me',
+  'o que você faz', 'o que voce faz', 'o que você sabe', 'o que voce sabe',
+  'suas capacidades', 'suas funções', 'suas funcoes', 'como pode me ajudar',
+];
+
+const STATUS_KW = [
+  'market status', 'market overview', 'market summary', 'what is happening',
+  'resumo do mercado', 'visão do mercado', 'visao do mercado', 'como está o mercado',
+  'como esta o mercado', 'panorama', 'situação do mercado', 'situacao do mercado',
+];
+
+const MOVERS_KW = [
+  'gainers', 'losers', 'top gainers', 'top losers', 'best performers',
+  'worst performers', 'maiores altas', 'maiores quedas', 'quem mais subiu',
+  'quem mais caiu', 'melhores desempenhos', 'piores desempenhos',
+];
+
 const TVL_KW = [
   'tvl', 'total value locked', 'defi tvl', 'chain tvl', 'valor bloqueado',
   'locked value', 'protocol tvl', 'rede tvl', 'blockchain tvl',
@@ -139,6 +160,9 @@ function detectIntent(q: string): QueryIntent {
   if (ACTION_PAYMENT_KW.some(kw => lq.includes(kw)))  return 'action_payment';
 
   // Query intents — most specific first
+  if (CAPABILITIES_KW.some(kw => lq.includes(kw))) return 'capabilities';
+  if (STATUS_KW.some(kw => lq.includes(kw))) return 'market_status';
+  if (MOVERS_KW.some(kw => lq.includes(kw))) return 'market_movers';
   if (WALLET_SOL_KW.some(kw => lq.includes(kw))) return 'wallet_solana';
   if (WALLET_EVM_KW.some(kw => lq.includes(kw))) return 'wallet_evm';
   if (BRIDGE_KW.some(kw => lq.includes(kw)))     return 'bridge_info';
@@ -454,6 +478,74 @@ function answerBridgeInfo(
   return { answer: lines.join('\n'), sources: [] };
 }
 
+function answerCapabilities(ctx: NVAgentContext): AgentResponse {
+  const liveAssets = ctx.market?.assets.filter(a => a.isLive).length ?? 0;
+  const tvlLoaded = ctx.tvl?.entries.filter(e => e.status === 'loaded').length ?? 0;
+  const evm = ctx.evmWallet?.connected ? 'connected' : 'not connected';
+  const sol = ctx.solanaWallet?.walletState.status === 'connected' ? 'connected' : 'not connected';
+  return {
+    answer: [
+      'I am the NV Agent — the intelligence layer inside NV Protocol.',
+      '',
+      'I can inspect the live context available to me and answer about:',
+      `• Markets and prices (${liveAssets} live assets currently in context)`,
+      '• 24h / 7d performance, market cap, volume and RSI when available',
+      `• TVL across supported chains (${tvlLoaded} entries currently loaded)`,
+      `• EVM wallet: ${evm}`,
+      `• Solana wallet: ${sol}`,
+      '• Bridge and payment status',
+      '• Global news and events',
+      '• Preparing navigation/actions for Swap, Bridge and payments',
+      '',
+      'I do not invent unavailable data and I do not sign transactions by myself.',
+    ].join('\n'),
+    sources: [],
+  };
+}
+
+function answerMarketMovers(question: string, assets: MarketAsset[]): AgentResponse {
+  const q = question.toLowerCase();
+  const wantsLosers = q.includes('loser') || q.includes('queda') || q.includes('caiu') || q.includes('worst') || q.includes('piores');
+  const live = assets.filter(a => a.isLive && Number.isFinite(a.change24h));
+  const sorted = [...live].sort((a, b) => wantsLosers ? a.change24h - b.change24h : b.change24h - a.change24h).slice(0, 7);
+  if (!sorted.length) return { answer: 'I do not have live market-mover data in the current context.', sources: [] };
+  return {
+    answer: [
+      wantsLosers ? 'Largest 24h declines in my current live context:' : 'Largest 24h gains in my current live context:',
+      '',
+      ...sorted.map((a, i) => `${i + 1}. ${a.symbol} — ${fmtUsd(a.price, a.decimals)} · ${fmtChange(a.change24h)}`),
+      '',
+      'This is a snapshot of the data currently loaded by NV, not investment advice.',
+    ].join('\n'),
+    sources: [],
+  };
+}
+
+function answerMarketStatus(ctx: NVAgentContext): AgentResponse {
+  const live = (ctx.market?.assets ?? []).filter(a => a.isLive);
+  const crypto = live.filter(a => a.category === 'crypto');
+  const gainers = crypto.filter(a => a.change24h > 0).length;
+  const losers = crypto.filter(a => a.change24h < 0).length;
+  const strongest = [...crypto].sort((a,b) => b.change24h - a.change24h)[0];
+  const weakest = [...crypto].sort((a,b) => a.change24h - b.change24h)[0];
+  const tvl = (ctx.tvl?.entries ?? []).filter(e => e.status === 'loaded' && e.tvlUsd !== null);
+  const topTvl = [...tvl].sort((a,b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0))[0];
+  const lines = [
+    'NV situational snapshot:',
+    '',
+    `• Live market feeds in context: ${live.length}`,
+    `• Crypto breadth: ${gainers} up / ${losers} down over 24h`,
+    strongest ? `• Strongest 24h: ${strongest.symbol} ${fmtChange(strongest.change24h)}` : '',
+    weakest ? `• Weakest 24h: ${weakest.symbol} ${fmtChange(weakest.change24h)}` : '',
+    topTvl ? `• Highest loaded chain TVL: ${topTvl.displayName} ${fmtTvl(topTvl.tvlUsd)}` : '',
+    `• EVM wallet: ${ctx.evmWallet?.connected ? 'connected' : 'not connected'}`,
+    `• Solana wallet: ${ctx.solanaWallet?.walletState.status === 'connected' ? 'connected' : 'not connected'}`,
+    '',
+    'Ask me to drill into any asset, TVL, wallet, bridge, payment or recent event.',
+  ].filter(Boolean);
+  return { answer: lines.join('\n'), sources: [] };
+}
+
 // ─── Action handlers ──────────────────────────────────────────────────────────
 // These handlers return an AgentResponse with an `action` field that the UI
 // renders as a NavigateCard. They NEVER initiate a transaction themselves.
@@ -683,6 +775,16 @@ export function agentQuery(
   const intent = detectIntent(question);
 
   switch (intent) {
+    case 'capabilities':
+      return answerCapabilities(ctx);
+
+    case 'market_status':
+      return answerMarketStatus(ctx);
+
+    case 'market_movers':
+      if (ctx.market?.assets.length) return answerMarketMovers(question, ctx.market.assets);
+      break;
+
     case 'wallet_evm':
       return answerEvmWallet(ctx, t);
 
