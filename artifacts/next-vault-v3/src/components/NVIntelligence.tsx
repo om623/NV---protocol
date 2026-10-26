@@ -948,7 +948,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       let response = agentCtx
         ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
         : agentQuery(normalizedQuestion, news, locale, t);
-      if (!isFinancialActionIntent(semantic?.intent)) {
+      if (!response.action && !isFinancialActionIntent(semantic?.intent)) {
         const conversational = await askConversationalAgent(question);
         if (conversational?.answer) {
           response = {
