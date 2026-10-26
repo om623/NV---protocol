@@ -68,7 +68,7 @@ import { getAllAssets, getMarketSentiment } from '../lib/marketData';
 import { getTvlState, subscribeTvl } from '../lib/tvl';
 import { getPaymentState, subscribePaymentState } from '../lib/payments';
 import { getBridgeState, subscribeBridgeState } from '../lib/bridgeState';
-import { requestNavigation } from '../lib/navigationStore';
+import { requestNavigation, subscribeIntelligenceTab } from '../lib/navigationStore';
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 import { logNVActivity } from '../lib/activityLog';
@@ -1088,6 +1088,7 @@ export function NVIntelligence() {
   const [lastUpdate, setLastUpdate] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'feed' | 'agent' | 'nvnews'>('feed');
+  useEffect(() => subscribeIntelligenceTab(tab => setActiveTab(tab)), []);
   const [viewMode, setViewMode] = useState<'clusters' | 'flat'>('clusters');
   const [filters, setFilters] = useState<Filters>({
     region: 'all',
