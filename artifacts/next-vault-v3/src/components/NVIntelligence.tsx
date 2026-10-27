@@ -800,6 +800,22 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     }
   }
 
+  async function translateToEnglish(text: string): Promise<string> {
+    if (!text.trim() || locale === 'en') return text;
+    try {
+      const response = await fetch('/api/nv-agent-localize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, locale: 'en', sourceLocale: locale }),
+      });
+      if (!response.ok) return text;
+      const payload = await response.json() as { text?: string };
+      return typeof payload.text === 'string' && payload.text.trim() ? payload.text : text;
+    } catch {
+      return text;
+    }
+  }
+
   function activateTransactionMode(mode: Exclude<NVAgentMode, null>) {
     setAgentModeState(mode);
     setNVAgentMode(mode);
