@@ -35,11 +35,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const body = (req.body && typeof req.body === "object" ? req.body : {}) as {
     text?: unknown;
     locale?: unknown;
+    sourceLocale?: unknown;
   };
   const text = typeof body.text === "string" ? body.text.trim() : "";
   const locale = typeof body.locale === "string" ? body.locale : "";
+  const sourceLocale = typeof body.sourceLocale === "string" ? body.sourceLocale : "";
 
-  if (!text || text.length > 8000 || !(locale in LANGUAGES)) {
+  if (!text || text.length > 8000 || !(locale in LANGUAGES) || (sourceLocale && !(sourceLocale in LANGUAGES))) {
     res.status(400).json({ error: "invalid_request" });
     return;
   }
@@ -63,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
           {
             role: "system",
             content:
-              `Translate the user's text into ${LANGUAGES[locale]}. Return only the translation, preserving line breaks and formatting. Do not answer or summarize it. Preserve all numbers, prices, percentages, token symbols, ticker symbols, blockchain/network names, wallet addresses, transaction hashes, URLs, code, and technical identifiers exactly. Never change financial facts or invent missing information. Keep product names such as Nexvault, NV Protocol, NV Agent, NV Voice, Chainlink CRE, USDC, and EURC unchanged. Use natural, professional language appropriate for a global Web3 finance application. For Arabic, use clear Modern Standard Arabic.`,
+              `Translate the user's text${sourceLocale ? ` from ${LANGUAGES[sourceLocale]}` : ""} into ${LANGUAGES[locale]}. Return only the translation, preserving line breaks and formatting. Do not answer or summarize it. Preserve all numbers, prices, percentages, token symbols, ticker symbols, blockchain/network names, wallet addresses, transaction hashes, URLs, code, and technical identifiers exactly. Never change financial facts or invent missing information. Keep product names such as Nexvault, NV Protocol, NV Agent, NV Voice, Chainlink CRE, USDC, and EURC unchanged. Use natural, professional language appropriate for a global Web3 finance application. For Arabic, use clear Modern Standard Arabic.`,
           },
           { role: "user", content: text },
         ],
