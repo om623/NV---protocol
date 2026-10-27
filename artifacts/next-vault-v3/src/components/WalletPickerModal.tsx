@@ -37,18 +37,12 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
   return (
     <AnimatePresence>
       {open && (
-        <>
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[60]"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.96, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            exit={{ opacity: 0, scale: 0.96, y: -8 }}
             transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-full max-w-sm mx-4"
+            className="fixed right-4 top-16 z-[61] w-[calc(100%-2rem)] max-w-sm"
           >
             <div className="rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden">
               {/* Header */}
@@ -117,7 +111,6 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
               </div>
             </div>
           </motion.div>
-        </>
       )}
     </AnimatePresence>
   );
