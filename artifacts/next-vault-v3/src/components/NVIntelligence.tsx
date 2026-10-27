@@ -935,6 +935,36 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       // always kept in the chat, and financial identifiers remain unchanged.
       const semantic = await understandSemantically(question);
 
+      // Deterministic pending-action slot extraction is the safety net when the
+      // semantic provider is unavailable or misclassifies a terse follow-up.
+      // It deliberately runs before any new market/query routing.
+      if (pendingAction?.type === 'swap') {
+        const amountMatch = question.match(/(?:^|\\s)(\\d+(?:[.,]\\d+)?)(?=\\s|$)/);
+        const tokenMatches = [...question.toUpperCase().matchAll(/\\b(USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\\b/g)]
+          .map(m => m[1] === 'MATIC' ? 'POL' : m[1]);
+        const patch: Record<string, string | number> = {};
+        if (amountMatch) {
+          const n = Number(amountMatch[1].replace(',', '.'));
+          if (Number.isFinite(n) && n > 0) patch.amount = n;
+        }
+        if (tokenMatches[0]) patch.sourceToken = tokenMatches[0];
+        if (tokenMatches[1]) patch.destinationToken = tokenMatches[1];
+        if (Object.keys(patch).length) {
+          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
+          setPendingAction(updated);
+          const p = updated.params ?? {};
+          const complete = p.amount != null && p.sourceToken && p.destinationToken && p.sourceToken !== p.destinationToken;
+          const summary = complete
+            ? `Swap pronto para revisão: ${p.amount} ${p.sourceToken} → ${p.destinationToken}.`
+            : locale === 'pt-BR'
+              ? 'Atualizei o Swap. Ainda faltam parâmetros para concluir a preparação.'
+              : 'I updated the Swap. Some parameters are still missing.';
+          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: complete ? updated : undefined, timestamp: Date.now() }]);
+          if (!voiceMuted) enqueueNVVoice(summary, locale);
+          return;
+        }
+      }
+
       // Carry an unfinished operation across turns BEFORE honoring a generic
       // semantic clarification. A short reply such as "valor: 0.001 de USDC
       // para EURC" is a slot-fill for the pending Swap, not a new market query.
