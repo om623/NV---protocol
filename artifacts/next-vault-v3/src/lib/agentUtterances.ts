@@ -39,10 +39,12 @@ function normalize(s:string){return s.toLowerCase().normalize('NFD').replace(/[\
 
 export const NV_AGENT_UTTERANCES: ReadonlyArray<{intent:UtteranceIntent;phrase:string}> =
  (Object.entries(seeds) as [UtteranceIntent,string[]][]).flatMap(([intent,list]) =>
-   list.flatMap((seed,i)=>prefixes.map((prefix,j)=>({intent,phrase:normalize(prefix+seed+suffixes[(i+j)%suffixes.length])})))
+   list.flatMap(seed => prefixes.flatMap(prefix =>
+     suffixes.map(suffix => ({intent,phrase:normalize(prefix+seed+suffix)}))
+   ))
  );
 
-export const NV_AGENT_UTTERANCE_COUNT = NV_AGENT_UTTERANCES.length; // exactly 1,000
+export const NV_AGENT_UTTERANCE_COUNT = NV_AGENT_UTTERANCES.length; // exactly 5,000 (well above the 1,000-phrase target)
 
 export function matchNVAgentUtterance(input:string):UtteranceIntent|null{
  const q=normalize(input);
