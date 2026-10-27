@@ -1009,7 +1009,38 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         };
       }
       const { answer, sources, action } = response;
-      if (action) setPendingAction(action);
+      if (action) {
+        setPendingAction(action);
+      } else if (semantic && isFinancialActionIntent(semantic.intent)) {
+        // Semantic intent is authoritative for an explicit financial command.
+        // Build a pending action even when the deterministic English rewrite
+        // misses the action verb; otherwise a terse follow-up can fall into
+        // market-price routing because it contains USDC/EURC/ETH.
+        const type = semantic.intent.replace('action_', '') as AgentAction['type'];
+        const seeded: AgentAction = {
+          type,
+          executeInChat: true,
+          navigateTo: type === 'transfer' ? 'consulte' : type === 'payment' ? 'perfil' : type,
+          params: {
+            ...(semantic.amount != null ? { amount: semantic.amount } : {}),
+            ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
+            ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
+            ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
+            ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
+            ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
+            ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
+            ...(semantic.product ? { product: semantic.product } : {}),
+          },
+        };
+        setPendingAction(seeded);
+        const missing = missingActionFields(seeded);
+        const seededAnswer = missing.length
+          ? (locale === 'pt-BR' ? `Entendi a operação. Falta apenas: ${missing.join(', ')}.` : `I understood the operation. Still missing: ${missing.join(', ')}.`)
+          : (locale === 'pt-BR' ? `${actionSummary(seeded)} Pronto para executar. Confirme no chat.` : `${actionSummary(seeded)} Ready to execute. Confirm in chat.`);
+        setMessages(prev => [...prev, { role: 'assistant', content: seededAnswer, sources: [], action: missing.length ? undefined : seeded, timestamp: Date.now() }]);
+        if (!voiceMuted) enqueueNVVoice(seededAnswer, locale);
+        return;
+      }
       const localizedAnswer = await localizeText(answer, locale);
       setMessages(prev => [...prev, {
         role: 'assistant',
