@@ -816,6 +816,19 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     return slots.map(slot => labels[slot] ?? slot);
   }
 
+  const agentPhrases: Record<string, { stillMissing:string; ready:string; sayExecute:string; beforeExecution:string; confirmed:string; cancelled:string; nothingSent:string }> = {
+    'pt-BR': { stillMissing:'Falta apenas', ready:'Pronto para executar', sayExecute:'Diga “execute”', beforeExecution:'Antes de executar, falta', confirmed:'Confirmado. Executando', cancelled:'Operação cancelada', nothingSent:'Nada foi enviado' },
+    en: { stillMissing:'Still missing', ready:'Ready to execute', sayExecute:'Say “execute”', beforeExecution:'Before execution, missing', confirmed:'Confirmed. Executing', cancelled:'Operation cancelled', nothingSent:'Nothing was sent' },
+    es: { stillMissing:'Falta', ready:'Listo para ejecutar', sayExecute:'Diga “execute”', beforeExecution:'Antes de ejecutar, falta', confirmed:'Confirmado. Ejecutando', cancelled:'Operación cancelada', nothingSent:'No se envió nada' },
+    fr: { stillMissing:'Il manque', ready:'Prêt à exécuter', sayExecute:'Dites « execute »', beforeExecution:'Avant l’exécution, il manque', confirmed:'Confirmé. Exécution de', cancelled:'Opération annulée', nothingSent:'Rien n’a été envoyé' },
+    zh: { stillMissing:'仍缺少', ready:'已准备执行', sayExecute:'请输入“execute”', beforeExecution:'执行前仍缺少', confirmed:'已确认，正在执行', cancelled:'操作已取消', nothingSent:'未发送任何内容' },
+    ja: { stillMissing:'不足している項目', ready:'実行準備完了', sayExecute:'「execute」と入力してください', beforeExecution:'実行前に不足している項目', confirmed:'確認済み。実行中', cancelled:'操作をキャンセルしました', nothingSent:'何も送信されていません' },
+    ko: { stillMissing:'아직 필요한 항목', ready:'실행 준비 완료', sayExecute:'“execute”라고 입력하세요', beforeExecution:'실행 전에 필요한 항목', confirmed:'확인됨. 실행 중', cancelled:'작업이 취소되었습니다', nothingSent:'아무것도 전송되지 않았습니다' },
+    hi: { stillMissing:'अभी आवश्यक', ready:'निष्पादन के लिए तैयार', sayExecute:'“execute” लिखें', beforeExecution:'निष्पादन से पहले आवश्यक', confirmed:'पुष्टि हुई। निष्पादित किया जा रहा है', cancelled:'ऑपरेशन रद्द किया गया', nothingSent:'कुछ भी नहीं भेजा गया' },
+    ar: { stillMissing:'لا يزال مطلوبًا', ready:'جاهز للتنفيذ', sayExecute:'اكتب “execute”', beforeExecution:'قبل التنفيذ، لا يزال مطلوبًا', confirmed:'تم التأكيد. جارٍ التنفيذ', cancelled:'تم إلغاء العملية', nothingSent:'لم يتم إرسال أي شيء' },
+  };
+  function agentPhrase() { return agentPhrases[locale] ?? agentPhrases.en; }
+
   async function translateToEnglish(text: string): Promise<string> {
     if (!text.trim() || locale === 'en') return text;
     try {
@@ -975,21 +988,19 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       const coreTurn = parseNVTurn(coreInput, pendingAction);
       if (coreTurn.intent === 'cancel' && pendingAction) {
         setPendingAction(null);
-        const baseMsg = locale === 'pt-BR' ? 'Operação cancelada. Nada foi enviado.' : 'Operation cancelled. Nothing was sent.';
-        const msg = await localizeText(baseMsg, locale);
+        const phrase = agentPhrase();
+        const msg = `${phrase.cancelled}. ${phrase.nothingSent}.`;
         setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         return;
       }
       if (coreTurn.intent === 'confirm' && pendingAction) {
         const missing = missingNVAction(pendingAction);
         if (!missing.length) {
-          const baseMsg = 'Confirmed. Executing ' + summarizeNVAction(pendingAction) + '.';
-          const msg = await localizeText(baseMsg, locale);
+          const msg = agentPhrase().confirmed + ' ' + summarizeNVAction(pendingAction) + '.';
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: pendingAction, timestamp: Date.now() }]);
           executeAgentAction(pendingAction);
         } else {
-          const baseMsg = 'Before execution, missing: ' + localizeAgentSlots(missing).join(', ') + '.';
-          const msg = await localizeText(baseMsg, locale);
+          const msg = agentPhrase().beforeExecution + ': ' + localizeAgentSlots(missing).join(', ') + '.';
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         }
         return;
@@ -999,10 +1010,10 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         if (action) {
           setPendingAction(action);
           const missing = missingNVAction(action);
-          const baseMsg = missing.length
-            ? `${summarizeNVAction(action)}. Still missing: ${localizeAgentSlots(missing).join(', ')}.`
-            : `${summarizeNVAction(action)}. Ready to execute. Say “execute”.`;
-          const msg = await localizeText(baseMsg, locale);
+          const phrase = agentPhrase();
+          const msg = missing.length
+            ? `${summarizeNVAction(action)}. ${phrase.stillMissing}: ${localizeAgentSlots(missing).join(', ')}.`
+            : `${summarizeNVAction(action)}. ${phrase.ready}. ${phrase.sayExecute}.`;
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: missing.length ? undefined : action, timestamp: Date.now() }]);
           if (!voiceMuted) enqueueNVVoice(msg, locale);
           return;
