@@ -468,7 +468,7 @@ function Home() {
         if (token.isNative) hash = await transferNative(prov, connectedAddress, recipient, value);
         else if (token.address) hash = await transferErc20(prov, connectedAddress, token.address, recipient, value, token.decimals);
         else throw new Error('Configuração do token incompleta.');
-        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Transferência enviada. Hash: ' + hash, txHash: hash });
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Transferência enviada. ' + value + ' ' + symbol + ' → ' + recipient + '. Hash: ' + hash, txHash: hash });
         return;
       }
 
