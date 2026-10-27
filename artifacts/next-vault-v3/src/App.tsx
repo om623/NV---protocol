@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -31,7 +31,7 @@ import { ProfileView } from './components/ProfileView';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
 import { BridgeView } from './components/BridgeView';
-import { WalletView } from './components/WalletView';
+import { ConsulteView } from './components/ConsulteView';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { DashboardConverter } from './components/DashboardConverter';
 import { MarketGrid } from './components/MarketGrid';
@@ -93,7 +93,7 @@ const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fr
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'carteira' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
@@ -102,7 +102,7 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.history',       Icon: History,         view: 'historico' },
   { key: 'nav.reports',       Icon: FileText,        view: 'relatorios' },
   { key: 'nav.bridge',        Icon: ArrowRight,      view: 'bridge'         },
-  { key: 'nav.wallet',        Icon: Wallet,          view: 'carteira'       },
+  { key: 'nav.consulte',       Icon: Search,          view: 'consulte'        },
   { key: 'nav.solana',        Icon: Zap,             view: 'solana'         },
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes' },
@@ -422,7 +422,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'swap', 'carteira', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
@@ -1273,12 +1273,11 @@ function Home() {
               {activeView === 'configuracoes' && <SettingsModule />}
               {activeView === 'ajuda' && <HelpModule />}
 
-              {/* ── Wallet View ────────────────────────────────────────────── */}
-              {activeView === 'carteira' && (
-                <WalletView
+              {/* ── Consulte ─────────────────────────────────────────────── */}
+              {activeView === 'consulte' && (
+                <ConsulteView
                   provider={provider}
                   connectedAddress={connectedAddress}
-                  onConnect={handleConnect}
                   explorerUrl={activeNetwork.explorerUrl}
                   activeNetwork={activeNetwork}
                   walletName={activeWalletName}
