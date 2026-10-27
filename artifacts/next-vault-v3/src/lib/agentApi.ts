@@ -206,6 +206,12 @@ function detectIntent(q: string): QueryIntent {
     return utteranceIntent;
   }
 
+  // Parameter-only financial turns must never be interpreted as market queries.
+  // This is especially important for follow-ups such as "0.001 USDC para EURC".
+  const financialTokens = words.filter(w => ['usdc','eurc','eth','sol','pol','matic','avax'].includes(w));
+  const hasAmount = /(?:^|\\s)\\d+(?:[.,]\\d+)?(?=\\s|$)/.test(lq);
+  if (hasAmount && financialTokens.length >= 2 && /\\b(para|por|to|for)\\b/.test(lq)) return 'action_swap';
+
   // Action intents — checked FIRST. A request that says "swap" but names two
   // different networks is cross-chain and must go through Bridge, never the
   // same-chain swap executor.
