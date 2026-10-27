@@ -684,19 +684,27 @@ function Home() {
   };
 
   const handleConnect = () => {
-    // Legacy fallback: if only one wallet is likely available, connect directly.
-    // Otherwise open the picker modal.
+    // Keep wallet discovery outside the Wallet module render tree. The Wallet
+    // view is temporarily hidden while the picker is open so no card-level
+    // backdrop/compositing effect can interact with provider authorization.
+    setSidebarOpen(false);
+    setComingSoonFeature(null);
+    setShowDisconnect(false);
     setShowWalletPicker(true);
   };
 
   const handleDisconnect = () => {
     walletSessionRef.current += 1;
+    // Clear every transient wallet/navigation surface before resetting the session.
+    setShowWalletPicker(false);
+    setShowDisconnect(false);
+    setSidebarOpen(false);
+    setComingSoonFeature(null);
     setIsConnected(false);
     setProvider(null);
     setConnectedAddress(null);
     setRealBalances(null);
     setWalletChainId(null);
-    setShowDisconnect(false);
     setActiveWalletName(null);
     toast({ title: t('wallet.disconnected') });
   };
@@ -1131,7 +1139,7 @@ function Home() {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setSidebarOpen(false)}
-              className="fixed inset-0 bg-background/70 backdrop-blur-sm z-40 lg:hidden"
+              className="fixed inset-0 bg-transparent z-40 lg:hidden"
             />
             <motion.aside
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
@@ -1274,7 +1282,7 @@ function Home() {
               {activeView === 'ajuda' && <HelpModule />}
 
               {/* ── Wallet View ────────────────────────────────────────────── */}
-              {activeView === 'carteira' && (
+              {activeView === 'carteira' && !showWalletPicker && (
                 <WalletView
                   provider={provider}
                   connectedAddress={connectedAddress}

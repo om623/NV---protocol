@@ -42,9 +42,9 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -8 }}
             transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-            className="fixed right-4 top-16 z-[61] w-[calc(100%-2rem)] max-w-sm"
+            className="fixed right-4 top-16 z-[61] w-[calc(100%-2rem)] max-w-sm isolate"
           >
-            <div className="rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+            <div className="rounded-2xl border border-border/50 bg-card shadow-2xl overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border/30">
                 <div className="flex items-center gap-2">

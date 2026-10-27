@@ -283,13 +283,12 @@ export function WalletView({ provider, connectedAddress, onConnect, explorerUrl,
             <Wallet size={28} className="text-primary relative z-10" />
           </div>
           <h2 className="text-lg font-semibold text-foreground mb-2">{t('wallet.notConnected')}</h2>
-          <p className="text-sm text-muted-foreground/60 mb-5 max-w-xs">
-            {t('wallet.connectDescription')} <span translate="no">{activeNetwork.name}</span>.
+          <p className="text-sm text-muted-foreground/70 mb-2 max-w-sm leading-relaxed">
+            Conecte sua carteira pelo botão no canto superior direito para visualizar seus saldos e liberar as funções de transferência com segurança.
           </p>
-          <button onClick={onConnect}
-            className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(0,229,188,0.25)] transition-all duration-200 cursor-pointer">
-            {t('action.connectWallet')}
-          </button>
+          <p className="text-[11px] font-mono text-primary/70 max-w-sm">
+            Após a conexão, seus ativos disponíveis em <span translate="no">{activeNetwork.name}</span> aparecerão aqui automaticamente.
+          </p>
         </div>
       </motion.div>
     );
