@@ -1243,11 +1243,6 @@ function Home() {
             </div>
           </div>
 
-          {/* Network badge row — mobile */}
-          <div className="lg:hidden flex items-center justify-center py-2 border-t border-border/30">
-            <NetworkBadge envMode={envMode} activeNetwork={activeNetwork} />
-          </div>
-
           {/* Network mismatch banner — mobile */}
           <AnimatePresence>
             {networkMismatch && (
