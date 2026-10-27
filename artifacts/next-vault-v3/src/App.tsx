@@ -684,8 +684,9 @@ function Home() {
   };
 
   const handleConnect = () => {
-    // Wallet UI must be mutually exclusive with other transient navigation UI.
-    // This prevents stale mobile/sidebar or disconnect layers from darkening the app.
+    // Keep wallet discovery outside the Wallet module render tree. The Wallet
+    // view is temporarily hidden while the picker is open so no card-level
+    // backdrop/compositing effect can interact with provider authorization.
     setSidebarOpen(false);
     setComingSoonFeature(null);
     setShowDisconnect(false);
@@ -1281,7 +1282,7 @@ function Home() {
               {activeView === 'ajuda' && <HelpModule />}
 
               {/* ── Wallet View ────────────────────────────────────────────── */}
-              {activeView === 'carteira' && (
+              {activeView === 'carteira' && !showWalletPicker && (
                 <WalletView
                   provider={provider}
                   connectedAddress={connectedAddress}
