@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
+import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink, Bot } from 'lucide-react';
+import { NvultPrototype } from './NvultPrototype';
 import { useI18n, useFormat } from '../i18n';
 import {
   BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS,
@@ -46,7 +47,7 @@ export function ProfileView({
 }: ProfileViewProps) {
   const { t } = useI18n();
   const { number } = useFormat();
-  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop' | 'nvult'>('overview');
 
   const level = computeLevel(gamification);
   const milestone = nextMilestone(gamification);
@@ -135,23 +136,42 @@ export function ProfileView({
       {/* ── Profile Header Card ───────────────────────────────────────────── */}
       <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
-          {/* Avatar */}
-          <div className={`relative w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 ${
-            gamification.equippedSkin === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/30' :
-            gamification.equippedSkin === 'silver' ? 'bg-gradient-to-br from-slate-300/15 to-slate-500/10 border border-slate-300/25' :
-            gamification.equippedSkin === 'bronze' ? 'bg-gradient-to-br from-orange-400/15 to-orange-600/10 border border-orange-400/25' :
-            gamification.equippedSkin === 'platinum' ? 'bg-gradient-to-br from-cyan-300/15 to-cyan-500/10 border border-cyan-300/25' :
-            gamification.equippedSkin === 'premium-500' ? 'bg-gradient-to-br from-amber-400/25 to-amber-600/15 border border-amber-400/40' :
-            gamification.equippedSkin === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/50' :
-            'bg-primary/10 border border-primary/20'
-          }`}>
-            <span className="text-2xl font-bold text-primary">{level >= 1000 ? '' : ''}{level >= 2000 ? '' : ''}</span>
-            <Shield size={32} className="text-primary/80" />
-            {gamification.equippedTitle && (
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
-                {t(`title.${gamification.equippedTitle}`)}
-              </div>
-            )}
+          {/* Futuristic profile insignia: custom NV identity mark, not a generic shield. */}
+          <div className="relative shrink-0">
+            <div aria-hidden="true" className="absolute -inset-2 rounded-[1.4rem] bg-primary/10 blur-xl" />
+            <div className={`relative flex h-[5.75rem] w-[5.75rem] items-center justify-center overflow-hidden rounded-[1.35rem] border shadow-[inset_0_0_22px_rgba(34,211,238,.10),0_0_28px_rgba(34,211,238,.12)] ${
+              gamification.equippedSkin === 'gold' || gamification.equippedSkin === 'premium-500' || gamification.equippedSkin === 'premium-1000' ? 'border-amber-300/50 bg-gradient-to-br from-amber-300/20 via-[#0c1424] to-amber-700/10' :
+              gamification.equippedSkin === 'silver' ? 'border-slate-200/40 bg-gradient-to-br from-slate-200/15 via-[#0c1424] to-slate-500/10' :
+              gamification.equippedSkin === 'bronze' ? 'border-orange-300/40 bg-gradient-to-br from-orange-300/15 via-[#0c1424] to-orange-700/10' :
+              gamification.equippedSkin === 'platinum' ? 'border-cyan-200/50 bg-gradient-to-br from-cyan-200/20 via-[#0c1424] to-blue-500/10' :
+              'border-primary/35 bg-gradient-to-br from-primary/15 via-[#0a1423] to-violet-500/10'
+            }`}>
+              <div aria-hidden="true" className="absolute inset-1 rounded-[1rem] border border-white/10" />
+              <div aria-hidden="true" className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(rgba(103,232,249,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,.12) 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
+              <svg viewBox="0 0 100 100" role="img" aria-label="Emblema futurista do perfil NV" className="relative z-10 h-[4.6rem] w-[4.6rem] drop-shadow-[0_0_12px_rgba(34,211,238,.45)]">
+                <defs>
+                  <linearGradient id="profile-nv-shell" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#e0f2fe"/><stop offset=".34" stopColor="#67e8f9"/><stop offset=".7" stopColor="#0e7490"/><stop offset="1" stopColor="#172554"/></linearGradient>
+                  <linearGradient id="profile-nv-face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#172033"/><stop offset="1" stopColor="#020617"/></linearGradient>
+                  <filter id="profile-nv-glow"><feGaussianBlur stdDeviation="1.7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <path d="M50 5 77 16 91 39 84 69 63 89 50 95 37 89 16 69 9 39 23 16Z" fill="none" stroke="url(#profile-nv-shell)" strokeWidth="1.6" opacity=".8"/>
+                <path d="M50 12 72 21 83 40 77 65 60 81 50 86 40 81 23 65 17 40 28 21Z" fill="#081323" stroke="url(#profile-nv-shell)" strokeWidth="2"/>
+                <path d="M31 34 39 26 61 26 69 34 73 54 63 66 50 72 37 66 27 54Z" fill="url(#profile-nv-face)" stroke="#94a3b8" strokeWidth="1.4"/>
+                <path d="M31 39 42 35 46 39 54 39 58 35 69 39 66 49 58 54 42 54 34 49Z" fill="#020617" stroke="#164e63" strokeWidth="1.2"/>
+                <path d="M38 43 45 43 M55 43 62 43" stroke="#67e8f9" strokeWidth="3.8" strokeLinecap="round" filter="url(#profile-nv-glow)"/>
+                <path d="M43 60 50 64 57 60" fill="none" stroke="#a5f3fc" strokeWidth="1.6" strokeLinecap="round"/>
+                <path d="M50 5V15 M5 50H15 M85 50H95 M50 85V95" stroke="#67e8f9" strokeWidth="1.4" opacity=".8"/>
+                <circle cx="50" cy="18" r="2" fill="#ecfeff" filter="url(#profile-nv-glow)"/>
+              </svg>
+              <div className="absolute bottom-1.5 right-1.5 rounded-md border border-primary/40 bg-[#07111f]/90 px-1.5 py-0.5 text-[9px] font-mono font-bold tracking-wider text-primary">{String(level).padStart(3, '0')}</div>
+              <div className="absolute left-2 top-2 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#6ee7b7]" />
+              {gamification.equippedTitle && (
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
+                  {t(`title.${gamification.equippedTitle}`)}
+                </div>
+              )}
+            </div>
+            <div className="mt-2 text-center text-[8px] font-mono uppercase tracking-[.22em] text-primary/60">NV / IDENTITY</div>
           </div>
 
           {/* Level & XP */}
@@ -175,6 +195,24 @@ export function ProfileView({
             <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground/40">
               <span>{number(gamification.xp, 1)} / {number(milestone.xpNeeded, 0)} XP</span>
               <span>{t('profile.nextMilestone')}: {t('profile.level')} {number(milestone.level, 0)}</span>
+            </div>
+            {/* Existing badges belong to the Profile module, not the Nvult character tab. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/15 bg-gradient-to-r from-primary/[.06] via-transparent to-violet-400/[.04] p-2.5" aria-label="Insígnias do perfil">
+              <span className="mr-1 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[.16em] text-muted-foreground/60"><Award size={12} className="text-primary" /> Insígnias</span>
+              {BADGES.slice(0, 5).map(badge => {
+                const unlocked = gamification.unlockedBadges.includes(badge.id);
+                const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
+                return (
+                  <div key={badge.id} title={t(`badge.${badge.id}`)} className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
+                    unlocked ? 'border-primary/35 bg-primary/10 text-primary shadow-[0_0_12px_rgba(0,229,188,0.08)]' : 'border-border/30 bg-secondary/20 text-muted-foreground/25'
+                  }`}>
+                    {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                  </div>
+                );
+              })}
+              <button onClick={() => setActiveTab('badges')} className="text-[9px] font-mono text-primary/70 hover:text-primary">
+                Ver todas <ChevronRight size={10} className="inline" />
+              </button>
             </div>
           </div>
         </div>
@@ -224,7 +262,8 @@ export function ProfileView({
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border/30 overflow-x-auto">
         {([
           { key: 'overview',    label: t('profile.tabOverview'),    Icon: TrendingUp },
-          { key: 'badges',      label: t('profile.tabBadges'),      Icon: Award },
+          { key: 'nvult',       label: 'Nvult',                      Icon: Bot },
+          { key: 'badges',      label: t('profile.tabBadges'),       Icon: Award },
           { key: 'skins',       label: t('profile.tabSkins'),       Icon: Shield },
           { key: 'leaderboard', label: t('profile.tabLeaderboard'), Icon: Users },
           { key: 'shop',        label: t('profile.tabShop'),        Icon: ShoppingCart },
@@ -290,28 +329,43 @@ export function ProfileView({
           {/* Badges */}
           <div>
             <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground/50 mb-2">{t('profile.badgesList')}</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {BADGES.map(badge => {
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {BADGES.map((badge, index) => {
                 const unlocked = gamification.unlockedBadges.includes(badge.id);
                 const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
                 return (
-                  <div key={badge.id} className={`rounded-xl border p-3 transition-all ${
-                    unlocked ? 'border-primary/25 bg-primary/5' : 'border-border/30 bg-secondary/20 opacity-50'
+                  <article key={badge.id} className={`group relative isolate overflow-hidden rounded-2xl border p-3.5 transition-all duration-300 ${
+                    unlocked
+                      ? 'border-primary/30 bg-gradient-to-br from-primary/[.10] via-card/80 to-violet-400/[.05] shadow-[inset_0_1px_rgba(255,255,255,.04),0_8px_24px_rgba(0,0,0,.12)]'
+                      : 'border-border/30 bg-secondary/[.16] opacity-75 hover:opacity-100'
                   }`}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        unlocked ? 'bg-primary/15 text-primary' : 'bg-secondary/50 text-muted-foreground/40'
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-7 h-20 w-20 rounded-full blur-2xl transition-opacity" style={{ background: unlocked ? 'rgba(45,212,191,.13)' : 'rgba(148,163,184,.04)' }} />
+                    <div className="relative flex items-start gap-3">
+                      <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner ${
+                        unlocked ? 'border-primary/35 bg-primary/[.12] text-primary' : 'border-border/40 bg-background/50 text-muted-foreground/45'
                       }`}>
-                        {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                        <div className="absolute inset-1 rounded-lg border border-white/[.06]" />
+                        {unlocked ? <Icon size={20} strokeWidth={1.7} /> : <Lock size={15} />}
+                        {unlocked && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,.8)]" />}
                       </div>
-                      <span className="text-xs font-medium text-foreground truncate">{t(`badge.${badge.id}`)}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-semibold text-foreground">{t(`badge.${badge.id}`)}</span>
+                          {unlocked && <Check size={11} className="shrink-0 text-emerald-300" />}
+                        </div>
+                        <div className="mt-1 text-[9px] font-mono uppercase tracking-[.12em] text-muted-foreground/50">
+                          {unlocked ? 'CONQUISTA DESBLOQUEADA' : `NÍVEL ${number(badge.levelRequired, 0)}`}
+                        </div>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-secondary/80">
+                          <div className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-300 transition-all" style={{ width: unlocked ? '100%' : Math.min(92, Math.max(4, level / Math.max(1, badge.levelRequired) * 100)) + '%' }} />
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[9px] font-mono text-muted-foreground/40">
-                      {unlocked
-                        ? `${t('profile.unlocked')} · +${badge.levelGrant} ${t('profile.levels')}`
-                        : `${t('profile.level')} ${badge.levelRequired}`}
+                    <div className="relative mt-3 flex items-center justify-between border-t border-border/25 pt-2 text-[9px] font-mono text-muted-foreground/55">
+                      <span>{unlocked ? 'RECOMPENSA RECEBIDA' : 'PRÓXIMA META'}</span>
+                      <span className={unlocked ? 'text-primary' : 'text-muted-foreground/60'}>{unlocked ? `+${number(badge.levelGrant, 0)} LVL` : `LVL ${number(badge.levelRequired, 0)}`}</span>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -357,70 +411,75 @@ export function ProfileView({
 
       {/* ── Skins Tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'skins' && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          {SKINS.map(skin => {
-            const serverOwned = skin.premium ? isSkinOwned(skin.id) : false;
-            const unlocked = skin.premium ? serverOwned : gamification.unlockedSkins.includes(skin.id);
-            const equipped = gamification.equippedSkin === skin.id;
-            const busy = isProductBusy(skin.id);
-            const canBuy = canBuyProduct(skin.id);
-            return (
-              <div key={skin.id} className={`rounded-xl border p-3 transition-all relative overflow-hidden ${
-                equipped ? 'border-primary/30 bg-primary/8' : unlocked ? 'border-border/30 bg-secondary/20' : 'border-border/20 bg-secondary/10'
-              }`}>
-                {/* Skin preview gradient */}
-                <div className={`h-12 rounded-lg mb-2 ${
-                  skin.id === 'default' ? 'bg-primary/10 border border-primary/20' :
-                  skin.id === 'bronze' ? 'bg-gradient-to-br from-orange-400/20 to-orange-600/10 border border-orange-400/25' :
-                  skin.id === 'silver' ? 'bg-gradient-to-br from-slate-300/20 to-slate-500/10 border border-slate-300/25' :
-                  skin.id === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/25' :
-                  skin.id === 'platinum' ? 'bg-gradient-to-br from-cyan-300/20 to-cyan-500/10 border border-cyan-300/25' :
-                  skin.id === 'premium-500' ? 'bg-gradient-to-br from-amber-400/25 to-amber-600/15 border border-amber-400/35' :
-                  skin.id === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/45' :
-                  'bg-secondary/40'
-                }`}>
-                  <div className="w-full h-full flex items-center justify-center">
-                    {skin.premium && <Crown size={16} className="text-amber-400/60" />}
-                  </div>
-                </div>
-                <div className="text-xs font-medium text-foreground mb-1">{t(`skin.${skin.id}`)}</div>
-                {!unlocked && skin.premium && (
-                  <div className="text-[10px] font-mono text-amber-400/70 mb-1.5">${skin.price} {PAYMENT_TOKEN_SYMBOL}</div>
-                )}
-                {!unlocked && !skin.premium && (
-                  <div className="text-[9px] font-mono text-muted-foreground/40">{t('profile.level')} {skin.levelRequired}</div>
-                )}
-                {equipped ? (
-                  <div className="text-[9px] font-mono text-primary flex items-center gap-1">
-                    <Check size={10} /> {t('profile.equipped')}
-                  </div>
-                ) : unlocked ? (
-                  <button onClick={() => onEquipSkin(skin.id)}
-                    className="text-[9px] font-mono text-primary/60 hover:text-primary transition-colors cursor-pointer">
-                    {t('profile.equip')}
-                  </button>
-                ) : skin.premium ? (
-                  <>
-                    <button
-                      onClick={() => onBuySkin(skin.id)}
-                      disabled={busy || !walletAddress || !canBuy}
-                      className="text-[9px] font-mono text-amber-400/70 hover:text-amber-400 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      {!walletAddress ? t('purchase.connectWallet') :
-                       !canBuy ? t('purchase.limitReached') :
-                       busy ? t('purchase.processing') :
-                       t('profile.buy')}
-                    </button>
-                    {renderPurchaseStatus(skin.id)}
-                  </>
-                ) : (
-                  <div className="text-[9px] font-mono text-muted-foreground/30 flex items-center gap-1">
-                    <Lock size={9} /> {t('profile.locked')}
-                  </div>
-                )}
+        <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-[#081521] via-card to-[#0d1020] p-4 sm:p-5">
+            <div className="pointer-events-none absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(34,211,238,.12), transparent 35%), radial-gradient(circle at 90% 80%, rgba(139,92,246,.10), transparent 35%)' }} />
+            <div className="relative flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="mb-1 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[.22em] text-primary/70"><Sparkles size={11} /> Character lab / 02</div>
+                <h3 className="text-base font-semibold text-white">Coleção de skins</h3>
+                <p className="mt-1 max-w-md text-[10px] leading-relaxed text-slate-400">Personalize sua identidade no Perfil. Cada skin tem uma assinatura visual e pode ser equipada quando desbloqueada.</p>
               </div>
-            );
-          })}
+              <div className="rounded-xl border border-primary/20 bg-primary/[.07] px-3 py-2">
+                <div className="text-[8px] font-mono uppercase tracking-wider text-primary/60">Coleção</div>
+                <div className="text-lg font-semibold text-white">{gamification.unlockedSkins.length}<span className="ml-1 text-xs font-normal text-slate-500">/ {SKINS.length}</span></div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {SKINS.map(skin => {
+              const serverOwned = skin.premium ? isSkinOwned(skin.id) : false;
+              const unlocked = skin.premium ? serverOwned : gamification.unlockedSkins.includes(skin.id);
+              const equipped = gamification.equippedSkin === skin.id;
+              const busy = isProductBusy(skin.id);
+              const canBuy = canBuyProduct(skin.id);
+              const theme = skin.id === 'bronze' ? { edge: '#fb923c', light: 'rgba(251,146,60,.17)', label: 'BRONZE / FORGED' } :
+                skin.id === 'silver' ? { edge: '#cbd5e1', light: 'rgba(203,213,225,.17)', label: 'SILVER / TITANIUM' } :
+                skin.id === 'gold' ? { edge: '#fbbf24', light: 'rgba(251,191,36,.18)', label: 'GOLD / ASCENSION' } :
+                skin.id === 'platinum' ? { edge: '#67e8f9', light: 'rgba(103,232,249,.17)', label: 'PLATINUM / OVERDRIVE' } :
+                skin.id === 'premium-500' ? { edge: '#fb7185', light: 'rgba(251,113,133,.18)', label: 'PREMIUM / PHANTOM' } :
+                skin.id === 'premium-1000' ? { edge: '#c4b5fd', light: 'rgba(196,181,253,.2)', label: 'PREMIUM / SINGULARITY' } :
+                { edge: '#2dd4bf', light: 'rgba(45,212,191,.16)', label: 'GENESIS / STANDARD' };
+              return (
+                <article key={skin.id} className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${equipped ? 'border-primary/50 bg-primary/[.06] shadow-[0_0_24px_rgba(45,212,191,.08)]' : 'border-border/40 bg-card/70 hover:border-primary/25'}`}>
+                  <div className="relative h-32 overflow-hidden border-b border-white/[.06]" style={{ background: 'radial-gradient(ellipse at 50% 70%, ' + theme.light + ', transparent 60%), linear-gradient(135deg, #101827, #050a13)' }}>
+                    <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,.12) 1px, transparent 1px),linear-gradient(90deg,rgba(148,163,184,.12) 1px,transparent 1px)', backgroundSize: '18px 18px' }} />
+                    <div className="absolute left-3 top-3 flex items-center gap-1.5 text-[8px] font-mono tracking-[.16em]" style={{ color: theme.edge }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 8px ' + theme.edge }} /> {theme.label}</div>
+                    <svg viewBox="0 0 120 150" role="img" aria-label={`Prévia da skin ${theme.label}`} className="absolute bottom-[-8px] left-1/2 h-[142px] w-[116px] -translate-x-1/2 drop-shadow-[0_10px_16px_rgba(0,0,0,.55)] transition-transform duration-300 group-hover:scale-[1.04]">
+                      <defs>
+                        <linearGradient id={`skin-body-${skin.id}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e2e8f0"/><stop offset=".32" stopColor="#64748b"/><stop offset=".7" stopColor="#1e293b"/><stop offset="1" stopColor="#020617"/></linearGradient>
+                        <linearGradient id={`skin-face-${skin.id}`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#111827"/><stop offset="1" stopColor="#020617"/></linearGradient>
+                      </defs>
+                      <ellipse cx="60" cy="139" rx="28" ry="4" fill={theme.edge} opacity=".25"/>
+                      <path d="M42 91 L54 94 L50 119 L44 135 L32 134 L36 112 Z M66 94 L78 91 L84 112 L88 134 L76 135 L70 119 Z" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeOpacity=".6" strokeWidth="1.4"/>
+                      <path d="M32 52 L23 62 L17 89 L24 94 L35 74 L43 65 M88 52 L97 62 L103 89 L96 94 L85 74 L77 65" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeOpacity=".7" strokeWidth="1.5" strokeLinejoin="round"/>
+                      <path d="M40 48 L80 48 L91 65 L83 98 Q60 111 37 98 L29 65 Z" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeWidth="1.7"/>
+                      <path d="M43 57 L60 64 L77 57 L73 79 L60 88 L47 79 Z" fill="#020617" stroke={theme.edge} strokeWidth="1.2"/>
+                      <path d="M51 67 L60 74 L69 67 L65 81 L60 84 L55 81 Z" fill={theme.edge} opacity=".85"/>
+                      <path d="M45 89 L60 94 L75 89" fill="none" stroke={theme.edge} strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M48 27 L52 22 L68 22 L72 27 L77 40 L72 53 L60 59 L48 53 L43 40 Z" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeWidth="1.5"/>
+                      <path d="M47 36 L53 32 L67 32 L73 36 L71 45 L65 49 L55 49 L49 45 Z" fill={`url(#skin-face-${skin.id})`} stroke={theme.edge} strokeOpacity=".7"/>
+                      <path d="M52 39 L57 39 M63 39 L68 39" stroke={theme.edge} strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M50 24 L54 15 L66 15 L70 24" fill="none" stroke={theme.edge} strokeWidth="2.5" strokeLinecap="round"/>
+                      <path d="M60 15 L64 7 L60 3 L56 7 Z" fill={theme.edge} opacity=".9"/>
+                      <path d="M39 58 L31 72 M81 58 L89 72" stroke={theme.edge} strokeWidth="2" opacity=".8"/>
+                    </svg>
+                    {skin.premium && <div className="absolute right-3 top-3 rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[8px] font-mono text-amber-200"><Crown size={10} className="mr-1 inline" /> PREMIUM</div>}
+                    {equipped && <div className="absolute bottom-3 right-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[8px] font-mono text-emerald-200"><Check size={10} className="mr-1 inline" /> ATIVA</div>}
+                  </div>
+                  <div className="p-3.5">
+                    <div className="flex items-start justify-between gap-2"><div><h4 className="text-sm font-semibold text-foreground">{t(`skin.${skin.id}`)}</h4><p className="mt-1 text-[9px] font-mono text-muted-foreground/50">{skin.premium ? 'PERSONALIZAÇÃO PREMIUM' : 'RECOMPENSA DE PROGRESSÃO'}</p></div><div className="text-right">{!unlocked && skin.premium ? <div className="font-mono text-sm font-semibold text-amber-300">${skin.price}<span className="ml-1 text-[9px] text-muted-foreground/50">{PAYMENT_TOKEN_SYMBOL}</span></div> : !unlocked ? <div className="text-[9px] font-mono text-muted-foreground/50">NÍVEL {skin.levelRequired}</div> : <div className="text-[9px] font-mono text-emerald-300">DESBLOQUEADA</div>}</div></div>
+                    <div className="mt-3">
+                      {equipped ? <div className="flex items-center gap-1.5 text-[10px] font-mono text-primary"><Check size={12} /> {t('profile.equipped')}</div> :
+                       unlocked ? <button onClick={() => onEquipSkin(skin.id)} className="w-full rounded-lg border border-primary/25 bg-primary/[.07] px-3 py-2 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/[.12]">{t('profile.equip')} skin</button> :
+                       skin.premium ? <><button onClick={() => onBuySkin(skin.id)} disabled={busy || !walletAddress || !canBuy} className="w-full rounded-lg border border-amber-300/25 bg-amber-300/[.07] px-3 py-2 text-[10px] font-semibold text-amber-200 transition-colors hover:bg-amber-300/[.12] disabled:cursor-not-allowed disabled:opacity-30">{!walletAddress ? t('purchase.connectWallet') : !canBuy ? t('purchase.limitReached') : busy ? t('purchase.processing') : t('profile.buy')}</button>{renderPurchaseStatus(skin.id)}{renderLimitBadge(skin.id)}</> :
+                       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40"><Lock size={11} /> Desbloqueie ao alcançar o nível exigido</div>}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -606,6 +665,15 @@ export function ProfileView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Nvult prototype: local demo only; no real token or payment is used. */}
+      {activeTab === 'nvult' && (
+        <NvultPrototype
+          equippedSkin={gamification.equippedSkin}
+          level={level}
+          xp={gamification.xp}
+        />
       )}
     </div>
   );
