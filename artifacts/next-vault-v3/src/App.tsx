@@ -640,6 +640,11 @@ function Home() {
   const connectWithWallet = async (wallet: WalletInfo) => {
     const prov = wallet.provider;
     const session = ++walletSessionRef.current;
+    // Never keep NV's modal/backdrop mounted while a wallet extension handles
+    // authorization. This also guarantees cleanup if the provider rejects,
+    // hangs, or switches browser focus.
+    setShowWalletPicker(false);
+    setShowDisconnect(false);
     try {
       // Request account access first; do not block the connected UI on network switching or RPC balances.
       const accounts = await getAccounts(prov);

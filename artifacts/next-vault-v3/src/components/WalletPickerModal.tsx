@@ -22,9 +22,13 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
   }, [open]);
 
   const handleSelect = useCallback((wallet: WalletInfo) => {
+    // Close our overlay before the extension opens its own authorization UI.
+    // Keeping a full-screen backdrop mounted while MetaMask/Phantom is active
+    // can leave the NV interface visually dark or apparently frozen.
     setConnecting(wallet.id);
+    onClose();
     onSelect(wallet);
-  }, [onSelect]);
+  }, [onClose, onSelect]);
 
   useEffect(() => {
     if (!open) setConnecting(null);
