@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
@@ -14,6 +14,7 @@ import { SolanaBridgePanel } from './SolanaBridgePanel';
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
   connectedAddress: string | null;
+  envMode: EnvMode;
 }
 
 // ─── Network display metadata ─────────────────────────────────────────────────
@@ -81,14 +82,9 @@ function getNetworkName(id: string): string {
 export function BridgeView({
   provider,
   connectedAddress,
+  envMode,
 }: BridgeViewProps) {
   const routes = getBridgeRoutes();
-
-  // ─────────────────────────────────────────────────────────────
-  // ENV MODE (testnet / mainnet)
-  // ─────────────────────────────────────────────────────────────
-
-  const [envMode, setEnvMode] = useState<EnvMode>('testnet');
 
   // ─────────────────────────────────────────────────────────────
   // ROTAS DISPONÍVEIS para o modo atual
@@ -150,18 +146,14 @@ export function BridgeView({
     Number(amount) > 0 &&
     status !== 'processing';
 
-  // ─────────────────────────────────────────────────────────────
-  // TROCAR MODO (testnet / mainnet)
-  // ─────────────────────────────────────────────────────────────
-
-  function switchEnvMode(mode: EnvMode) {
-    setEnvMode(mode);
-    setFromNetwork(DEFAULT_FROM[mode]);
-    setToNetwork(DEFAULT_TO[mode]);
+  // Keep Bridge route state aligned with the single global environment selector.
+  useEffect(() => {
+    setFromNetwork(DEFAULT_FROM[envMode]);
+    setToNetwork(DEFAULT_TO[envMode]);
     setStatus('idle');
     setMessage('');
     setAmount('');
-  }
+  }, [envMode]);
 
   // ─────────────────────────────────────────────────────────────
   // TROCAR REDES
@@ -332,37 +324,6 @@ export function BridgeView({
           </div>
 
         </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────
-          ENV MODE TOGGLE (Testnet / Mainnet)
-      ───────────────────────────────────────────── */}
-
-      <div className="flex rounded-xl border border-border/40 overflow-hidden text-sm font-medium">
-        <button
-          type="button"
-          onClick={() => switchEnvMode('testnet')}
-          disabled={status === 'processing'}
-          className={`flex-1 py-2 transition-all disabled:cursor-not-allowed ${
-            envMode === 'testnet'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary/20 text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          🧪 Testnet
-        </button>
-        <button
-          type="button"
-          onClick={() => switchEnvMode('mainnet')}
-          disabled={status === 'processing'}
-          className={`flex-1 py-2 transition-all disabled:cursor-not-allowed ${
-            envMode === 'mainnet'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary/20 text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          🌐 Mainnet
-        </button>
       </div>
 
       {/* ─────────────────────────────────────────────

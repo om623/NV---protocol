@@ -321,41 +321,6 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
   );
 }
 
-// ─── NetworkBadge ─────────────────────────────────────────────────────────────
-
-function NetworkBadge({ envMode, activeNetwork, className = '' }: {
-  envMode: EnvMode;
-  activeNetwork: NetworkConfig;
-  className?: string;
-}) {
-  const { t } = useI18n();
-  const isTestnet = envMode === 'testnet';
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={`${envMode}-${activeNetwork.id}`}
-        initial={{ opacity: 0, scale: 0.9, y: -4 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 4 }}
-        transition={{ duration: 0.2 }}
-        className={twMerge(
-          'inline-flex items-center gap-2 px-4 py-1.5 rounded-full border font-mono text-sm font-semibold tracking-wide',
-          isTestnet
-            ? 'bg-green-500/8 border-green-500/25 text-green-400 shadow-[0_0_18px_rgba(34,197,94,0.08)]'
-            : 'bg-amber-500/8 border-amber-500/25 text-amber-400 shadow-[0_0_18px_rgba(245,158,11,0.08)]',
-          className,
-        )}
-      >
-        <span className="text-base leading-none">{isTestnet ? '🧪' : '🌐'}</span>
-        <span className="tracking-widest text-xs" translate="no">{isTestnet ? t('net.testnet') : t('net.mainnet')}</span>
-        <span className="opacity-40 select-none">•</span>
-        <div className={`w-2 h-2 rounded-full ${activeNetwork.color} animate-pulse shrink-0`} />
-        <span className="text-xs" translate="no">{activeNetwork.shortName}</span>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
 // ─── MarketPanel (removed — replaced by MarketGrid component) ─────────────────
 
 // ─── SidebarContent ───────────────────────────────────────────────────────────
@@ -1191,7 +1156,7 @@ function Home() {
                 className="lg:hidden p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0">
                 <Menu size={18} />
               </button>
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 lg:hidden">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center relative animate-shield-glow shrink-0">
                   <div className="absolute inset-0 rounded-lg bg-primary/15 blur-md opacity-40" />
                   <Shield size={15} className="text-primary relative z-10" />
@@ -1203,25 +1168,11 @@ function Home() {
               </div>
             </div>
 
-            {/* Center: network badge (desktop) */}
-            <div className="hidden lg:flex items-center justify-center flex-1">
-              <NetworkBadge envMode={envMode} activeNetwork={activeNetwork} />
-            </div>
+            <div className="hidden lg:block flex-1" />
 
             {/* Right: env indicator + selector + mismatch + wallet */}
             <div className="flex items-center gap-2 shrink-0">
 
-              {/* Permanent environment indicator: Testnet • Arc | Mainnet (Em breve) */}
-              <span className={`hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2 py-1 rounded-full border tracking-widest ${
-                envMode === 'testnet'
-                  ? 'text-green-400 border-green-400/25 bg-green-400/6'
-                  : 'text-amber-400 border-amber-400/25 bg-amber-400/6'
-              }`}>
-                {envMode === 'testnet' ? '🧪' : '🌐'}
-                <span className="hidden md:inline ml-0.5">
-                  {envMode === 'testnet' ? t('net.testnetArc') : t('net.mainnetBase')}
-                </span>
-              </span>
 
               <EnvNetworkSelector
                 envMode={envMode}
@@ -1290,11 +1241,6 @@ function Home() {
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Network badge row — mobile */}
-          <div className="lg:hidden flex items-center justify-center py-2 border-t border-border/30">
-            <NetworkBadge envMode={envMode} activeNetwork={activeNetwork} />
           </div>
 
           {/* Network mismatch banner — mobile */}
@@ -1404,6 +1350,7 @@ function Home() {
                <BridgeView
                   provider={provider}
                   connectedAddress={connectedAddress}
+                  envMode={envMode}
                 />
               )}
               
