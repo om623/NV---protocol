@@ -800,6 +800,22 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     }
   }
 
+  const agentSlotLabels: Record<string, Record<string, string>> = {
+    'pt-BR': { amount:'valor', sourceToken:'token de origem', destinationToken:'token de destino', fromNetwork:'rede de origem', toNetwork:'rede de destino', token:'token', recipient:'destinatário', product:'produto' },
+    en: { amount:'amount', sourceToken:'source token', destinationToken:'destination token', fromNetwork:'source network', toNetwork:'destination network', token:'token', recipient:'recipient', product:'product' },
+    es: { amount:'importe', sourceToken:'token de origen', destinationToken:'token de destino', fromNetwork:'red de origen', toNetwork:'red de destino', token:'token', recipient:'destinatario', product:'producto' },
+    fr: { amount:'montant', sourceToken:'jeton source', destinationToken:'jeton de destination', fromNetwork:'réseau source', toNetwork:'réseau de destination', token:'jeton', recipient:'destinataire', product:'produit' },
+    zh: { amount:'金额', sourceToken:'源代币', destinationToken:'目标代币', fromNetwork:'源网络', toNetwork:'目标网络', token:'代币', recipient:'接收地址', product:'产品' },
+    ja: { amount:'金額', sourceToken:'送信元トークン', destinationToken:'送信先トークン', fromNetwork:'送信元ネットワーク', toNetwork:'送信先ネットワーク', token:'トークン', recipient:'受取人', product:'商品' },
+    ko: { amount:'금액', sourceToken:'소스 토큰', destinationToken:'대상 토큰', fromNetwork:'소스 네트워크', toNetwork:'대상 네트워크', token:'토큰', recipient:'수신자', product:'상품' },
+    hi: { amount:'राशि', sourceToken:'स्रोत टोकन', destinationToken:'गंतव्य टोकन', fromNetwork:'स्रोत नेटवर्क', toNetwork:'गंतव्य नेटवर्क', token:'टोकन', recipient:'प्राप्तकर्ता', product:'उत्पाद' },
+    ar: { amount:'المبلغ', sourceToken:'رمز المصدر', destinationToken:'رمز الوجهة', fromNetwork:'شبكة المصدر', toNetwork:'شبكة الوجهة', token:'الرمز', recipient:'المستلم', product:'المنتج' },
+  };
+  function localizeAgentSlots(slots: string[]): string[] {
+    const labels = agentSlotLabels[locale] ?? agentSlotLabels.en;
+    return slots.map(slot => labels[slot] ?? slot);
+  }
+
   async function translateToEnglish(text: string): Promise<string> {
     if (!text.trim() || locale === 'en') return text;
     try {
@@ -972,7 +988,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: pendingAction, timestamp: Date.now() }]);
           executeAgentAction(pendingAction);
         } else {
-          const baseMsg = 'Before execution, missing: ' + missing.join(', ') + '.';
+          const baseMsg = 'Before execution, missing: ' + localizeAgentSlots(missing).join(', ') + '.';
           const msg = await localizeText(baseMsg, locale);
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         }
@@ -984,7 +1000,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
           setPendingAction(action);
           const missing = missingNVAction(action);
           const baseMsg = missing.length
-            ? `${summarizeNVAction(action)}. Still missing: ${missing.join(', ')}.`
+            ? `${summarizeNVAction(action)}. Still missing: ${localizeAgentSlots(missing).join(', ')}.`
             : `${summarizeNVAction(action)}. Ready to execute. Say “execute”.`;
           const msg = await localizeText(baseMsg, locale);
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: missing.length ? undefined : action, timestamp: Date.now() }]);
