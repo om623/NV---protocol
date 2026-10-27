@@ -7,7 +7,12 @@ const NETS:Array<[RegExp,string]>=[
  [/arbitrum sepolia/i,'arbitrum-sepolia'],[/optimism sepolia/i,'optimism-sepolia'],[/ethereum sepolia|sepolia/i,'sepolia'],[/base sepolia/i,'base-sepolia'],[/arc testnet/i,'arc-testnet'],[/arc mainnet/i,'arc-mainnet'],
  [/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/\bbase\b/i,'base'],[/\barc\b/i,'arc-mainnet']
 ];
-function amount(q:string){const m=q.match(/(?:^|\s)(\d+(?:[.,]\d+)?)(?=\s|$)/);if(!m)return null;const n=Number(m[1].replace(',','.'));return n>0?n:null;}
+function amount(q:string){
+ const labelled=q.match(/(?:valor(?:\s+de)?|amount(?:\s+of)?|value(?:\s+of)?)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
+ const tokenAmount=q.match(/\b(?:USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\s+(\d+(?:[.,]\d+)?)/i);
+ const plain=q.match(/(?:^|\s)(\d+(?:[.,]\d+)?)(?=\s|$)/);
+ const raw=labelled?.[1]??tokenAmount?.[1]??plain?.[1];if(!raw)return null;const n=Number(raw.replace(',','.'));return n>0?n:null;
+}
 function tokens(q:string){return TOKENS.flatMap(t=>{const m=new RegExp('\\b'+t+'\\b','i').exec(q);return m?[{v:t==='MATIC'?'POL':t,i:m.index}]:[]}).sort((a,b)=>a.i-b.i).map(x=>x.v);}
 function networks(q:string){const out:{v:string;i:number}[]=[];let work=q;for(const [re,v] of NETS){const m=re.exec(work);if(m){out.push({v,i:m.index});work=work.slice(0,m.index)+' '.repeat(m[0].length)+work.slice(m.index+m[0].length)}}return out.sort((a,b)=>a.i-b.i).map(x=>x.v);}
 export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
@@ -30,7 +35,13 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];}
  if(intent==='transfer'&&ts[0])params.token=ts[0];
  if(intent==='bridge'){if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
- if(intent==='payment'){if(/1000/.test(l))params.product='premium-1000';else if(/500/.test(l))params.product='premium-500';else if(/trimestral|quarterly|300 xp/.test(l))params.product='xp-quarterly';else if(/semanal|weekly|60 xp/.test(l))params.product='xp-weekly';else if(/di[aá]rio|daily|30 xp/.test(l))params.product='xp-daily';}
+ if(intent==='payment'){
+   if(/(?:skin|premium).*1000|1000.*(?:skin|premium)/i.test(l))params.product='premium-1000';
+   else if(/(?:skin|premium).*500|500.*(?:skin|premium)/i.test(l))params.product='premium-500';
+   else if(/trimestral|quarterly|300\s*xp/i.test(l))params.product='xp-quarterly';
+   else if(/semanal|weekly|60\s*xp/i.test(l))params.product='xp-weekly';
+   else if(/di[aá]rio|daily|30\s*xp/i.test(l))params.product='xp-daily';
+ }
  return{intent,params,confidence:intent==='chat'?.3:1};
 }
 export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTurn):AgentAction|null{
