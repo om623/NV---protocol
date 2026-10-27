@@ -16,6 +16,7 @@ import type { NewsItem, AgentResponse, AgentAction } from './intelligence';
 import type { NVAgentContext }                 from './agentContext';
 import type { MarketAsset }                    from './marketData';
 import type { TvlEntry }                       from './tvl';
+import { matchNVAgentUtterance }               from './agentUtterances';
 
 // Re-export AgentResponse so callers only need to import from one place
 export type { AgentResponse } from './intelligence';
@@ -189,6 +190,15 @@ const KNOWN_ASSETS = [
 function detectIntent(q: string): QueryIntent {
   const lq = q.toLowerCase().replace(/[?!.,;:]/g, ' ');
   const words = lq.split(/\s+/);
+
+  // Broad deterministic language coverage: 1,000 curated/generated utterances
+  // across 20 intent families. Specific transaction safety rules below still
+  // override ambiguous cross-chain wording.
+  const utteranceIntent = matchNVAgentUtterance(lq);
+  if (utteranceIntent) {
+    if (utteranceIntent === 'action_swap' && parseAgentNetworks(lq).length >= 2) return 'action_bridge';
+    return utteranceIntent;
+  }
 
   // Action intents — checked FIRST. A request that says "swap" but names two
   // different networks is cross-chain and must go through Bridge, never the
