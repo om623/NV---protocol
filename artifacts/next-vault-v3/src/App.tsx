@@ -477,30 +477,7 @@ function Home() {
         const fromSymbol = String(request.params.sourceToken ?? sourceToken);
         const toSymbol = String(request.params.destinationToken ?? destToken);
         if (!(value > 0)) throw new Error('Informe o valor do swap no chat.');
-
-        // CCTP is an existing real NV route and has priority for cross-chain
-        // USDC → USDC requests. It works on supported testnets and mainnets.
-        const requestedFromNetwork = String(request.params.fromNetwork ?? activeNetwork.id);
-        const requestedToNetwork = String(request.params.toNetwork ?? '');
-        const cctpRequested = fromSymbol === 'USDC' && toSymbol === 'USDC' && !!requestedToNetwork && requestedFromNetwork !== requestedToNetwork;
-        if (cctpRequested) {
-          const source = getCctpNetwork(requestedFromNetwork);
-          const destination = getCctpNetwork(requestedToNetwork);
-          if (!source) throw new Error('Rede CCTP de origem não suportada: ' + requestedFromNetwork);
-          if (!destination) throw new Error('Rede CCTP de destino não suportada: ' + requestedToNetwork);
-          if (source.isMainnet !== destination.isMainnet) throw new Error('CCTP não permite cruzar testnet e mainnet na mesma operação.');
-          const result = await executeBridge({ provider: prov, fromNetwork: requestedFromNetwork, toNetwork: requestedToNetwork, walletAddress: connectedAddress, amount: value });
-          if (!result.success) throw new Error(result.error ?? 'CCTP não concluído.');
-          const hash = result.mintTxHash ?? result.burnTxHash;
-          publishAgentExecutionResult({ id: request.id, ok: true, message: 'Swap cross-chain USDC concluído via CCTP V2. Hash: ' + (hash ?? 'indisponível'), txHash: hash });
-          return;
-        }
-
-        // Token exchange on the same chain uses LI.FI and therefore requires a
-        // supported mainnet. Testnet token swaps are never silently rerouted.
-        if (activeNetwork.type !== 'mainnet') {
-          throw new Error('Este par é um swap de tokens na mesma rede. LI.FI está disponível nas mainnets. Para usar CCTP, peça USDC → USDC informando rede de origem e destino.');
-        }
+        if (activeNetwork.type !== 'mainnet') throw new Error('O executor direto LI.FI está disponível nas mainnets compatíveis.');
         const tokens = getNetworkTokens(activeNetwork);
         const from = tokens.find(item => item.symbol === fromSymbol);
         const to = tokens.find(item => item.symbol === toSymbol);
