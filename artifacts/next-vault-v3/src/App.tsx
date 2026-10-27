@@ -468,7 +468,8 @@ function Home() {
         if (token.isNative) hash = await transferNative(prov, connectedAddress, recipient, value);
         else if (token.address) hash = await transferErc20(prov, connectedAddress, token.address, recipient, value, token.decimals);
         else throw new Error('Configuração do token incompleta.');
-        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Transferência enviada. Hash: ' + hash, txHash: hash });
+        logNVActivity({ category: 'transfer', action: 'Transferência enviada pelo NV Agent', details: value + ' ' + symbol + ' → ' + recipient, txHash: hash, network: activeNetwork.name });
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Transferência enviada. ' + value + ' ' + symbol + ' → ' + recipient + '. Hash: ' + hash, txHash: hash });
         return;
       }
 
@@ -513,7 +514,9 @@ function Home() {
           ? await purchases.buyProduct({ provider: prov, productId, productType: 'skin', amountUsd: skin.price ?? 0 })
           : await purchases.buyProduct({ provider: prov, productId, productType: 'xp', amountUsd: xpPackage!.price, xpAmount: xpPackage!.xp });
         if (!result.success) throw new Error(result.error ?? 'Pagamento não confirmado.');
-        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Compra confirmada: ' + productId + '.' });
+        const paymentHash = result.txHash ?? undefined;
+        logNVActivity({ category: 'payment', action: 'Pagamento concluído pelo NV Agent', details: productId, txHash: paymentHash, network: 'Base' });
+        publishAgentExecutionResult({ id: request.id, ok: true, message: 'Compra confirmada: ' + productId + (paymentHash ? '. Hash: ' + paymentHash : '.'), txHash: paymentHash });
         return;
       }
 
