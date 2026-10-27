@@ -1355,6 +1355,7 @@ function Home() {
                <BridgeView
                   provider={provider}
                   connectedAddress={connectedAddress}
+                  envMode={envMode}
                 />
               )}
               
