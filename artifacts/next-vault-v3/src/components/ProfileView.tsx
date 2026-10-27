@@ -136,27 +136,42 @@ export function ProfileView({
       {/* ── Profile Header Card ───────────────────────────────────────────── */}
       <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
-          {/* Avatar */}
-          <div style={{ clipPath: "polygon(18% 0, 82% 0, 100% 22%, 100% 78%, 82% 100%, 18% 100%, 0 78%, 0 22%)" }} className={`relative w-20 h-20 flex items-center justify-center shrink-0 shadow-[0_0_24px_rgba(34,211,238,.10)] ${
-            gamification.equippedSkin === 'gold' ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/30' :
-            gamification.equippedSkin === 'silver' ? 'bg-gradient-to-br from-slate-300/15 to-slate-500/10 border border-slate-300/25' :
-            gamification.equippedSkin === 'bronze' ? 'bg-gradient-to-br from-orange-400/15 to-orange-600/10 border border-orange-400/25' :
-            gamification.equippedSkin === 'platinum' ? 'bg-gradient-to-br from-cyan-300/15 to-cyan-500/10 border border-cyan-300/25' :
-            gamification.equippedSkin === 'premium-500' ? 'bg-gradient-to-br from-amber-400/25 to-amber-600/15 border border-amber-400/40' :
-            gamification.equippedSkin === 'premium-1000' ? 'bg-gradient-to-br from-amber-300/30 to-amber-500/20 border border-amber-300/50' :
-            'bg-primary/10 border border-primary/20'
-          }`}>
-            <div className="absolute inset-1 rounded-[inherit] border border-primary/20" />
-            <div className="absolute inset-2 rounded-[inherit] opacity-60" style={{ backgroundImage: 'linear-gradient(135deg, transparent 38%, rgba(45,212,191,.12), transparent 70%)' }} />
-            <div className="relative flex flex-col items-center gap-0.5">
-              <Shield size={25} className="text-primary drop-shadow-[0_0_10px_rgba(34,211,238,.6)]" />
-              <span className="text-[10px] font-mono font-bold tracking-wider text-primary">{String(level).padStart(3, '0')}</span>
+          {/* Futuristic profile insignia: custom NV identity mark, not a generic shield. */}
+          <div className="relative shrink-0">
+            <div aria-hidden="true" className="absolute -inset-2 rounded-[1.4rem] bg-primary/10 blur-xl" />
+            <div className={`relative flex h-[5.75rem] w-[5.75rem] items-center justify-center overflow-hidden rounded-[1.35rem] border shadow-[inset_0_0_22px_rgba(34,211,238,.10),0_0_28px_rgba(34,211,238,.12)] ${
+              gamification.equippedSkin === 'gold' || gamification.equippedSkin === 'premium-500' || gamification.equippedSkin === 'premium-1000' ? 'border-amber-300/50 bg-gradient-to-br from-amber-300/20 via-[#0c1424] to-amber-700/10' :
+              gamification.equippedSkin === 'silver' ? 'border-slate-200/40 bg-gradient-to-br from-slate-200/15 via-[#0c1424] to-slate-500/10' :
+              gamification.equippedSkin === 'bronze' ? 'border-orange-300/40 bg-gradient-to-br from-orange-300/15 via-[#0c1424] to-orange-700/10' :
+              gamification.equippedSkin === 'platinum' ? 'border-cyan-200/50 bg-gradient-to-br from-cyan-200/20 via-[#0c1424] to-blue-500/10' :
+              'border-primary/35 bg-gradient-to-br from-primary/15 via-[#0a1423] to-violet-500/10'
+            }`}>
+              <div aria-hidden="true" className="absolute inset-1 rounded-[1rem] border border-white/10" />
+              <div aria-hidden="true" className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(rgba(103,232,249,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,.12) 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
+              <svg viewBox="0 0 100 100" role="img" aria-label="Emblema futurista do perfil NV" className="relative z-10 h-[4.6rem] w-[4.6rem] drop-shadow-[0_0_12px_rgba(34,211,238,.45)]">
+                <defs>
+                  <linearGradient id="profile-nv-shell" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#e0f2fe"/><stop offset=".34" stopColor="#67e8f9"/><stop offset=".7" stopColor="#0e7490"/><stop offset="1" stopColor="#172554"/></linearGradient>
+                  <linearGradient id="profile-nv-face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#172033"/><stop offset="1" stopColor="#020617"/></linearGradient>
+                  <filter id="profile-nv-glow"><feGaussianBlur stdDeviation="1.7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <path d="M50 5 77 16 91 39 84 69 63 89 50 95 37 89 16 69 9 39 23 16Z" fill="none" stroke="url(#profile-nv-shell)" strokeWidth="1.6" opacity=".8"/>
+                <path d="M50 12 72 21 83 40 77 65 60 81 50 86 40 81 23 65 17 40 28 21Z" fill="#081323" stroke="url(#profile-nv-shell)" strokeWidth="2"/>
+                <path d="M31 34 39 26 61 26 69 34 73 54 63 66 50 72 37 66 27 54Z" fill="url(#profile-nv-face)" stroke="#94a3b8" strokeWidth="1.4"/>
+                <path d="M31 39 42 35 46 39 54 39 58 35 69 39 66 49 58 54 42 54 34 49Z" fill="#020617" stroke="#164e63" strokeWidth="1.2"/>
+                <path d="M38 43 45 43 M55 43 62 43" stroke="#67e8f9" strokeWidth="3.8" strokeLinecap="round" filter="url(#profile-nv-glow)"/>
+                <path d="M43 60 50 64 57 60" fill="none" stroke="#a5f3fc" strokeWidth="1.6" strokeLinecap="round"/>
+                <path d="M50 5V15 M5 50H15 M85 50H95 M50 85V95" stroke="#67e8f9" strokeWidth="1.4" opacity=".8"/>
+                <circle cx="50" cy="18" r="2" fill="#ecfeff" filter="url(#profile-nv-glow)"/>
+              </svg>
+              <div className="absolute bottom-1.5 right-1.5 rounded-md border border-primary/40 bg-[#07111f]/90 px-1.5 py-0.5 text-[9px] font-mono font-bold tracking-wider text-primary">{String(level).padStart(3, '0')}</div>
+              <div className="absolute left-2 top-2 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#6ee7b7]" />
+              {gamification.equippedTitle && (
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
+                  {t(`title.${gamification.equippedTitle}`)}
+                </div>
+              )}
             </div>
-            {gamification.equippedTitle && (
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/25 text-[9px] font-mono text-primary whitespace-nowrap">
-                {t(`title.${gamification.equippedTitle}`)}
-              </div>
-            )}
+            <div className="mt-2 text-center text-[8px] font-mono uppercase tracking-[.22em] text-primary/60">NV / IDENTITY</div>
           </div>
 
           {/* Level & XP */}
