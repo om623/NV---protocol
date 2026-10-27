@@ -63,6 +63,7 @@ import {
   getEditorialFocus,
 } from '../lib/intelligence';
 import { agentQuery }        from '../lib/agentApi';
+import { actionComplete, actionSummary, isCancelCommand, isExecuteCommand, missingActionFields, patchPendingAction } from '../lib/agentActionOrchestrator';
 import { buildFullContext }  from '../lib/agentContext';
 import type { NVAgentContext } from '../lib/agentContext';
 import { getAllAssets, getMarketSentiment } from '../lib/marketData';
@@ -935,64 +936,39 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       // always kept in the chat, and financial identifiers remain unchanged.
       const semantic = await understandSemantically(question);
 
-      // Deterministic pending-action slot extraction is the safety net when the
-      // semantic provider is unavailable or misclassifies a terse follow-up.
-      // It deliberately runs before any new market/query routing.
-      if (pendingAction?.type === 'swap') {
-        const amountMatch = question.match(/(?:^|\\s)(\\d+(?:[.,]\\d+)?)(?=\\s|$)/);
-        const tokenMatches = [...question.toUpperCase().matchAll(/\\b(USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\\b/g)]
-          .map(m => m[1] === 'MATIC' ? 'POL' : m[1]);
-        const patch: Record<string, string | number> = {};
-        if (amountMatch) {
-          const n = Number(amountMatch[1].replace(',', '.'));
-          if (Number.isFinite(n) && n > 0) patch.amount = n;
-        }
-        if (tokenMatches[0]) patch.sourceToken = tokenMatches[0];
-        if (tokenMatches[1]) patch.destinationToken = tokenMatches[1];
-        if (Object.keys(patch).length) {
-          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
-          setPendingAction(updated);
-          const p = updated.params ?? {};
-          const complete = p.amount != null && p.sourceToken && p.destinationToken && p.sourceToken !== p.destinationToken;
-          const summary = complete
-            ? `Swap pronto para revisão: ${p.amount} ${p.sourceToken} → ${p.destinationToken}.`
-            : locale === 'pt-BR'
-              ? 'Atualizei o Swap. Ainda faltam parâmetros para concluir a preparação.'
-              : 'I updated the Swap. Some parameters are still missing.';
-          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: complete ? updated : undefined, timestamp: Date.now() }]);
-          if (!voiceMuted) enqueueNVVoice(summary, locale);
+      // A pending financial operation owns the next turn. This prevents terse
+      // slot-filling replies from falling through into market/news intents.
+      if (pendingAction) {
+        if (isCancelCommand(question)) {
+          setPendingAction(null);
+          const cancelled = locale === 'pt-BR' ? 'Operação cancelada. Nenhuma transação foi enviada.' : 'Operation cancelled. No transaction was sent.';
+          setMessages(prev => [...prev, { role: 'assistant', content: cancelled, sources: [], timestamp: Date.now() }]);
+          if (!voiceMuted) enqueueNVVoice(cancelled, locale);
           return;
         }
+        const semanticPatch = semantic ? {
+          amount: semantic.amount, token: semantic.token?.toUpperCase(), sourceToken: semantic.sourceToken?.toUpperCase(),
+          destinationToken: semantic.destinationToken?.toUpperCase(), recipient: semantic.recipient,
+          fromNetwork: semantic.fromNetwork, toNetwork: semantic.toNetwork, product: semantic.product,
+        } : null;
+        const updated = patchPendingAction(pendingAction, question, semanticPatch);
+        setPendingAction(updated);
+        if (isExecuteCommand(question) && actionComplete(updated)) {
+          const summary = (locale === 'pt-BR' ? 'Confirmado. ' : 'Confirmed. ') + actionSummary(updated);
+          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: updated, timestamp: Date.now() }]);
+          executeAgentAction(updated);
+          return;
+        }
+        const missing = missingActionFields(updated);
+        const ready = missing.length === 0;
+        const summary = ready
+          ? (locale === 'pt-BR' ? `${actionSummary(updated)} Pronto para executar. Confirme no chat.` : `${actionSummary(updated)} Ready to execute. Confirm in chat.`)
+          : (locale === 'pt-BR' ? `${actionSummary(updated)} Ainda falta: ${missing.join(', ')}.` : `${actionSummary(updated)} Still missing: ${missing.join(', ')}.`);
+        setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: ready ? updated : undefined, timestamp: Date.now() }]);
+        if (!voiceMuted) enqueueNVVoice(summary, locale);
+        return;
       }
 
-      // Carry an unfinished operation across turns BEFORE honoring a generic
-      // semantic clarification. A short reply such as "valor: 0.001 de USDC
-      // para EURC" is a slot-fill for the pending Swap, not a new market query.
-      if (pendingAction && semantic) {
-        const patch: Record<string, string | number | null> = {
-          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
-          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
-          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
-          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
-          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
-          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
-          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
-          ...(semantic.product ? { product: semantic.product } : {}),
-        };
-        if (Object.keys(patch).length) {
-          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
-          setPendingAction(updated);
-          const params = updated.params ?? {};
-          const summary = updated.type === 'swap'
-            ? `Swap atualizado: ${params.amount ?? '?'} ${params.sourceToken ?? '?'} → ${params.destinationToken ?? '?'}.`
-            : locale === 'pt-BR'
-              ? 'Atualizei a operação pendente com os novos parâmetros.'
-              : 'I updated the pending operation with the new parameters.';
-          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: updated, timestamp: Date.now() }]);
-          if (!voiceMuted) enqueueNVVoice(summary, locale);
-          return;
-        }
-      }
       if (semantic?.needsClarification && semantic.clarification) {
         const clarification = await localizeText(semantic.clarification, locale);
         setMessages(prev => [...prev, { role: 'assistant', content: clarification, sources: [], timestamp: Date.now() }]);
