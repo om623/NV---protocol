@@ -842,6 +842,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
 
   useEffect(() => subscribeAgentExecutionResult(result => {
     setExecutingActionId(current => current === result.id ? null : current);
+    if (result.ok) setPendingAction(null);
     const content = result.ok
       ? (locale === 'pt-BR' ? `Operação concluída. ${result.message}` : `Operation completed. ${result.message}`)
       : (locale === 'pt-BR' ? `Não consegui concluir a operação. ${result.message}` : `I could not complete the operation. ${result.message}`);
@@ -974,31 +975,6 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         setMessages(prev => [...prev, { role: 'assistant', content: clarification, sources: [], timestamp: Date.now() }]);
         if (!voiceMuted) enqueueNVVoice(clarification, locale);
         return;
-      }
-      // Carry an unfinished operation across turns. The user can say things like
-      // "mude para 0.01", "use Base Sepolia" or "para Base" without repeating
-      // the whole transaction request.
-      if (pendingAction && semantic && !isFinancialActionIntent(semantic.intent)) {
-        const patch: Record<string, string | number | null> = {
-          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
-          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
-          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
-          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
-          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
-          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
-          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
-          ...(semantic.product ? { product: semantic.product } : {}),
-        };
-        if (Object.keys(patch).length) {
-          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
-          setPendingAction(updated);
-          const summary = locale === 'pt-BR'
-            ? 'Atualizei a operação pendente. Revise os parâmetros e execute quando estiver pronto.'
-            : 'I updated the pending operation. Review the parameters and execute when ready.';
-          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: updated, timestamp: Date.now() }]);
-          if (!voiceMuted) enqueueNVVoice(summary, locale);
-          return;
-        }
       }
       const semanticQuestion = semantic?.rewritten?.trim() || question;
       const normalizedQuestion = locale === 'en' ? semanticQuestion : await localizeText(semanticQuestion, 'en');
