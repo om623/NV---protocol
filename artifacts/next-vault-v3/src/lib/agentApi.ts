@@ -727,7 +727,7 @@ function parseAmount(q: string): number | null {
     // Natural action requests often say "no valor de 0.001" and omit the
     // token because Bridge is USDC-only. Accept an explicitly labelled value,
     // while still refusing arbitrary numbers such as chain IDs.
-    const labelled = q.match(/(?:valor(?:\\s+de)?|amount(?:\\s+of)?|value(?:\\s+of)?)\\s*[:=]?\\s*(\\d+(?:[.,]\\d+)?)/i);
+    const labelled = q.match(/(?:valor(?:\s+de)?|amount(?:\s+of)?|value(?:\s+of)?)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
     if (!labelled) return null;
     const n = parseFloat(labelled[1].replace(',', '.'));
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -813,7 +813,7 @@ function answerActionTransfer(
   const action: AgentAction = {
     type: 'transfer',
       executeInChat: true,
-    navigateTo: 'carteira',
+    navigateTo: 'consulte',
     params: {
       amount: amount ?? null,
       recipient: recipient ?? null,
