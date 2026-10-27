@@ -49,9 +49,10 @@ export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTu
  const type=turn.intent as AgentAction['type']; const base=current?.type===type?current.params??{}:{};
  return{type,executeInChat:true,navigateTo:type==='transfer'?'consulte':type==='payment'?'perfil':type,params:{...base,...turn.params}};
 }
-export function missingNVAction(a:AgentAction):string[]{const p=a.params??{},m:string[]=[];
- if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('valor');if(!p.sourceToken)m.push('token de origem');if(!p.destinationToken)m.push('token de destino');}
- if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('valor');if(!p.fromNetwork)m.push('rede de origem');if(!p.toNetwork)m.push('rede de destino');}
- if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('valor');if(!p.token)m.push('token');if(!p.recipient)m.push('destinatário');}
- if(a.type==='payment'&&!p.product)m.push('produto');return m;}
+export type NVActionSlot='amount'|'sourceToken'|'destinationToken'|'fromNetwork'|'toNetwork'|'token'|'recipient'|'product';
+export function missingNVAction(a:AgentAction):NVActionSlot[]{const p=a.params??{},m:NVActionSlot[]=[];
+ if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('amount');if(!p.sourceToken)m.push('sourceToken');if(!p.destinationToken)m.push('destinationToken');}
+ if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('amount');if(!p.fromNetwork)m.push('fromNetwork');if(!p.toNetwork)m.push('toNetwork');}
+ if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('amount');if(!p.token)m.push('token');if(!p.recipient)m.push('recipient');}
+ if(a.type==='payment'&&!p.product)m.push('product');return m;}
 export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
