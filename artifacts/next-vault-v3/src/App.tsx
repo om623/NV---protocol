@@ -1191,7 +1191,7 @@ function Home() {
                 className="lg:hidden p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0">
                 <Menu size={18} />
               </button>
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 lg:hidden">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center relative animate-shield-glow shrink-0">
                   <div className="absolute inset-0 rounded-lg bg-primary/15 blur-md opacity-40" />
                   <Shield size={15} className="text-primary relative z-10" />
@@ -1203,25 +1203,11 @@ function Home() {
               </div>
             </div>
 
-            {/* Center: network badge (desktop) */}
-            <div className="hidden lg:flex items-center justify-center flex-1">
-              <NetworkBadge envMode={envMode} activeNetwork={activeNetwork} />
-            </div>
+            <div className="hidden lg:block flex-1" />
 
             {/* Right: env indicator + selector + mismatch + wallet */}
             <div className="flex items-center gap-2 shrink-0">
 
-              {/* Permanent environment indicator: Testnet • Arc | Mainnet (Em breve) */}
-              <span className={`hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2 py-1 rounded-full border tracking-widest ${
-                envMode === 'testnet'
-                  ? 'text-green-400 border-green-400/25 bg-green-400/6'
-                  : 'text-amber-400 border-amber-400/25 bg-amber-400/6'
-              }`}>
-                {envMode === 'testnet' ? '🧪' : '🌐'}
-                <span className="hidden md:inline ml-0.5">
-                  {envMode === 'testnet' ? t('net.testnetArc') : t('net.mainnetBase')}
-                </span>
-              </span>
 
               <EnvNetworkSelector
                 envMode={envMode}
