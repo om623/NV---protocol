@@ -194,6 +194,12 @@ function detectIntent(q: string): QueryIntent {
   // Broad deterministic language coverage: 1,000 curated/generated utterances
   // across 20 intent families. Specific transaction safety rules below still
   // override ambiguous cross-chain wording.
+  // Bare financial verbs are valid intents too. Missing slots are handled by
+  // the action builders, which ask only for the parameters still required.
+  if (/^(por favor\\s+)?(fa[cç]a\\s+)?swap\\b/.test(lq) || /^(quero|preciso|vamos)\\s+(fazer\\s+)?swap\\b/.test(lq)) return 'action_swap';
+  if (/^(por favor\\s+)?(fa[cç]a\\s+)?bridge\\b/.test(lq) || /^(quero|preciso|vamos)\\s+(fazer\\s+)?bridge\\b/.test(lq)) return 'action_bridge';
+  if (/^(por favor\\s+)?(fa[cç]a\\s+)?(transferencia|transferência|transfer)\\b/.test(lq)) return 'action_transfer';
+
   const utteranceIntent = matchNVAgentUtterance(lq);
   if (utteranceIntent) {
     if (utteranceIntent === 'action_swap' && parseAgentNetworks(lq).length >= 2) return 'action_bridge';
