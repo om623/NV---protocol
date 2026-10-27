@@ -934,21 +934,30 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     try {
       // NV Agent Core v3 is the transaction authority. It runs synchronously
       // before translation, semantic AI, market data or conversational fallback.
-      const coreTurn = parseNVTurn(question, pendingAction);
+      // The transaction core understands the canonical financial vocabulary.
+      // Normalize any of the 9 supported UI languages before parsing, while
+      // preserving addresses, token symbols, amounts and network identifiers.
+      const coreInput = locale === 'pt-BR' || locale === 'en'
+        ? question
+        : await translateToEnglish(question);
+      const coreTurn = parseNVTurn(coreInput, pendingAction);
       if (coreTurn.intent === 'cancel' && pendingAction) {
         setPendingAction(null);
-        const msg = locale === 'pt-BR' ? 'Operação cancelada. Nada foi enviado.' : 'Operation cancelled. Nothing was sent.';
+        const baseMsg = locale === 'pt-BR' ? 'Operação cancelada. Nada foi enviado.' : 'Operation cancelled. Nothing was sent.';
+        const msg = await localizeText(baseMsg, locale);
         setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         return;
       }
       if (coreTurn.intent === 'confirm' && pendingAction) {
         const missing = missingNVAction(pendingAction);
         if (!missing.length) {
-          const msg = (locale === 'pt-BR' ? 'Confirmado. Executando ' : 'Confirmed. Executing ') + summarizeNVAction(pendingAction) + '.';
+          const baseMsg = 'Confirmed. Executing ' + summarizeNVAction(pendingAction) + '.';
+          const msg = await localizeText(baseMsg, locale);
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: pendingAction, timestamp: Date.now() }]);
           executeAgentAction(pendingAction);
         } else {
-          const msg = (locale === 'pt-BR' ? 'Antes de executar, falta: ' : 'Before execution, missing: ') + missing.join(', ') + '.';
+          const baseMsg = 'Before execution, missing: ' + missing.join(', ') + '.';
+          const msg = await localizeText(baseMsg, locale);
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         }
         return;
@@ -958,9 +967,10 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         if (action) {
           setPendingAction(action);
           const missing = missingNVAction(action);
-          const msg = missing.length
-            ? (locale === 'pt-BR' ? `${summarizeNVAction(action)}. Falta apenas: ${missing.join(', ')}.` : `${summarizeNVAction(action)}. Still missing: ${missing.join(', ')}.`)
-            : (locale === 'pt-BR' ? `${summarizeNVAction(action)}. Pronto para executar. Diga “execute”.` : `${summarizeNVAction(action)}. Ready. Say “execute”.`);
+          const baseMsg = missing.length
+            ? `${summarizeNVAction(action)}. Still missing: ${missing.join(', ')}.`
+            : `${summarizeNVAction(action)}. Ready to execute. Say “execute”.`;
+          const msg = await localizeText(baseMsg, locale);
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: missing.length ? undefined : action, timestamp: Date.now() }]);
           if (!voiceMuted) enqueueNVVoice(msg, locale);
           return;
