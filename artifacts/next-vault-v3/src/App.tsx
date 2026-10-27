@@ -321,41 +321,6 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
   );
 }
 
-// ─── NetworkBadge ─────────────────────────────────────────────────────────────
-
-function NetworkBadge({ envMode, activeNetwork, className = '' }: {
-  envMode: EnvMode;
-  activeNetwork: NetworkConfig;
-  className?: string;
-}) {
-  const { t } = useI18n();
-  const isTestnet = envMode === 'testnet';
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={`${envMode}-${activeNetwork.id}`}
-        initial={{ opacity: 0, scale: 0.9, y: -4 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 4 }}
-        transition={{ duration: 0.2 }}
-        className={twMerge(
-          'inline-flex items-center gap-2 px-4 py-1.5 rounded-full border font-mono text-sm font-semibold tracking-wide',
-          isTestnet
-            ? 'bg-green-500/8 border-green-500/25 text-green-400 shadow-[0_0_18px_rgba(34,197,94,0.08)]'
-            : 'bg-amber-500/8 border-amber-500/25 text-amber-400 shadow-[0_0_18px_rgba(245,158,11,0.08)]',
-          className,
-        )}
-      >
-        <span className="text-base leading-none">{isTestnet ? '🧪' : '🌐'}</span>
-        <span className="tracking-widest text-xs" translate="no">{isTestnet ? t('net.testnet') : t('net.mainnet')}</span>
-        <span className="opacity-40 select-none">•</span>
-        <div className={`w-2 h-2 rounded-full ${activeNetwork.color} animate-pulse shrink-0`} />
-        <span className="text-xs" translate="no">{activeNetwork.shortName}</span>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
 // ─── MarketPanel (removed — replaced by MarketGrid component) ─────────────────
 
 // ─── SidebarContent ───────────────────────────────────────────────────────────
