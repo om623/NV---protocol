@@ -1,7 +1,6 @@
 import type { AgentAction } from './intelligence';
 
 export type NVIntent='transfer'|'swap'|'bridge'|'payment'|'market'|'wallet'|'news'|'tvl'|'chat'|'cancel'|'confirm';
-export const CCTP_USDC_ONLY = true;
 export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number|null>;confidence:number;}
 const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX'];
 const NETS:Array<[RegExp,string]>=[
@@ -28,7 +27,7 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  else intent='chat';
  const params:Record<string,string|number|null>={};
  if(a)params.amount=a;if(addr)params.recipient=addr;
- if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
+ if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];}
  if(intent==='transfer'&&ts[0])params.token=ts[0];
  if(intent==='bridge'){if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
  if(intent==='payment'){if(/1000/.test(l))params.product='premium-1000';else if(/500/.test(l))params.product='premium-500';else if(/trimestral|quarterly|300 xp/.test(l))params.product='xp-quarterly';else if(/semanal|weekly|60 xp/.test(l))params.product='xp-weekly';else if(/di[aá]rio|daily|30 xp/.test(l))params.product='xp-daily';}
@@ -40,7 +39,7 @@ export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTu
  return{type,executeInChat:true,navigateTo:type==='transfer'?'consulte':type==='payment'?'perfil':type,params:{...base,...turn.params}};
 }
 export function missingNVAction(a:AgentAction):string[]{const p=a.params??{},m:string[]=[];
- if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('valor');if(!p.sourceToken)m.push('token de origem');if(!p.destinationToken)m.push('token de destino');if(p.sourceToken==='USDC'&&p.destinationToken==='USDC'){if(!p.fromNetwork)m.push('rede de origem');if(!p.toNetwork)m.push('rede de destino');}}
+ if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('valor');if(!p.sourceToken)m.push('token de origem');if(!p.destinationToken)m.push('token de destino');}
  if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('valor');if(!p.fromNetwork)m.push('rede de origem');if(!p.toNetwork)m.push('rede de destino');}
  if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('valor');if(!p.token)m.push('token');if(!p.recipient)m.push('destinatário');}
  if(a.type==='payment'&&!p.product)m.push('produto');return m;}
