@@ -63,6 +63,7 @@ import {
   getEditorialFocus,
 } from '../lib/intelligence';
 import { agentQuery }        from '../lib/agentApi';
+import { mergeNVAction, missingNVAction, parseNVTurn, summarizeNVAction } from '../lib/nvAgentCore';
 import { buildFullContext }  from '../lib/agentContext';
 import type { NVAgentContext } from '../lib/agentContext';
 import { getAllAssets, getMarketSentiment } from '../lib/marketData';
@@ -841,6 +842,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
 
   useEffect(() => subscribeAgentExecutionResult(result => {
     setExecutingActionId(current => current === result.id ? null : current);
+    if (result.ok) setPendingAction(null);
     const content = result.ok
       ? (locale === 'pt-BR' ? `Operação concluída. ${result.message}` : `Operation completed. ${result.message}`)
       : (locale === 'pt-BR' ? `Não consegui concluir a operação. ${result.message}` : `I could not complete the operation. ${result.message}`);
@@ -930,6 +932,41 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     setMessages(prev => [...prev, { role: 'user', content: question, timestamp: Date.now() }]);
     setLoading(true);
     try {
+      // NV Agent Core v3 is the transaction authority. It runs synchronously
+      // before translation, semantic AI, market data or conversational fallback.
+      const coreTurn = parseNVTurn(question, pendingAction);
+      if (coreTurn.intent === 'cancel' && pendingAction) {
+        setPendingAction(null);
+        const msg = locale === 'pt-BR' ? 'Operação cancelada. Nada foi enviado.' : 'Operation cancelled. Nothing was sent.';
+        setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
+        return;
+      }
+      if (coreTurn.intent === 'confirm' && pendingAction) {
+        const missing = missingNVAction(pendingAction);
+        if (!missing.length) {
+          const msg = (locale === 'pt-BR' ? 'Confirmado. Executando ' : 'Confirmed. Executing ') + summarizeNVAction(pendingAction) + '.';
+          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: pendingAction, timestamp: Date.now() }]);
+          executeAgentAction(pendingAction);
+        } else {
+          const msg = (locale === 'pt-BR' ? 'Antes de executar, falta: ' : 'Before execution, missing: ') + missing.join(', ') + '.';
+          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
+        }
+        return;
+      }
+      if (['swap','bridge','transfer','payment'].includes(coreTurn.intent)) {
+        const action = mergeNVAction(pendingAction, coreTurn);
+        if (action) {
+          setPendingAction(action);
+          const missing = missingNVAction(action);
+          const msg = missing.length
+            ? (locale === 'pt-BR' ? `${summarizeNVAction(action)}. Falta apenas: ${missing.join(', ')}.` : `${summarizeNVAction(action)}. Still missing: ${missing.join(', ')}.`)
+            : (locale === 'pt-BR' ? `${summarizeNVAction(action)}. Pronto para executar. Diga “execute”.` : `${summarizeNVAction(action)}. Ready. Say “execute”.`);
+          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: missing.length ? undefined : action, timestamp: Date.now() }]);
+          if (!voiceMuted) enqueueNVVoice(msg, locale);
+          return;
+        }
+      }
+
       // Normalize the question to English for intent detection, then localize the
       // answer back into the user's selected language. The original user text is
       // always kept in the chat, and financial identifiers remain unchanged.
