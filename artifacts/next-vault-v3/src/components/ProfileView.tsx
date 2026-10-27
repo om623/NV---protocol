@@ -329,28 +329,43 @@ export function ProfileView({
           {/* Badges */}
           <div>
             <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground/50 mb-2">{t('profile.badgesList')}</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {BADGES.map(badge => {
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {BADGES.map((badge, index) => {
                 const unlocked = gamification.unlockedBadges.includes(badge.id);
                 const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
                 return (
-                  <div key={badge.id} className={`rounded-xl border p-3 transition-all ${
-                    unlocked ? 'border-primary/25 bg-primary/5' : 'border-border/30 bg-secondary/20 opacity-50'
+                  <article key={badge.id} className={`group relative isolate overflow-hidden rounded-2xl border p-3.5 transition-all duration-300 ${
+                    unlocked
+                      ? 'border-primary/30 bg-gradient-to-br from-primary/[.10] via-card/80 to-violet-400/[.05] shadow-[inset_0_1px_rgba(255,255,255,.04),0_8px_24px_rgba(0,0,0,.12)]'
+                      : 'border-border/30 bg-secondary/[.16] opacity-75 hover:opacity-100'
                   }`}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        unlocked ? 'bg-primary/15 text-primary' : 'bg-secondary/50 text-muted-foreground/40'
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-7 h-20 w-20 rounded-full blur-2xl transition-opacity" style={{ background: unlocked ? 'rgba(45,212,191,.13)' : 'rgba(148,163,184,.04)' }} />
+                    <div className="relative flex items-start gap-3">
+                      <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner ${
+                        unlocked ? 'border-primary/35 bg-primary/[.12] text-primary' : 'border-border/40 bg-background/50 text-muted-foreground/45'
                       }`}>
-                        {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                        <div className="absolute inset-1 rounded-lg border border-white/[.06]" />
+                        {unlocked ? <Icon size={20} strokeWidth={1.7} /> : <Lock size={15} />}
+                        {unlocked && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,.8)]" />}
                       </div>
-                      <span className="text-xs font-medium text-foreground truncate">{t(`badge.${badge.id}`)}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-semibold text-foreground">{t(`badge.${badge.id}`)}</span>
+                          {unlocked && <Check size={11} className="shrink-0 text-emerald-300" />}
+                        </div>
+                        <div className="mt-1 text-[9px] font-mono uppercase tracking-[.12em] text-muted-foreground/50">
+                          {unlocked ? 'CONQUISTA DESBLOQUEADA' : `NÍVEL ${number(badge.levelRequired, 0)}`}
+                        </div>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-secondary/80">
+                          <div className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-300 transition-all" style={{ width: unlocked ? '100%' : Math.min(92, Math.max(4, level / Math.max(1, badge.levelRequired) * 100)) + '%' }} />
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[9px] font-mono text-muted-foreground/40">
-                      {unlocked
-                        ? `${t('profile.unlocked')} · +${badge.levelGrant} ${t('profile.levels')}`
-                        : `${t('profile.level')} ${badge.levelRequired}`}
+                    <div className="relative mt-3 flex items-center justify-between border-t border-border/25 pt-2 text-[9px] font-mono text-muted-foreground/55">
+                      <span>{unlocked ? 'RECOMPENSA RECEBIDA' : 'PRÓXIMA META'}</span>
+                      <span className={unlocked ? 'text-primary' : 'text-muted-foreground/60'}>{unlocked ? `+${number(badge.levelGrant, 0)} LVL` : `LVL ${number(badge.levelRequired, 0)}`}</span>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -430,13 +445,25 @@ export function ProfileView({
                   <div className="relative h-32 overflow-hidden border-b border-white/[.06]" style={{ background: 'radial-gradient(ellipse at 50% 70%, ' + theme.light + ', transparent 60%), linear-gradient(135deg, #101827, #050a13)' }}>
                     <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,.12) 1px, transparent 1px),linear-gradient(90deg,rgba(148,163,184,.12) 1px,transparent 1px)', backgroundSize: '18px 18px' }} />
                     <div className="absolute left-3 top-3 flex items-center gap-1.5 text-[8px] font-mono tracking-[.16em]" style={{ color: theme.edge }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 8px ' + theme.edge }} /> {theme.label}</div>
-                    <div className="absolute bottom-[-17px] left-1/2 h-24 w-24 -translate-x-1/2 rounded-[28px] border bg-gradient-to-br from-slate-300/70 via-slate-700 to-slate-950 shadow-[0_0_28px_rgba(0,0,0,.3)]" style={{ borderColor: theme.edge + '99', boxShadow: '0 0 28px ' + theme.light }}>
-                      <div className="absolute left-1/2 top-[-18px] h-9 w-9 -translate-x-1/2 rounded-[12px] border border-slate-300/70 bg-gradient-to-br from-slate-200 via-slate-600 to-slate-950" style={{ boxShadow: '0 0 12px ' + theme.light }}>
-                        <div className="absolute left-1 right-1 top-3 flex h-2 items-center justify-center gap-1 rounded-sm bg-slate-950"><span className="h-1 w-2 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 6px ' + theme.edge }} /><span className="h-1 w-2 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 6px ' + theme.edge }} /></div>
-                      </div>
-                      <div className="absolute left-3 right-3 top-7 h-1 rounded-full" style={{ background: theme.edge, boxShadow: '0 0 8px ' + theme.edge }} />
-                      <div className="absolute bottom-3 left-1/2 h-4 w-4 -translate-x-1/2 rounded-full border" style={{ borderColor: theme.edge, background: theme.light, boxShadow: '0 0 10px ' + theme.edge }} />
-                    </div>
+                    <svg viewBox="0 0 120 150" role="img" aria-label={`Prévia da skin ${theme.label}`} className="absolute bottom-[-8px] left-1/2 h-[142px] w-[116px] -translate-x-1/2 drop-shadow-[0_10px_16px_rgba(0,0,0,.55)] transition-transform duration-300 group-hover:scale-[1.04]">
+                      <defs>
+                        <linearGradient id={`skin-body-${skin.id}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e2e8f0"/><stop offset=".32" stopColor="#64748b"/><stop offset=".7" stopColor="#1e293b"/><stop offset="1" stopColor="#020617"/></linearGradient>
+                        <linearGradient id={`skin-face-${skin.id}`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#111827"/><stop offset="1" stopColor="#020617"/></linearGradient>
+                      </defs>
+                      <ellipse cx="60" cy="139" rx="28" ry="4" fill={theme.edge} opacity=".25"/>
+                      <path d="M42 91 L54 94 L50 119 L44 135 L32 134 L36 112 Z M66 94 L78 91 L84 112 L88 134 L76 135 L70 119 Z" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeOpacity=".6" strokeWidth="1.4"/>
+                      <path d="M32 52 L23 62 L17 89 L24 94 L35 74 L43 65 M88 52 L97 62 L103 89 L96 94 L85 74 L77 65" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeOpacity=".7" strokeWidth="1.5" strokeLinejoin="round"/>
+                      <path d="M40 48 L80 48 L91 65 L83 98 Q60 111 37 98 L29 65 Z" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeWidth="1.7"/>
+                      <path d="M43 57 L60 64 L77 57 L73 79 L60 88 L47 79 Z" fill="#020617" stroke={theme.edge} strokeWidth="1.2"/>
+                      <path d="M51 67 L60 74 L69 67 L65 81 L60 84 L55 81 Z" fill={theme.edge} opacity=".85"/>
+                      <path d="M45 89 L60 94 L75 89" fill="none" stroke={theme.edge} strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M48 27 L52 22 L68 22 L72 27 L77 40 L72 53 L60 59 L48 53 L43 40 Z" fill={`url(#skin-body-${skin.id})`} stroke={theme.edge} strokeWidth="1.5"/>
+                      <path d="M47 36 L53 32 L67 32 L73 36 L71 45 L65 49 L55 49 L49 45 Z" fill={`url(#skin-face-${skin.id})`} stroke={theme.edge} strokeOpacity=".7"/>
+                      <path d="M52 39 L57 39 M63 39 L68 39" stroke={theme.edge} strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M50 24 L54 15 L66 15 L70 24" fill="none" stroke={theme.edge} strokeWidth="2.5" strokeLinecap="round"/>
+                      <path d="M60 15 L64 7 L60 3 L56 7 Z" fill={theme.edge} opacity=".9"/>
+                      <path d="M39 58 L31 72 M81 58 L89 72" stroke={theme.edge} strokeWidth="2" opacity=".8"/>
+                    </svg>
                     {skin.premium && <div className="absolute right-3 top-3 rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[8px] font-mono text-amber-200"><Crown size={10} className="mr-1 inline" /> PREMIUM</div>}
                     {equipped && <div className="absolute bottom-3 right-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[8px] font-mono text-emerald-200"><Check size={10} className="mr-1 inline" /> ATIVA</div>}
                   </div>
