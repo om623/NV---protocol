@@ -40,7 +40,7 @@ export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTu
  return{type,executeInChat:true,navigateTo:type==='transfer'?'consulte':type==='payment'?'perfil':type,params:{...base,...turn.params}};
 }
 export function missingNVAction(a:AgentAction):string[]{const p=a.params??{},m:string[]=[];
- if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('valor');if(!p.sourceToken)m.push('token de origem');if(!p.destinationToken)m.push('token de destino');}
+ if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('valor');if(!p.sourceToken)m.push('token de origem');if(!p.destinationToken)m.push('token de destino');if(p.sourceToken==='USDC'&&p.destinationToken==='USDC'){if(!p.fromNetwork)m.push('rede de origem');if(!p.toNetwork)m.push('rede de destino');}}
  if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('valor');if(!p.fromNetwork)m.push('rede de origem');if(!p.toNetwork)m.push('rede de destino');}
  if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('valor');if(!p.token)m.push('token');if(!p.recipient)m.push('destinatário');}
  if(a.type==='payment'&&!p.product)m.push('produto');return m;}
