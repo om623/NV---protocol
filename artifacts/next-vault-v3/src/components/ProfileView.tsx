@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
+import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink, Bot } from 'lucide-react';
+import { NvultPrototype } from './NvultPrototype';
 import { useI18n, useFormat } from '../i18n';
 import {
   BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS,
@@ -46,7 +47,7 @@ export function ProfileView({
 }: ProfileViewProps) {
   const { t } = useI18n();
   const { number } = useFormat();
-  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop' | 'nvult'>('overview');
 
   const level = computeLevel(gamification);
   const milestone = nextMilestone(gamification);
@@ -224,6 +225,7 @@ export function ProfileView({
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border/30 overflow-x-auto">
         {([
           { key: 'overview',    label: t('profile.tabOverview'),    Icon: TrendingUp },
+          { key: 'nvult',       label: 'Nvult',                      Icon: Bot },
           { key: 'badges',      label: t('profile.tabBadges'),      Icon: Award },
           { key: 'skins',       label: t('profile.tabSkins'),       Icon: Shield },
           { key: 'leaderboard', label: t('profile.tabLeaderboard'), Icon: Users },
@@ -282,6 +284,11 @@ export function ProfileView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Nvult character lab: demonstration-only NvA, no real payment integration. */}
+      {activeTab === 'nvult' && (
+        <NvultPrototype equippedSkin={gamification.equippedSkin} level={level} xp={gamification.xp} />
       )}
 
       {/* ── Badges & Titles Tab ───────────────────────────────────────────── */}
