@@ -12,7 +12,7 @@ export type UtteranceIntent =
 const seeds: Record<UtteranceIntent, string[]> = {
  action_transfer:['envie usdc para','mande usdc para','transfira usdc para','quero enviar usdc','faça uma transferência','fazer transferência','enviar tokens para','mandar tokens para','pagar endereço','send usdc to'],
  action_bridge:['faça bridge de','fazer bridge de','execute bridge de','mova usdc de','mover usdc entre redes','leve usdc de','transferir entre redes','cross chain de','bridge usdc from','i want to bridge'],
- action_swap:['faça swap de','fazer swap de','troque por','trocar por','converta para','converter para','quero trocar','execute swap','swap tokens','i want to swap'],
+ action_swap:['faça swap','faca swap','quero swap','executar swap','iniciar swap','swap','faça swap de','fazer swap de','troque por','trocar por','converta para','converter para','quero trocar','execute swap','swap tokens','i want to swap'],
  action_payment:['compre a skin','comprar skin','compre xp','comprar xp','quero comprar','desbloqueie','comprar com usdc','faça uma compra','buy xp','buy skin'],
  market_price:['preço do btc','quanto vale eth','cotação do bitcoin','valor do ethereum','preço atual','quanto está','qual o preço','cotação atual','market price','how much is'],
  market_top:['top criptos','maiores criptos','ranking cripto','principais ativos','maiores moedas','top stablecoins','ranking de ativos','maiores por market cap','top crypto','largest assets'],
