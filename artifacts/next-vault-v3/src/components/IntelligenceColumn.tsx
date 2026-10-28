@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, ExternalLink, Newspaper } from 'lucide-react';
+import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, Newspaper, Play, Sparkles } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
@@ -111,31 +111,28 @@ export function IntelligenceColumn({
   return (
     <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
 
-      {/* Real technology trends — Hacker News, refreshed every 60 seconds */}
+      {/* Technology broadcast — one large, non-clickable screen */}
       <div className={panelCard}>
         <div className={panelLabel}>
           <Newspaper size={11} className="text-primary" />
           Tech Pulse
           <span className="ml-auto flex items-center gap-1 text-[8px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE · 60s</span>
         </div>
-        {techError && !techFeed ? <div className="text-[9px] font-mono text-muted-foreground/60">Live technology feed temporarily unavailable.</div> : null}
-        <div className="flex flex-col gap-2">
-          {techFeed?.items.slice(0,4).map((item, i) => (
-            <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="group relative overflow-hidden rounded-xl border border-border/40 bg-secondary/20 hover:border-primary/30 transition-all">
-              <div className="h-24 bg-gradient-to-br from-primary/10 via-background/60 to-cyan-500/10 flex items-center justify-center relative">
-                <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_50%_30%,rgba(0,229,188,0.22),transparent_55%)]" />
-                <img src={item.image} alt="" className="relative w-12 h-12 object-contain drop-shadow-[0_0_12px_rgba(0,229,188,0.25)] group-hover:scale-110 transition-transform" loading="lazy" />
-                <span className="absolute top-2 left-2 rounded-full border border-primary/20 bg-background/80 px-2 py-0.5 text-[7px] font-mono text-primary">TREND #{i+1}</span>
-                <span className="absolute top-2 right-2 rounded-full bg-background/80 px-2 py-0.5 text-[7px] font-mono text-emerald-400">{item.score} pts</span>
-              </div>
-              <div className="p-2.5">
-                <p className="text-[10px] font-medium leading-snug text-foreground/90 line-clamp-2">{item.title}</p>
-                <div className="mt-1.5 flex items-center gap-1.5 text-[8px] font-mono text-muted-foreground/50"><span className="truncate">{item.domain}</span><span>·</span><span>{item.comments} discussions</span><ExternalLink size={8} className="ml-auto opacity-60" /></div>
-              </div>
-            </a>
-          ))}
+        <div className="relative h-72 overflow-hidden rounded-2xl border border-primary/15 bg-background">
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background/40 to-background" />
+          <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_25%,rgba(0,229,188,0.28),transparent_50%)]" />
+          {techFeed?.items[0] ? <>
+            <div className="absolute inset-x-0 top-0 h-36 flex items-center justify-center">
+              <img src={techFeed.items[0].image} alt="" className="w-20 h-20 object-contain drop-shadow-[0_0_24px_rgba(0,229,188,0.35)]" />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent pt-14">
+              <div className="flex items-center gap-1.5 mb-2 text-[8px] font-mono text-primary"><Play size={9} fill="currentColor" /><span>TECHNOLOGY NOW</span><Sparkles size={9} /></div>
+              <p className="text-sm font-semibold leading-snug text-foreground">{techFeed.items[0].title}</p>
+              <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground/70">Real-time technology signal selected from current public technology discussions.</p>
+              <div className="mt-3 flex items-center justify-between text-[8px] font-mono text-muted-foreground/50"><span>{techFeed.items[0].score} pts · {techFeed.items[0].comments} discussions</span><span>{new Date(techFeed.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>
+            </div>
+          </> : <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-[10px] font-mono text-muted-foreground/60">{techError ? 'Technology signal temporarily unavailable.' : 'Loading technology signal…'}</div>}
         </div>
-        {techFeed && <div className="mt-2 pt-2 border-t border-border/30 flex justify-between text-[8px] font-mono text-muted-foreground/40"><span>Source: {techFeed.source}</span><span>{new Date(techFeed.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>}
       </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
