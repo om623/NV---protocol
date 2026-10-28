@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, Newspaper, Play, Sparkles } from 'lucide-react';
+import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, Tv } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
@@ -50,9 +50,6 @@ function MarketRow({ asset }: { asset: MarketAsset }) {
   );
 }
 
-interface TechTrend { id:string;title:string;url:string;domain:string;score:number;comments:number;publishedAt:string;image:string; }
-interface TechTrendFeed { source:string;updatedAt:string;refreshSeconds:number;items:TechTrend[]; }
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function IntelligenceColumn({
@@ -62,24 +59,7 @@ export function IntelligenceColumn({
   const [tipIdx] = useState(() => Math.floor(Math.random() * 5));
   const [marketGroups, setMarketGroups] = useState<MarketGroup[]>(() => getMarketGroups());
   const [marketRefreshing, setMarketRefreshing] = useState(false);
-  const [techFeed, setTechFeed] = useState<TechTrendFeed | null>(null);
-  const [techError, setTechError] = useState(false);
   const marketTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    const load = async () => {
-      try {
-        const response = await fetch('/api/tech-trends');
-        if (!response.ok) throw new Error('tech trends');
-        const data = await response.json() as TechTrendFeed;
-        if (live) { setTechFeed(data); setTechError(false); }
-      } catch { if (live) setTechError(true); }
-    };
-    load();
-    const timer = window.setInterval(load, 60_000);
-    return () => { live = false; window.clearInterval(timer); };
-  }, []);
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -111,28 +91,26 @@ export function IntelligenceColumn({
   return (
     <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
 
-      {/* Technology broadcast — one large, non-clickable screen */}
+      {/* CNN Business technology screen — deliberately non-clickable */}
       <div className={panelCard}>
         <div className={panelLabel}>
-          <Newspaper size={11} className="text-primary" />
-          Tech Pulse
-          <span className="ml-auto flex items-center gap-1 text-[8px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE · 60s</span>
+          <Tv size={11} className="text-primary" />
+          NV Tech TV
+          <span className="ml-auto text-[8px] text-muted-foreground/50">CNN BUSINESS</span>
         </div>
-        <div className="relative h-72 overflow-hidden rounded-2xl border border-primary/15 bg-background">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background/40 to-background" />
-          <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_25%,rgba(0,229,188,0.28),transparent_50%)]" />
-          {techFeed?.items[0] ? <>
-            <div className="absolute inset-x-0 top-0 h-36 flex items-center justify-center">
-              <img src={techFeed.items[0].image} alt="" className="w-20 h-20 object-contain drop-shadow-[0_0_24px_rgba(0,229,188,0.35)]" />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent pt-14">
-              <div className="flex items-center gap-1.5 mb-2 text-[8px] font-mono text-primary"><Play size={9} fill="currentColor" /><span>TECHNOLOGY NOW</span><Sparkles size={9} /></div>
-              <p className="text-sm font-semibold leading-snug text-foreground">{techFeed.items[0].title}</p>
-              <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground/70">Real-time technology signal selected from current public technology discussions.</p>
-              <div className="mt-3 flex items-center justify-between text-[8px] font-mono text-muted-foreground/50"><span>{techFeed.items[0].score} pts · {techFeed.items[0].comments} discussions</span><span>{new Date(techFeed.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>
-            </div>
-          </> : <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-[10px] font-mono text-muted-foreground/60">{techError ? 'Technology signal temporarily unavailable.' : 'Loading technology signal…'}</div>}
+        <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
+          <iframe
+            title="CNN Business Technology"
+            src="https://www.cnn.com/business"
+            className="absolute inset-0 h-full w-full border-0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/75 to-transparent px-3 py-2 text-[8px] font-mono">
+            <span className="text-primary">NV TECH TV</span><span className="text-white/70">CNN BUSINESS</span>
+          </div>
         </div>
+        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">Experimental embedded technology screen. Playback availability is controlled by CNN.</p>
       </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
