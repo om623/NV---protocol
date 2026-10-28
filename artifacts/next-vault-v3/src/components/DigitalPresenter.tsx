@@ -9,6 +9,8 @@ import {
   type DashboardContext,
   type EditorialEvent,
 } from '../lib/news';
+import { fetchAllNews } from '../lib/intelligence';
+import { fetchGlobalEquityHighlights } from '../lib/equities';
 
 interface DigitalPresenterProps {
   context: DashboardContext;
@@ -26,6 +28,7 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
   const [elapsedMin, setElapsedMin] = useState(0);
   const lastShownIdRef = useRef<string>('');
   const timerRef = useRef<number | null>(null);
+  const [marketBriefEvents, setMarketBriefEvents] = useState<EditorialEvent[]>([]);
 
   // Regenerate events when context or locale changes
   useEffect(() => {
@@ -51,6 +54,43 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
     locale,
   ]);
 
+
+  // Real global market brief: one live stock from every supported language/market,
+  // official Fed target range, plus real IPO/dividend/rate-cut headlines.
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      const now = Date.now();
+      const extra: EditorialEvent[] = [];
+      try {
+        const [quotes, news, fedRes] = await Promise.all([
+          fetchGlobalEquityHighlights(),
+          fetchAllNews(),
+          fetch('/api/fed-brief').then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        for (const q of quotes) {
+          if (q.price == null || q.change == null) continue;
+          extra.push({id:'equity_'+q.locale,category:'Global Equities',title:`${q.marketLabel} · ${q.symbol}`,description:`${q.name}: ${q.price.toLocaleString(localeBcp47,{maximumFractionDigits:2})} ${q.currency}; ${q.change>=0?'+':''}${q.change.toFixed(2)}% no último pregão.`,priority:'market_movement',color:q.change>=0?'emerald':'orange',timestamp:now});
+        }
+        if (fedRes?.targetLow != null && fedRes?.targetHigh != null) {
+          extra.push({id:'fed_rate',category:'Federal Reserve',title:'Fed Funds Target Range',description:`Federal Reserve: faixa-alvo atual de ${fedRes.targetLow}% a ${fedRes.targetHigh}%. Fonte oficial do Fed.`,priority:'recent_change',color:'cyan',timestamp:now});
+        }
+        const relevant = news.filter(n => /\b(ipo|initial public offering|dividend|dividendo|rate cut|interest rate cut|corte de juros|federal reserve|\bfed\b|fomc)\b/i.test(`${n.title} ${n.summary}`)).slice(0,5);
+        for (const n of relevant) {
+          const text=`${n.title}. ${n.summary||''}`.trim();
+          const cut=/rate cut|interest rate cut|corte de juros/i.test(text);
+          const ipo=/\bipo\b|initial public offering/i.test(text);
+          const div=/dividend|dividendo/i.test(text);
+          extra.push({id:'brief_'+n.id,category:cut?'Interest Rates':ipo?'IPO':div?'Dividends':'Federal Reserve',title:n.title,description:`${n.source}: ${n.summary||n.title}`,priority:'recent_change',color:cut?'violet':ipo?'cyan':div?'emerald':'neutral',timestamp:n.publishedMs||now});
+        }
+      } catch { /* Keep existing presenter events; never invent fallback market data. */ }
+      if (alive) setMarketBriefEvents(extra);
+    };
+    load();
+    const iv=window.setInterval(load,120000);
+    return()=>{alive=false;window.clearInterval(iv)};
+  }, [localeBcp47]);
+
   // Update "Atualizado há X min"
   useEffect(() => {
     const update = () => {
@@ -65,20 +105,21 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
   // Auto-rotate through events
   useEffect(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
-    if (events.length <= 1) return;
+    if (combinedEvents.length <= 1) return;
     timerRef.current = window.setInterval(() => {
       setEvtIdx(prev => {
-        const next = (prev + 1) % events.length;
-        lastShownIdRef.current = events[next]?.id ?? '';
+        const next = (prev + 1) % combinedEvents.length;
+        lastShownIdRef.current = combinedEvents[next]?.id ?? '';
         return next;
       });
     }, ROTATION_MS);
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
-  }, [events.length]);
+  }, [combinedEvents.length]);
 
-  const currentEvent = events[evtIdx];
+  const combinedEvents = useMemo(() => [...marketBriefEvents, ...events], [marketBriefEvents, events]);
+  const currentEvent = combinedEvents[evtIdx % Math.max(1, combinedEvents.length)];
 
   const handleSpeak = useCallback(() => {
     if (!currentEvent) return;
@@ -97,11 +138,11 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
 
   const handleNext = useCallback(() => {
     setEvtIdx(prev => {
-      const next = (prev + 1) % Math.max(1, events.length);
-      lastShownIdRef.current = events[next]?.id ?? '';
+      const next = (prev + 1) % Math.max(1, combinedEvents.length);
+      lastShownIdRef.current = combinedEvents[next]?.id ?? '';
       return next;
     });
-  }, [events.length]);
+  }, [combinedEvents.length]);
 
   const colors = useMemo(() => {
     return currentEvent ? colorClasses(currentEvent.color) : colorClasses('neutral');
@@ -228,7 +269,7 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
 
         {/* Expanded: all events */}
         <AnimatePresence>
-          {expanded && events.length > 1 && (
+          {expanded && combinedEvents.length > 1 && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -236,7 +277,7 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
               className="overflow-hidden"
             >
               <div className="mt-3 pt-3 border-t border-border/30 flex flex-col gap-1.5">
-                {events.map((evt, i) => {
+                {combinedEvents.map((evt, i) => {
                   const ec = colorClasses(evt.color);
                   return (
                     <button key={evt.id} onClick={() => { setEvtIdx(i); setExpanded(false); lastShownIdRef.current = evt.id; }}
@@ -261,21 +302,21 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
           </div>
           <div className="flex items-center gap-2">
             {/* Pagination dots */}
-            {events.length > 1 && (
+            {combinedEvents.length > 1 && (
               <div className="flex items-center gap-1">
-                {events.map((_, i) => (
-                  <button key={i} onClick={() => { setEvtIdx(i); lastShownIdRef.current = events[i]?.id ?? ''; }}
+                {combinedEvents.map((_, i) => (
+                  <button key={i} onClick={() => { setEvtIdx(i); lastShownIdRef.current = combinedEvents[i]?.id ?? ''; }}
                     className={`h-1 rounded-full transition-all cursor-pointer ${i === evtIdx ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/20 hover:bg-muted-foreground/40'}`}
                     aria-label={`Event ${i + 1}`} />
                 ))}
               </div>
             )}
             {/* Next button */}
-            {events.length > 1 && (
+            {combinedEvents.length > 1 && (
               <button onClick={handleNext}
                 className="text-[8px] font-mono text-muted-foreground/40 hover:text-foreground transition-colors cursor-pointer flex items-center gap-0.5"
                 title={t('presenter.next')} aria-label={t('presenter.next')}>
-                {evtIdx + 1}/{events.length}
+                {evtIdx + 1}/{combinedEvents.length}
                 <ChevronRight size={10} />
               </button>
             )}
