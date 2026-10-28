@@ -478,7 +478,7 @@ function Home() {
         const toSymbol = String(request.params.destinationToken ?? destToken);
         const requestedNetworkId = String(request.params.network ?? '');
         const swapNetwork = requestedNetworkId
-          ? networks.find(item => item.id === requestedNetworkId)
+          ? [...MAINNET_NETWORKS, ...TESTNET_NETWORKS].find(item => item.id === requestedNetworkId)
           : activeNetwork;
         if (!(value > 0)) throw new Error('Informe o valor do swap no chat.');
         if (!swapNetwork) throw new Error('A rede solicitada não está disponível no NV.');
