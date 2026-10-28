@@ -32,7 +32,7 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  else intent='chat';
  const params:Record<string,string|number|null>={};
  if(a)params.amount=a;if(addr)params.recipient=addr;
- if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];}
+ if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];if(ns[0])params.network=ns[0];}
  if(intent==='transfer'&&ts[0])params.token=ts[0];
  if(intent==='bridge'){if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
  if(intent==='payment'){
@@ -49,10 +49,10 @@ export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTu
  const type=turn.intent as AgentAction['type']; const base=current?.type===type?current.params??{}:{};
  return{type,executeInChat:true,navigateTo:type==='transfer'?'consulte':type==='payment'?'perfil':type,params:{...base,...turn.params}};
 }
-export type NVActionSlot='amount'|'sourceToken'|'destinationToken'|'fromNetwork'|'toNetwork'|'token'|'recipient'|'product';
+export type NVActionSlot='amount'|'sourceToken'|'destinationToken'|'network'|'fromNetwork'|'toNetwork'|'token'|'recipient'|'product';
 export function missingNVAction(a:AgentAction):NVActionSlot[]{const p=a.params??{},m:NVActionSlot[]=[];
  if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('amount');if(!p.sourceToken)m.push('sourceToken');if(!p.destinationToken)m.push('destinationToken');}
  if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('amount');if(!p.fromNetwork)m.push('fromNetwork');if(!p.toNetwork)m.push('toNetwork');}
  if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('amount');if(!p.token)m.push('token');if(!p.recipient)m.push('recipient');}
  if(a.type==='payment'&&!p.product)m.push('product');return m;}
-export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
+export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}${p.network?' · '+p.network:''}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
