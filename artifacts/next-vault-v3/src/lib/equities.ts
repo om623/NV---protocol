@@ -451,3 +451,18 @@ export function equityTypeBadge(type: EquityType): string {
   };
   return labels[type] ?? type.toUpperCase();
 }
+
+/** One live representative equity from every supported NV locale/market.
+ * Used by the presenter without requiring the user to switch language.
+ * Unavailable quotes are omitted; numbers are never fabricated.
+ */
+export async function fetchGlobalEquityHighlights(): Promise<Array<EquityQuote & { locale: string; marketLabel: string }>> {
+  const defs = LOCALE_TICKERS.map(group => ({ group, def: group.tickers.find(t => t.type === 'stock')! }));
+  const yahoo = defs.filter(x => x.def.source === 'yahoo');
+  const results = await Promise.all(yahoo.map(async ({ group, def }) => {
+    const q = await fetchYahooSingle(def.apiSymbol);
+    if (!q) return null;
+    return { symbol:def.symbol,name:def.name,type:def.type,currency:q.currency||def.currency,price:q.price,change:q.changePercent,isLive:true,fetchedAt:Date.now(),locale:group.locale,marketLabel:group.marketLabel };
+  }));
+  return results.filter((x): x is NonNullable<typeof x> => x !== null);
+}

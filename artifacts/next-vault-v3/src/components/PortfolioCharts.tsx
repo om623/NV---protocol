@@ -2,49 +2,33 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AreaChart, Area, PieChart, Pie, Cell,
-  BarChart, Bar, LineChart, Line,
+  BarChart, Bar,
   ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import { TrendingUp, ChartPie as PieIcon, ChartBar as BarChart2, Activity } from 'lucide-react';
-import { fetchPriceChart } from '../lib/api';
+import { fetchPriceChart, fetchCryptoPrices, fetchGlobalMarket, fetchFearGreed, fetchChainTvl } from '../lib/api';
 import { useI18n } from '../i18n';
 
 // ─── Portfolio Evolution (Area) — real 30-day ETH price from CoinGecko ────────
 
-interface EvolPoint { day: string; value: number; benchmark: number; }
-
-function genFallbackEvolution(): EvolPoint[] {
-  let base = 43200;
-  return Array.from({ length: 30 }, (_, i) => {
-    base += (Math.random() - 0.42) * 1400;
-    return { day: `D${i + 1}`, value: Math.round(base), benchmark: Math.round(base * 0.94) };
-  });
-}
+interface EvolPoint { day: string; value: number; start: number; }
 
 function EvolutionChart() {
   const { t } = useI18n();
-  const [data, setData] = useState<EvolPoint[]>(genFallbackEvolution);
+  const [data, setData] = useState<EvolPoint[]>([]);
 
   useEffect(() => {
     let alive = true;
     fetchPriceChart('ethereum', 30).then(prices => {
       if (!alive || prices.length < 2) return;
-      const benchmark = prices.map(p => p.v * 0.94);
-      setData(prices.map((p, i) => ({
-        day: `D${i + 1}`,
-        value: Math.round(p.v),
-        benchmark: Math.round(benchmark[i]),
-      })));
+      const start = prices[0].v;
+      setData(prices.map((p, i) => ({ day: `D${i + 1}`, value: Math.round(p.v), start: Math.round(start) })));
     }).catch(() => {});
     const iv = setInterval(() => {
       fetchPriceChart('ethereum', 30).then(prices => {
         if (!alive || prices.length < 2) return;
-        const benchmark = prices.map(p => p.v * 0.94);
-        setData(prices.map((p, i) => ({
-          day: `D${i + 1}`,
-          value: Math.round(p.v),
-          benchmark: Math.round(benchmark[i]),
-        })));
+        const start = prices[0].v;
+        setData(prices.map((p, i) => ({ day: `D${i + 1}`, value: Math.round(p.v), start: Math.round(start) })));
       }).catch(() => {});
     }, 60000);
     return () => { alive = false; clearInterval(iv); };
@@ -56,7 +40,7 @@ function EvolutionChart() {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.30daysBenchmark')}</span>
+        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.30days')}</span>
         <span className={`text-[10px] font-mono font-bold ${totalChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
           {totalChange >= 0 ? '+' : ''}{pctChange}%
         </span>
@@ -68,7 +52,7 @@ function EvolutionChart() {
               <stop offset="0%" stopColor="rgb(0,229,188)" stopOpacity={0.3} />
               <stop offset="100%" stopColor="rgb(0,229,188)" stopOpacity={0} />
             </linearGradient>
-            <linearGradient id="benchGrad" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="startGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="rgb(100,116,139)" stopOpacity={0.12} />
               <stop offset="100%" stopColor="rgb(100,116,139)" stopOpacity={0} />
             </linearGradient>
@@ -79,9 +63,9 @@ function EvolutionChart() {
           <Tooltip
             contentStyle={{ background: 'hsl(220 20% 6%)', border: '1px solid hsl(220 20% 14%)', borderRadius: 12, fontSize: 11, fontFamily: 'monospace' }}
             labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-            formatter={(v: number, n: string) => [`${v.toLocaleString()}`, n === 'value' ? t('portfolio.evolution') : 'Benchmark']}
+            formatter={(v: number, n: string) => [`${v.toLocaleString()}`, n === 'value' ? t('portfolio.evolution') : '30d start']}
           />
-          <Area type="monotone" dataKey="benchmark" stroke="rgb(100,116,139)" strokeWidth={1} strokeDasharray="4 4" fill="url(#benchGrad)" />
+          <Area type="monotone" dataKey="start" stroke="rgb(100,116,139)" strokeWidth={1} strokeDasharray="4 4" fill="url(#startGrad)" />
           <Area type="monotone" dataKey="value" stroke="rgb(0,229,188)" strokeWidth={2} fill="url(#evolGrad)" />
         </AreaChart>
       </ResponsiveContainer>
@@ -89,160 +73,21 @@ function EvolutionChart() {
   );
 }
 
-// ─── Allocation (Donut) ───────────────────────────────────────────────────────
-
-const ALLOCATION = [
-  { name: 'USDC',  value: 5420,  color: '#2775CA' },
-  { name: 'EURC',  value: 3200,  color: '#003399' },
-  { name: 'ETH',   value: 40110, color: '#627EEA' },
-];
+// ─── Allocation — real crypto market-cap composition ────────────────────────
 
 function AllocationChart() {
-  const { t } = useI18n();
-  const total = ALLOCATION.reduce((s, a) => s + a.value, 0);
-  return (
-    <div className="w-full">
-      <div className="relative" style={{ height: 150 }}>
-        <ResponsiveContainer width="100%" height={150}>
-          <PieChart>
-            <Pie
-              data={ALLOCATION}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={38}
-              outerRadius={56}
-              paddingAngle={3}
-              stroke="none"
-              isAnimationActive
-              animationDuration={600}
-            >
-              {ALLOCATION.map(a => <Cell key={a.name} fill={a.color} />)}
-            </Pie>
-            <Tooltip
-              contentStyle={{ background: 'hsl(220 20% 6%)', border: '1px solid hsl(220 20% 14%)', borderRadius: 12, fontSize: 11, fontFamily: 'monospace' }}
-              formatter={(v: number, n: string) => [`$${v.toLocaleString()} (${((v / total) * 100).toFixed(1)}%)`, n]}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-[8px] font-mono uppercase text-muted-foreground/40 tracking-widest">{t('portfolio.total')}</span>
-          <span className="text-sm font-mono font-bold text-foreground">${(total / 1000).toFixed(1)}k</span>
-        </div>
-      </div>
-      <div className="flex items-center justify-center gap-3 mt-2">
-        {ALLOCATION.map(a => (
-          <div key={a.name} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: a.color }} />
-            <span className="text-[9px] font-mono text-muted-foreground/60">{a.name}</span>
-            <span className="text-[9px] font-mono text-muted-foreground/40">{((a.value / total) * 100).toFixed(0)}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const [data, setData] = useState<{name:string;value:number;color:string}[]>([]);
+  useEffect(() => { let alive=true; const load=()=>fetchCryptoPrices().then(m=>{if(!alive)return; const colors=['#F7931A','#627EEA','#14F195','#2775CA']; setData(['BTC','ETH','SOL','USDC'].map((name,i)=>({name,value:m.get(name)?.market_cap||0,color:colors[i]})).filter(x=>x.value>0));}); load(); const iv=setInterval(load,60000); return()=>{alive=false;clearInterval(iv)};},[]);
+  const total=data.reduce((s,a)=>s+a.value,0);
+  if(!total) return <div className="h-[180px] flex items-center justify-center text-[10px] font-mono text-muted-foreground/50">Loading real market allocation…</div>;
+  return <div className="w-full"><div className="relative h-[150px]"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={56} paddingAngle={3} stroke="none">{data.map(a=><Cell key={a.name} fill={a.color}/>)}</Pie><Tooltip formatter={(v:number,n:string)=>[`$${(v/1e9).toFixed(1)}B (${((v/total)*100).toFixed(1)}%)`,n]}/></PieChart></ResponsiveContainer><div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] font-mono text-muted-foreground/50">MARKET CAP</div></div><div className="flex justify-center gap-3">{data.map(a=><span key={a.name} className="text-[9px] font-mono text-muted-foreground/60">{a.name} {((a.value/total)*100).toFixed(0)}%</span>)}</div></div>;
 }
 
-// ─── Performance (Bars) — strategy comparison ─────────────────────────────────
+// ─── Performance — real 24h market performance ───────────────────────────────
+function PerformanceChart(){const [data,setData]=useState<{name:string;change:number}[]>([]);useEffect(()=>{let alive=true;const load=()=>fetchCryptoPrices().then(m=>{if(alive)setData(['BTC','ETH','SOL','LINK','AAVE','ARB'].map(name=>({name,change:m.get(name)?.price_change_percentage_24h ?? NaN})).filter(x=>Number.isFinite(x.change)))});load();const iv=setInterval(load,60000);return()=>{alive=false;clearInterval(iv)}},[]);return <ResponsiveContainer width="100%" height={180}><BarChart data={data}><CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.04)" vertical={false}/><XAxis dataKey="name" tick={{fontSize:9}} axisLine={false}/><YAxis tick={{fontSize:8}} axisLine={false} tickFormatter={v=>`${v}%`}/><Tooltip formatter={(v:number)=>[`${v.toFixed(2)}%`,'24h']}/><Bar dataKey="change" radius={[4,4,0,0]}>{data.map((d,i)=><Cell key={i} fill={d.change>=0?'rgb(0,229,188)':'rgb(248,113,113)'}/>)}</Bar></BarChart></ResponsiveContainer>}
 
-function genPerfData() {
-  const labels = ['Swap', 'Pool', 'Yield', 'Route', 'Hedge', 'Arb'];
-  return labels.map(l => ({ name: l, roi: +(Math.random() * 14 - 2).toFixed(2), benchmark: +(Math.random() * 8 - 1).toFixed(2) }));
-}
-
-function PerformanceChart() {
-  const { t } = useI18n();
-  const [data, setData] = useState(genPerfData);
-
-  useEffect(() => {
-    const iv = setInterval(() => setData(genPerfData()), 6000);
-    return () => clearInterval(iv);
-  }, []);
-
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.roiByStrategy')}</span>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1 text-[9px] font-mono text-primary"><div className="w-1.5 h-1.5 rounded-sm bg-primary" />NV</span>
-          <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground/40"><div className="w-1.5 h-1.5 rounded-sm bg-slate-500" />Market</span>
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={150}>
-        <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.04)" vertical={false} />
-          <XAxis dataKey="name" tick={{ fontSize: 9, fontFamily: 'monospace', fill: 'rgba(255,255,255,0.3)' }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace', fill: 'rgba(255,255,255,0.3)' }} axisLine={false} tickLine={false} width={36} tickFormatter={v => `${v}%`} />
-          <Tooltip
-            contentStyle={{ background: 'hsl(220 20% 6%)', border: '1px solid hsl(220 20% 14%)', borderRadius: 12, fontSize: 11, fontFamily: 'monospace' }}
-            formatter={(v: number) => [`${v}%`, 'ROI']}
-            cursor={{ fill: 'rgba(0,229,188,0.05)' }}
-          />
-          <Bar dataKey="benchmark" radius={[3, 3, 0, 0]} fill="rgb(100,116,139)" barSize={10} />
-          <Bar dataKey="roi" radius={[4, 4, 0, 0]} barSize={10}>
-            {data.map((d, i) => (
-              <Cell key={i} fill={d.roi >= 0 ? 'rgb(0,229,188)' : 'rgb(248,113,113)'} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// ─── Indicators line chart (RSI / Momentum) ───────────────────────────────────
-
-function genIndicatorData() {
-  return Array.from({ length: 20 }, (_, i) => ({
-    time: `T${i + 1}`,
-    rsi: Math.round(30 + Math.random() * 50),
-    momentum: +(Math.random() * 100 - 50).toFixed(1),
-  }));
-}
-
-function IndicatorChart() {
-  const { t } = useI18n();
-  const [data, setData] = useState(genIndicatorData);
-
-  useEffect(() => {
-    const iv = setInterval(() => setData(genIndicatorData()), 5000);
-    return () => clearInterval(iv);
-  }, []);
-
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[9px] font-mono text-muted-foreground/40">{t('portfolio.rsiMomentum')}</span>
-        <span className="flex items-center gap-1 text-[9px] font-mono text-primary">
-          <Activity size={9} /> Live
-        </span>
-      </div>
-      <ResponsiveContainer width="100%" height={150}>
-        <LineChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.04)" vertical={false} />
-          <XAxis dataKey="time" tick={{ fontSize: 8, fontFamily: 'monospace', fill: 'rgba(255,255,255,0.25)' }} axisLine={false} tickLine={false} interval={3} />
-          <YAxis tick={{ fontSize: 8, fontFamily: 'monospace', fill: 'rgba(255,255,255,0.25)' }} axisLine={false} tickLine={false} width={32} />
-          <Tooltip
-            contentStyle={{ background: 'hsl(220 20% 6%)', border: '1px solid hsl(220 20% 14%)', borderRadius: 12, fontSize: 11, fontFamily: 'monospace' }}
-          />
-          <Line type="monotone" dataKey="rsi" stroke="rgb(0,229,188)" strokeWidth={1.8} dot={false} />
-          <Line type="monotone" dataKey="momentum" stroke="rgb(167,139,250)" strokeWidth={1.5} dot={false} strokeDasharray="3 3" />
-        </LineChart>
-      </ResponsiveContainer>
-      <div className="flex items-center justify-center gap-4 mt-2">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-0.5 rounded bg-primary" />
-          <span className="text-[9px] font-mono text-muted-foreground/60">RSI</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-0.5 rounded bg-violet-400" style={{ borderTop: '1px dashed' }} />
-          <span className="text-[9px] font-mono text-muted-foreground/60">Momentum</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+// ─── Indicators — real global market indicators ──────────────────────────────
+function IndicatorChart(){const [d,setD]=useState<{btc:number;eth:number;mcap:number;fg:number|null;fgLabel:string;tvl:number|null}|null>(null);useEffect(()=>{let alive=true;const load=()=>Promise.all([fetchGlobalMarket(),fetchFearGreed(),fetchChainTvl()]).then(([g,f,chains])=>{if(alive&&g)setD({btc:g.btcDominance,eth:g.ethDominance,mcap:g.marketCapChange24h,fg:f?.value??null,fgLabel:f?.classification||'—',tvl:chains.length?chains.reduce((s,x)=>s+(x.tvl||0),0):null})});load();const iv=setInterval(load,120000);return()=>{alive=false;clearInterval(iv)}},[]);if(!d)return <div className="h-[180px] flex items-center justify-center text-[10px] font-mono text-muted-foreground/50">Loading real indicators…</div>;const rows=[['BTC Dominance',`${d.btc.toFixed(1)}%`],['ETH Dominance',`${d.eth.toFixed(1)}%`],['Market Cap 24h',`${d.mcap>=0?'+':''}${d.mcap.toFixed(2)}%`],['Fear & Greed',d.fg===null?'Unavailable':`${d.fg} · ${d.fgLabel}`],['DeFi TVL',d.tvl===null?'Unavailable':`${(d.tvl/1e9).toFixed(1)}B`]];return <div className="grid grid-cols-2 gap-2 min-h-[180px] content-center">{rows.map(([k,v])=><div key={k} className="rounded-xl border border-border/30 bg-secondary/20 p-3"><div className="text-[8px] font-mono uppercase text-muted-foreground/45">{k}</div><div className="mt-1 text-sm font-mono font-semibold text-foreground">{v}</div></div>)}</div>}
 
 // ─── Exported component ───────────────────────────────────────────────────────
 

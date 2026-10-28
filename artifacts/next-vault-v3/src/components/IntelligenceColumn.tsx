@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Activity, Zap, Clock, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Lightbulb, Eye, Shield } from 'lucide-react';
+import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, RadioTower, Volume2, VolumeX } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
@@ -50,40 +50,6 @@ function MarketRow({ asset }: { asset: MarketAsset }) {
   );
 }
 
-// ─── Insights data (simulated institutional terminal feed) ────────────────────
-
-interface InsightItem {
-  id: string;
-  type: 'opportunity' | 'risk' | 'trend' | 'event';
-  title: string;
-  detail: string;
-  value?: string;
-}
-
-const INSIGHTS: InsightItem[] = [
-  { id: '1', type: 'opportunity', title: 'Arbitrage Spread', detail: 'USDC/EURC spread detected on Arc pool', value: '+0.42%' },
-  { id: '2', type: 'trend',       title: 'ETH Momentum',     detail: 'Bullish RSI cross on 4H timeframe',    value: '72.4' },
-  { id: '3', type: 'risk',        title: 'Volatility Alert', detail: 'BTC 24h vol above 90-day average',     value: 'High' },
-  { id: '4', type: 'event',       title: 'Gas Low Window',   detail: 'Optimal execution window in ~18m',     value: '~$0.42' },
-  { id: '5', type: 'opportunity', title: 'Liquidity Pool',   detail: 'New high-yield pool on Sepolia',       value: '12.4% APY' },
-];
-
-const insightConfig = {
-  opportunity: { Icon: Target,       color: 'text-emerald-400', bg: 'bg-emerald-500/8',  border: 'border-emerald-500/20' },
-  risk:        { Icon: AlertTriangle,color: 'text-orange-400',  bg: 'bg-orange-500/8',   border: 'border-orange-500/20' },
-  trend:       { Icon: TrendingUp,   color: 'text-cyan-400',    bg: 'bg-cyan-500/8',     border: 'border-cyan-500/20' },
-  event:       { Icon: Clock,        color: 'text-violet-400',  bg: 'bg-violet-500/8',   border: 'border-violet-500/20' },
-} as const;
-
-// ─── Network stats (simulated) ────────────────────────────────────────────────
-
-const NETWORK_STATS = [
-  { label: 'TPS',      value: '1,240',  Icon: Activity,  color: 'text-cyan-400' },
-  { label: 'Gas',      value: '0.12',   Icon: Flame,     color: 'text-orange-400' },
-  { label: 'Liquidez', value: '$12.4M', Icon: Droplets,  color: 'text-blue-400' },
-  { label: 'Confiança',value: '94%',    Icon: Brain,     color: 'text-violet-400' },
-];
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function IntelligenceColumn({
@@ -93,6 +59,9 @@ export function IntelligenceColumn({
   const [tipIdx] = useState(() => Math.floor(Math.random() * 5));
   const [marketGroups, setMarketGroups] = useState<MarketGroup[]>(() => getMarketGroups());
   const [marketRefreshing, setMarketRefreshing] = useState(false);
+  const [signalMuted, setSignalMuted] = useState(true);
+  const signalPlayerRef = useRef<HTMLIFrameElement | null>(null);
+  const signalPlaylist = 'ipwupyxao_U,rCNIvbQ1_9A,Qn7hayZaaug';
   const marketTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -125,37 +94,41 @@ export function IntelligenceColumn({
   return (
     <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
 
-      {/* ── Intelligence Insights ──────────────────────────────────────────── */}
+      {/* CNN technology video screen — official YouTube embed */}
       <div className={panelCard}>
         <div className={panelLabel}>
-          <Lightbulb size={11} className="text-primary" />
-          {t('intel.insights')}
-          <span className="ml-auto bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px]">{INSIGHTS.length}</span>
+          <RadioTower size={11} className="text-primary" />
+          NV SIGNAL
+          <span className="ml-auto flex items-center gap-1 text-[8px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE</span>
         </div>
-        <div className="flex flex-col gap-2">
-          {INSIGHTS.map((ins, i) => {
-            const cfg = insightConfig[ins.type];
-            return (
-              <motion.div
-                key={ins.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={`rounded-lg p-2.5 border ${cfg.bg} ${cfg.border}`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <cfg.Icon size={11} className={cfg.color} />
-                    <span className="text-[10px] font-mono font-medium text-foreground">{ins.title}</span>
-                  </div>
-                  {ins.value && (
-                    <span className={`text-[9px] font-mono font-bold ${cfg.color}`}>{ins.value}</span>
-                  )}
-                </div>
-                <p className="text-[9px] font-mono text-muted-foreground/60 leading-relaxed">{ins.detail}</p>
-              </motion.div>
-            );
-          })}
+        <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
+          <iframe
+            ref={signalPlayerRef}
+            title="NV Signal Technology"
+            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&loop=1&enablejsapi=1&playlist=${signalPlaylist}`}
+            className="absolute -inset-[2px] h-[calc(100%+4px)] w-[calc(100%+4px)] border-0"
+            allow="autoplay; encrypted-media"
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent px-3 py-2 text-[8px] font-mono">
+              <span className="tracking-[0.18em] text-primary">NV SIGNAL</span><span className="flex items-center gap-1 text-emerald-300"><span className="w-1 h-1 rounded-full bg-emerald-300 animate-pulse" />ON AIR</span>
+            </div>
+            <div className="absolute left-2 top-8 flex flex-col gap-1 text-[7px] font-mono">
+              <span className="w-fit rounded-full border border-primary/30 bg-black/65 px-2 py-1 text-primary">TECHNOLOGY</span>
+              <span className="w-fit rounded-full border border-white/15 bg-black/60 px-2 py-1 text-white/70">NV SIGNAL · CONTINUOUS</span>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
+          </div>
+          <button type="button" onClick={() => {
+            const nextMuted = !signalMuted;
+            signalPlayerRef.current?.contentWindow?.postMessage(JSON.stringify({ event:'command', func:nextMuted?'mute':'unMute', args:[] }), 'https://www.youtube-nocookie.com');
+            setSignalMuted(nextMuted);
+          }} className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-primary/25 bg-black/75 px-2.5 py-1.5 text-[8px] font-mono text-primary backdrop-blur-md hover:bg-black/90" aria-label={signalMuted ? 'Ativar som do NV Signal' : 'Silenciar NV Signal'}>
+            {signalMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+            <span>{signalMuted ? 'SOUND' : 'MUTE'}</span>
+          </button>
+          <div className="absolute inset-0 z-10 pointer-events-none" />
         </div>
       </div>
 
@@ -180,45 +153,6 @@ export function IntelligenceColumn({
               {envMode === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}
             </span>
           </div>
-          {/* Mini network stat grid */}
-          <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-border/30">
-            {NETWORK_STATS.map(({ label, value, Icon, color }) => (
-              <div key={label} className="flex items-center gap-1.5 bg-secondary/30 rounded-lg px-2 py-1.5">
-                <Icon size={10} className={color} />
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-mono text-muted-foreground/50 uppercase">{label}</span>
-                  <span className={`text-[10px] font-mono font-bold ${color}`}>{value}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-border/30">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground/50 font-mono">{t('intel.networkActive')}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Security Status (new institutional touch) ─────────────────────── */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <Shield size={11} className="text-emerald-400" />
-          {t('intel.securityStatus')}
-        </div>
-        <div className="space-y-1.5">
-          {[
-            { label: 'Auditoria',     value: 'Aprovado',  ok: true },
-            { label: 'Multi-sig',     value: 'Ativo',     ok: true },
-            { label: 'Slippage Max',  value: '0.5%',      ok: true },
-            { label: 'Front-run',     value: 'Protegido', ok: true },
-          ].map(s => (
-            <div key={s.label} className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">{s.label}</span>
-              <span className={`flex items-center gap-1 font-mono text-[10px] ${s.ok ? 'text-emerald-400' : 'text-orange-400'}`}>
-                <CheckCircle2 size={9} /> {s.value}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -257,7 +191,7 @@ export function IntelligenceColumn({
         <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
           <span>{t('intel.autoEvery5s')}</span>
-          <span className="ml-auto">{t('intel.simulatedData')}</span>
+          <span className="ml-auto">LIVE SOURCES</span>
         </div>
       </div>
     </aside>
