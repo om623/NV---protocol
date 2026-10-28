@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Activity, Zap, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Eye, Shield } from 'lucide-react';
+import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, ExternalLink, Newspaper } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
