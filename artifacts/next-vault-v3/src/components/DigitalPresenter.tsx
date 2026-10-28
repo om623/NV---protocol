@@ -102,6 +102,8 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
     return () => window.clearInterval(id);
   }, [lastUpdate]);
 
+  const combinedEvents = useMemo(() => [...marketBriefEvents, ...events], [marketBriefEvents, events]);
+
   // Auto-rotate through events
   useEffect(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -118,7 +120,6 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
     };
   }, [combinedEvents.length]);
 
-  const combinedEvents = useMemo(() => [...marketBriefEvents, ...events], [marketBriefEvents, events]);
   const currentEvent = combinedEvents[evtIdx % Math.max(1, combinedEvents.length)];
 
   const handleSpeak = useCallback(() => {
