@@ -63,11 +63,14 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
       const now = Date.now();
       const extra: EditorialEvent[] = [];
       try {
-        const [quotes, news, fedRes] = await Promise.all([
+        const [quotesResult, newsResult, fedResult] = await Promise.allSettled([
           fetchGlobalEquityHighlights(),
           fetchAllNews(),
           fetch('/api/fed-brief').then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
+        const quotes = quotesResult.status === 'fulfilled' ? quotesResult.value : [];
+        const news = newsResult.status === 'fulfilled' ? newsResult.value : [];
+        const fedRes = fedResult.status === 'fulfilled' ? fedResult.value : null;
         for (const q of quotes) {
           if (q.price == null || q.change == null) continue;
           extra.push({id:'equity_'+q.locale,category:'Global Equities',title:`${q.marketLabel} · ${q.symbol}`,description:`${q.name}: ${q.price.toLocaleString(localeBcp47,{maximumFractionDigits:2})} ${q.currency}; ${q.change>=0?'+':''}${q.change.toFixed(2)}% no último pregão.`,priority:'market_movement',color:q.change>=0?'emerald':'orange',timestamp:now});
