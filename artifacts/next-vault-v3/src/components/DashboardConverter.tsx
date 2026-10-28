@@ -103,7 +103,7 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
           <input aria-label="Quantidade para converter" type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)}
             className="w-full bg-transparent text-lg font-mono text-foreground outline-none mb-2" />
           <select aria-label="Moeda de origem" value={fromAsset?.symbol ?? from} onChange={e => setFrom(e.target.value)} className={`w-full ${selectClass}`}>
-            {available.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol} · {a.name}</option>)}
+            {available.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol} · {a.name}{a.symbol === 'WTI' || a.symbol === 'BRENT' ? ' · USD/barril' : ''}</option>)}
           </select>
         </div>
         <button type="button" aria-label="Inverter moedas" onClick={() => { setFrom(to); setTo(from); }}
@@ -114,7 +114,7 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
           <label className="block text-[9px] text-muted-foreground/55 uppercase tracking-widest mb-1.5">Valor estimado</label>
           <div className="text-lg font-mono font-semibold text-primary truncate mb-2" title={String(output)}>{fromAsset && toAsset ? output.toLocaleString('pt-BR', { maximumFractionDigits: output < 0.01 ? 8 : 4 }) : '—'}</div>
           <select aria-label="Moeda de destino" value={toAsset?.symbol ?? to} onChange={e => setTo(e.target.value)} className={`w-full ${selectClass}`}>
-            {assets.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol} · {a.name}</option>)}
+            {assets.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol} · {a.name}{a.symbol === 'WTI' || a.symbol === 'BRENT' ? ' · USD/barril' : ''}</option>)}
           </select>
           <div className="text-[9px] text-muted-foreground/45 mt-1.5">{toAsset?.symbol} · {toAsset && money(output * usdPerUnit(toAsset))} equivalente</div>
         </div>
