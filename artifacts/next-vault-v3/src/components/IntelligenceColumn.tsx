@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, Tv } from 'lucide-react';
+import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, RadioTower } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
@@ -94,9 +94,9 @@ export function IntelligenceColumn({
       {/* CNN technology video screen — official YouTube embed */}
       <div className={panelCard}>
         <div className={panelLabel}>
-          <Tv size={11} className="text-primary" />
-          NV Tech TV
-          <span className="ml-auto text-[8px] text-muted-foreground/50">CNN BUSINESS</span>
+          <RadioTower size={11} className="text-primary" />
+          NV SIGNAL
+          <span className="ml-auto flex items-center gap-1 text-[8px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE</span>
         </div>
         <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
           <iframe
@@ -107,11 +107,20 @@ export function IntelligenceColumn({
             allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin"
           />
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/75 to-transparent px-3 py-2 text-[8px] font-mono">
-            <span className="text-primary">NV TECH TV</span><span className="text-white/70">CNN BUSINESS</span>
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/85 to-transparent px-3 py-2 text-[8px] font-mono">
+              <span className="tracking-[0.18em] text-primary">NV SIGNAL</span><span className="flex items-center gap-1 text-emerald-300"><span className="w-1 h-1 rounded-full bg-emerald-300 animate-pulse" />LIVE</span>
+            </div>
+            <div className="absolute left-2 top-8 flex flex-col gap-1 text-[7px] font-mono">
+              <span className="w-fit rounded-full border border-primary/30 bg-black/65 px-2 py-1 text-primary">ARTIFICIAL INTELLIGENCE</span>
+              <span className="w-fit rounded-full border border-white/15 bg-black/60 px-2 py-1 text-white/70">TRENDING · GLOBAL · TECHNOLOGY</span>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pb-2 pt-8 text-[7px] font-mono text-white/60">
+              <span>SOURCE · CNN BRASIL</span>
+            </div>
           </div>
         </div>
-        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">CNN Brasil: Inteligência Artificial — conteúdo oficial via YouTube. Playback availability is controlled by YouTube/CNN.</p>
+        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">NV Signal acompanha tendências tecnológicas globais. O vídeo permanece como fonte; a camada visual é do NV.</p>
       </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
