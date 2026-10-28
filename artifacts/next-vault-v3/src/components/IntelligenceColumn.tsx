@@ -91,7 +91,7 @@ export function IntelligenceColumn({
   return (
     <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
 
-      {/* CNN Business technology screen — deliberately non-clickable */}
+      {/* CNN technology video screen — official YouTube embed */}
       <div className={panelCard}>
         <div className={panelLabel}>
           <Tv size={11} className="text-primary" />
@@ -101,16 +101,17 @@ export function IntelligenceColumn({
         <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
           <iframe
             title="CNN Business Technology"
-            src="https://www.cnn.com/business"
+            src="https://www.youtube.com/embed/PDt4-6-gY98?autoplay=1&mute=1&controls=1&rel=0&playsinline=1"
             className="absolute inset-0 h-full w-full border-0"
-            allow="autoplay; fullscreen; picture-in-picture"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin"
           />
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/75 to-transparent px-3 py-2 text-[8px] font-mono">
             <span className="text-primary">NV TECH TV</span><span className="text-white/70">CNN BUSINESS</span>
           </div>
         </div>
-        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">Experimental embedded technology screen. Playback availability is controlled by CNN.</p>
+        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">Official CNN Brasil technology video via YouTube. Playback availability is controlled by YouTube/CNN.</p>
       </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
