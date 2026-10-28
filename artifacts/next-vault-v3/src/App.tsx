@@ -476,14 +476,19 @@ function Home() {
         const value = Number(request.params.amount);
         const fromSymbol = String(request.params.sourceToken ?? sourceToken);
         const toSymbol = String(request.params.destinationToken ?? destToken);
+        const requestedNetworkId = String(request.params.network ?? '');
+        const swapNetwork = requestedNetworkId
+          ? [...MAINNET_NETWORKS, ...TESTNET_NETWORKS].find(item => item.id === requestedNetworkId)
+          : activeNetwork;
         if (!(value > 0)) throw new Error('Informe o valor do swap no chat.');
-        if (activeNetwork.type !== 'mainnet') throw new Error('O executor direto LI.FI está disponível nas mainnets compatíveis.');
-        const tokens = getNetworkTokens(activeNetwork);
+        if (!swapNetwork) throw new Error('A rede solicitada não está disponível no NV.');
+        if (swapNetwork.type !== 'mainnet') throw new Error('O executor direto LI.FI está disponível nas mainnets compatíveis.');
+        const tokens = getNetworkTokens(swapNetwork);
         const from = tokens.find(item => item.symbol === fromSymbol);
         const to = tokens.find(item => item.symbol === toSymbol);
-        if (!from || !to) throw new Error('Informe dois tokens disponíveis na rede atual.');
-        await ensureNetwork(prov, networkChainParams(activeNetwork));
-        const result = await executeLifiSameChainSwap({ provider: prov, walletAddress: connectedAddress, network: activeNetwork, sourceToken: from, destinationToken: to, amount: String(value) });
+        if (!from || !to) throw new Error('Informe dois tokens disponíveis na rede solicitada.');
+        await ensureNetwork(prov, networkChainParams(swapNetwork));
+        const result = await executeLifiSameChainSwap({ provider: prov, walletAddress: connectedAddress, network: swapNetwork, sourceToken: from, destinationToken: to, amount: String(value) });
         publishAgentExecutionResult({ id: request.id, ok: true, message: 'Swap concluído via ' + result.tool + '. Hash: ' + result.transactionHash, txHash: result.transactionHash });
         return;
       }

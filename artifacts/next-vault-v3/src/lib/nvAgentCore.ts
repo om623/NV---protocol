@@ -2,10 +2,10 @@ import type { AgentAction } from './intelligence';
 
 export type NVIntent='transfer'|'swap'|'bridge'|'payment'|'market'|'wallet'|'news'|'tvl'|'chat'|'cancel'|'confirm';
 export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number|null>;confidence:number;}
-const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX'];
+const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX','S','MON','SEI','XDC','HYPE','PLUME'];
 const NETS:Array<[RegExp,string]>=[
  [/arbitrum sepolia/i,'arbitrum-sepolia'],[/optimism sepolia/i,'optimism-sepolia'],[/ethereum sepolia|sepolia/i,'sepolia'],[/base sepolia/i,'base-sepolia'],[/arc testnet/i,'arc-testnet'],[/arc mainnet/i,'arc-mainnet'],
- [/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/\bbase\b/i,'base'],[/\barc\b/i,'arc-mainnet']
+ [/world chain/i,'world-chain'],[/xdc network/i,'xdc'],[/hyper ?evm/i,'hyperevm'],[/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/unichain/i,'unichain'],[/linea/i,'linea'],[/codex/i,'codex'],[/sonic/i,'sonic'],[/monad/i,'monad'],[/sei/i,'sei'],[/ink/i,'ink'],[/plume/i,'plume'],[/edge/i,'edge'],[/base/i,'base'],[/arc/i,'arc-mainnet']
 ];
 function amount(q:string){
  const labelled=q.match(/(?:valor(?:\s+de)?|amount(?:\s+of)?|value(?:\s+of)?)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
@@ -32,8 +32,8 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  else intent='chat';
  const params:Record<string,string|number|null>={};
  if(a)params.amount=a;if(addr)params.recipient=addr;
- if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];}
- if(intent==='transfer'&&ts[0])params.token=ts[0];
+ if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];if(ns[0])params.network=ns[0];}
+ if(intent==='transfer'){if(ts[0])params.token=ts[0];if(ns[0])params.network=ns[0];}
  if(intent==='bridge'){if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
  if(intent==='payment'){
    if(/(?:skin|premium).*1000|1000.*(?:skin|premium)/i.test(l))params.product='premium-1000';
@@ -49,10 +49,10 @@ export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTu
  const type=turn.intent as AgentAction['type']; const base=current?.type===type?current.params??{}:{};
  return{type,executeInChat:true,navigateTo:type==='transfer'?'consulte':type==='payment'?'perfil':type,params:{...base,...turn.params}};
 }
-export type NVActionSlot='amount'|'sourceToken'|'destinationToken'|'fromNetwork'|'toNetwork'|'token'|'recipient'|'product';
+export type NVActionSlot='amount'|'sourceToken'|'destinationToken'|'network'|'fromNetwork'|'toNetwork'|'token'|'recipient'|'product';
 export function missingNVAction(a:AgentAction):NVActionSlot[]{const p=a.params??{},m:NVActionSlot[]=[];
  if(a.type==='swap'){if(!(Number(p.amount)>0))m.push('amount');if(!p.sourceToken)m.push('sourceToken');if(!p.destinationToken)m.push('destinationToken');}
  if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('amount');if(!p.fromNetwork)m.push('fromNetwork');if(!p.toNetwork)m.push('toNetwork');}
  if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('amount');if(!p.token)m.push('token');if(!p.recipient)m.push('recipient');}
  if(a.type==='payment'&&!p.product)m.push('product');return m;}
-export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
+export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}${p.network?' · '+p.network:''}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
