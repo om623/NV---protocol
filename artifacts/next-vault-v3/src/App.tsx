@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -216,6 +216,37 @@ interface EnvNetworkSelectorProps {
   onNetworkChange: (network: NetworkConfig) => void;
 }
 
+const NETWORK_LOGO_SLUGS: Record<string, string> = {
+  'arc-testnet':'arc','arc-mainnet':'arc','sepolia':'ethereum','ethereum':'ethereum',
+  'base-sepolia':'base','base':'base','arbitrum-sepolia':'arbitrum','arbitrum':'arbitrum',
+  'optimism-sepolia':'optimism','optimism':'optimism','polygon':'polygon','avalanche':'avalanche',
+  'unichain':'unichain','linea':'linea','codex':'codex','sonic':'sonic','world-chain':'worldchain',
+  'monad':'monad','sei':'sei','xdc':'xdc','hyperevm':'hyperliquid','ink':'ink','plume':'plume',
+  'edge':'edge','injective':'injective','morph':'morph','pharos':'pharos','cronos':'cronos',
+  'plasma':'plasma','xlayer':'x-layer',
+};
+
+function NetworkLogo({ network, size = 'md' }: { network: NetworkConfig; size?: 'sm' | 'md' }) {
+  const [failed, setFailed] = useState(false);
+  const slug = NETWORK_LOGO_SLUGS[network.id];
+  const box = size === 'sm' ? 'w-5 h-5 rounded-md' : 'w-8 h-8 rounded-lg';
+  if (!slug || failed) {
+    return <div className={`${box} ${network.color} flex items-center justify-center text-white shrink-0`}><Network size={size === 'sm' ? 12 : 16} /></div>;
+  }
+  return (
+    <div className={`${box} bg-white/95 border border-white/10 flex items-center justify-center overflow-hidden shrink-0`}>
+      <img
+        src={`https://icons.llamao.fi/icons/chains/rsz_${slug}.jpg`}
+        alt=""
+        aria-hidden="true"
+        className="w-full h-full object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChange }: EnvNetworkSelectorProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -243,7 +274,7 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
           {envLabel}
         </span>
         <span className="text-muted-foreground/40 select-none hidden sm:inline">•</span>
-        <div className={`w-5 h-5 rounded-md ${activeNetwork.color} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>{activeNetwork.icon}</div>
+        <NetworkLogo network={activeNetwork} size="sm" />
         <span className="hidden sm:inline">{activeNetwork.shortName}</span>
         <ChevronDown size={13} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -288,7 +319,7 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
                       isActive ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-secondary'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg ${n.color} flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5`}>{n.icon}</div>
+                    <div className="mt-0.5"><NetworkLogo network={n} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span className={`text-xs font-mono font-medium truncate ${isActive ? 'text-primary' : 'text-foreground'}`} translate="no">{n.name}</span>
