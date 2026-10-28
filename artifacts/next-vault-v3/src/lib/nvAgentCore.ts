@@ -5,7 +5,7 @@ export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number
 const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX','S','MON','SEI','XDC','HYPE','PLUME'];
 const NETS:Array<[RegExp,string]>=[
  [/arbitrum sepolia/i,'arbitrum-sepolia'],[/optimism sepolia/i,'optimism-sepolia'],[/ethereum sepolia|sepolia/i,'sepolia'],[/base sepolia/i,'base-sepolia'],[/arc testnet/i,'arc-testnet'],[/arc mainnet/i,'arc-mainnet'],
- [/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/\bbase\b/i,'base'],[/\barc\b/i,'arc-mainnet']
+ [/world chain/i,'world-chain'],[/xdc network/i,'xdc'],[/hyper ?evm/i,'hyperevm'],[/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/unichain/i,'unichain'],[/linea/i,'linea'],[/codex/i,'codex'],[/sonic/i,'sonic'],[/monad/i,'monad'],[/sei/i,'sei'],[/ink/i,'ink'],[/plume/i,'plume'],[/edge/i,'edge'],[/base/i,'base'],[/arc/i,'arc-mainnet']
 ];
 function amount(q:string){
  const labelled=q.match(/(?:valor(?:\s+de)?|amount(?:\s+of)?|value(?:\s+of)?)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
