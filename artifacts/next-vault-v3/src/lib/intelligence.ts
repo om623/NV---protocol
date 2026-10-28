@@ -476,6 +476,24 @@ async function fetchRss(
 
 export const PROVIDERS: NewsProvider[] = [
 
+  {
+    id: 'fed-monetary-policy',
+    name: 'Federal Reserve Monetary Policy',
+    url: 'https://www.federalreserve.gov/newsevents/pressreleases.htm',
+    categories: ['Central Banks', 'Economy'],
+    region: 'americas', country: 'USA', language: 'en',
+    async fetch() { return fetchRss('https://www.federalreserve.gov/feeds/press_monetary.xml', this.id, 'Federal Reserve', this.url, this.region, this.country, this.language, 'Central Banks'); },
+  },
+  {
+    id: 'fed-all-releases',
+    name: 'Federal Reserve Press Releases',
+    url: 'https://www.federalreserve.gov/newsevents/pressreleases.htm',
+    categories: ['Central Banks', 'Economy', 'Regulation'],
+    region: 'americas', country: 'USA', language: 'en',
+    async fetch() { return fetchRss('https://www.federalreserve.gov/feeds/press_all.xml', this.id, 'Federal Reserve', this.url, this.region, this.country, this.language); },
+  },
+
+
   // ════════════════════════════════════════════════════════════════════════════
   // USA — ~9 sources
   // ════════════════════════════════════════════════════════════════════════════
@@ -489,7 +507,7 @@ export const PROVIDERS: NewsProvider[] = [
     country: 'USA',
     language: 'en',
     async fetch() {
-      return fetchRss('https://feeds.reuters.com/reuters/businessNews', this.id, 'Reuters', 'https://reuters.com', this.region, this.country, this.language);
+      return fetchRss('https://news.google.com/rss/search?q=when%3A24h+site%3Areuters.com%2Fbusiness&ceid=US%3Aen&hl=en-US&gl=US', this.id, 'Reuters', 'https://reuters.com', this.region, this.country, this.language);
     },
   },
   {
@@ -501,7 +519,7 @@ export const PROVIDERS: NewsProvider[] = [
     country: 'Global',
     language: 'en',
     async fetch() {
-      return fetchRss('https://feeds.reuters.com/Reuters/worldNews', this.id, 'Reuters', 'https://reuters.com', this.region, this.country, this.language, 'Geopolitics');
+      return fetchRss('https://news.google.com/rss/search?q=when%3A24h+site%3Areuters.com%2Fworld&ceid=US%3Aen&hl=en-US&gl=US', this.id, 'Reuters', 'https://reuters.com', this.region, this.country, this.language, 'Geopolitics');
     },
   },
   {
@@ -1091,7 +1109,7 @@ export const PROVIDERS: NewsProvider[] = [
     country: 'Latin America' as CountryMarket,
     language: 'es',
     async fetch() {
-      return fetchRss('https://feeds.reuters.com/reuters/latamTopNews', this.id, 'Reuters LatAm', 'https://www.reuters.com/world/americas', this.region, this.country as CountryMarket, this.language);
+      return fetchRss('https://news.google.com/rss/search?q=when%3A7d+site%3Areuters.com%2Fworld%2Famericas&ceid=US%3Aen&hl=en-US&gl=US', this.id, 'Reuters LatAm', 'https://www.reuters.com/world/americas', this.region, this.country as CountryMarket, this.language);
     },
   },
   {
