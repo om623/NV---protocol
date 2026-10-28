@@ -75,7 +75,12 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
         if (fedRes?.targetLow != null && fedRes?.targetHigh != null) {
           extra.push({id:'fed_rate',category:'Federal Reserve',title:'Fed Funds Target Range',description:`Federal Reserve: faixa-alvo atual de ${fedRes.targetLow}% a ${fedRes.targetHigh}%. Fonte oficial do Fed.`,priority:'recent_change',color:'cyan',timestamp:now});
         }
-        const relevant = news.filter(n => /\b(ipo|initial public offering|dividend|dividendo|rate cut|interest rate cut|corte de juros|federal reserve|\bfed\b|fomc)\b/i.test(`${n.title} ${n.summary}`)).slice(0,5);
+        const MAX_NEWS_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+        const relevant = news.filter(n => {
+          const text = `${n.title} ${n.summary}`;
+          const fresh = Number.isFinite(n.publishedMs) && now - n.publishedMs >= 0 && now - n.publishedMs <= MAX_NEWS_AGE_MS;
+          return fresh && /\b(ipo|initial public offering|dividend|dividendo|rate cut|interest rate cut|corte de juros|federal reserve|\bfed\b|fomc)\b/i.test(text);
+        }).slice(0,5);
         for (const n of relevant) {
           const text=`${n.title}. ${n.summary||''}`.trim();
           const cut=/rate cut|interest rate cut|corte de juros/i.test(text);
