@@ -230,9 +230,7 @@ function NetworkLogo({ network, size = 'md' }: { network: NetworkConfig; size?: 
   const [failed, setFailed] = useState(false);
   const slug = NETWORK_LOGO_SLUGS[network.id];
   const box = size === 'sm' ? 'w-5 h-5 rounded-md' : 'w-8 h-8 rounded-lg';
-  const logoSrc = network.id === 'arc-mainnet'
-    ? 'https://www.arc.io/favicon.ico'
-    : `https://icons.llamao.fi/icons/chains/rsz_${slug}.jpg`;
+  const logoSrc = `https://icons.llamao.fi/icons/chains/rsz_${slug}.jpg`;
   if (!slug || failed) {
     return <div className={`${box} ${network.color} flex items-center justify-center text-white shrink-0`}><Network size={size === 'sm' ? 12 : 16} /></div>;
   }
