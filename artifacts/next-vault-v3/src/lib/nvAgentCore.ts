@@ -2,7 +2,7 @@ import type { AgentAction } from './intelligence';
 
 export type NVIntent='transfer'|'swap'|'bridge'|'payment'|'market'|'wallet'|'news'|'tvl'|'chat'|'cancel'|'confirm';
 export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number|null>;confidence:number;}
-const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX'];
+const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX','S','MON','SEI','XDC','HYPE','PLUME'];
 const NETS:Array<[RegExp,string]>=[
  [/arbitrum sepolia/i,'arbitrum-sepolia'],[/optimism sepolia/i,'optimism-sepolia'],[/ethereum sepolia|sepolia/i,'sepolia'],[/base sepolia/i,'base-sepolia'],[/arc testnet/i,'arc-testnet'],[/arc mainnet/i,'arc-mainnet'],
  [/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/\bbase\b/i,'base'],[/\barc\b/i,'arc-mainnet']
@@ -33,7 +33,7 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  const params:Record<string,string|number|null>={};
  if(a)params.amount=a;if(addr)params.recipient=addr;
  if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];if(ns[0])params.network=ns[0];}
- if(intent==='transfer'&&ts[0])params.token=ts[0];
+ if(intent==='transfer'){if(ts[0])params.token=ts[0];if(ns[0])params.network=ns[0];}
  if(intent==='bridge'){if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
  if(intent==='payment'){
    if(/(?:skin|premium).*1000|1000.*(?:skin|premium)/i.test(l))params.product='premium-1000';
