@@ -3,11 +3,11 @@ import { ArrowLeftRight, RefreshCw, Flame } from 'lucide-react';
 import type { NetworkConfig } from '../networks';
 import { getAllAssets, type MarketAsset } from '../lib/marketData';
 
-type ConverterGroup = 'fiat' | 'crypto' | 'commodities';
+type ConverterGroup = 'fiat' | 'crypto' | 'commodities' | 'oil';
 const groupOf = (asset: MarketAsset): ConverterGroup | null => {
   if (asset.category === 'fiat') return 'fiat';
   if (asset.category === 'crypto' || asset.category === 'stablecoins') return 'crypto';
-  if (asset.category === 'commodities') return 'commodities';
+  if (asset.category === 'commodities') return asset.symbol === 'WTI' || asset.symbol === 'BRENT' ? 'oil' : 'commodities';
   return null;
 };
 const usdPerUnit = (asset: MarketAsset) => asset.category === 'fiat' ? (asset.price > 0 ? 1 / asset.price : 0) : asset.price;
@@ -90,6 +90,7 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
           ['crypto', 'Cripto & stablecoins'],
           ['fiat', 'Fiat'],
           ['commodities', 'Commodities'],
+          ['oil', 'Petróleo'],
         ] as [ConverterGroup, string][]).map(([key, label]) => (
           <button key={key} type="button" onClick={() => setGroup(key)}
             className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-mono transition-colors ${group === key ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:bg-secondary'}`}>
