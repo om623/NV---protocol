@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Activity, Zap, Clock, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Lightbulb, Eye, Shield } from 'lucide-react';
+import { Target, Activity, Zap, CircleCheck as CheckCircle2, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Droplets, Brain, Flame, Route, Eye, Shield } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
@@ -49,31 +49,6 @@ function MarketRow({ asset }: { asset: MarketAsset }) {
     </div>
   );
 }
-
-// ─── Insights data (simulated institutional terminal feed) ────────────────────
-
-interface InsightItem {
-  id: string;
-  type: 'opportunity' | 'risk' | 'trend' | 'event';
-  title: string;
-  detail: string;
-  value?: string;
-}
-
-const INSIGHTS: InsightItem[] = [
-  { id: '1', type: 'opportunity', title: 'Arbitrage Spread', detail: 'USDC/EURC spread detected on Arc pool', value: '+0.42%' },
-  { id: '2', type: 'trend',       title: 'ETH Momentum',     detail: 'Bullish RSI cross on 4H timeframe',    value: '72.4' },
-  { id: '3', type: 'risk',        title: 'Volatility Alert', detail: 'BTC 24h vol above 90-day average',     value: 'High' },
-  { id: '4', type: 'event',       title: 'Gas Low Window',   detail: 'Optimal execution window in ~18m',     value: '~$0.42' },
-  { id: '5', type: 'opportunity', title: 'Liquidity Pool',   detail: 'New high-yield pool on Sepolia',       value: '12.4% APY' },
-];
-
-const insightConfig = {
-  opportunity: { Icon: Target,       color: 'text-emerald-400', bg: 'bg-emerald-500/8',  border: 'border-emerald-500/20' },
-  risk:        { Icon: AlertTriangle,color: 'text-orange-400',  bg: 'bg-orange-500/8',   border: 'border-orange-500/20' },
-  trend:       { Icon: TrendingUp,   color: 'text-cyan-400',    bg: 'bg-cyan-500/8',     border: 'border-cyan-500/20' },
-  event:       { Icon: Clock,        color: 'text-violet-400',  bg: 'bg-violet-500/8',   border: 'border-violet-500/20' },
-} as const;
 
 // ─── Network stats (simulated) ────────────────────────────────────────────────
 
@@ -124,40 +99,6 @@ export function IntelligenceColumn({
 
   return (
     <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
-
-      {/* ── Intelligence Insights ──────────────────────────────────────────── */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <Lightbulb size={11} className="text-primary" />
-          {t('intel.insights')}
-          <span className="ml-auto bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px]">{INSIGHTS.length}</span>
-        </div>
-        <div className="flex flex-col gap-2">
-          {INSIGHTS.map((ins, i) => {
-            const cfg = insightConfig[ins.type];
-            return (
-              <motion.div
-                key={ins.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={`rounded-lg p-2.5 border ${cfg.bg} ${cfg.border}`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <cfg.Icon size={11} className={cfg.color} />
-                    <span className="text-[10px] font-mono font-medium text-foreground">{ins.title}</span>
-                  </div>
-                  {ins.value && (
-                    <span className={`text-[9px] font-mono font-bold ${cfg.color}`}>{ins.value}</span>
-                  )}
-                </div>
-                <p className="text-[9px] font-mono text-muted-foreground/60 leading-relaxed">{ins.detail}</p>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
       <div className={panelCard}>
