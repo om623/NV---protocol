@@ -302,10 +302,12 @@ const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
 
 function seedAssets(): MarketAsset[] {
   return BASE_ASSETS.map(a => {
+    // Assets without a meaningful seed stay neutral until a real quote arrives.
+    const awaitingLiveQuote = (a.category === 'crypto' || a.category === 'stablecoins') && a.price <= 0;
     // Fiat and indices start with change24h=0 and no simulated drift until real data arrives
     const isStaticSeed = a.category === 'fiat' || a.category === 'indices';
-    const change = isStaticSeed ? 0 : rngChange(0, TYPICAL_VOLATILITY[a.category]);
-    const vol = baseVolume(a.category) * (0.7 + Math.random() * 0.6);
+    const change = isStaticSeed || awaitingLiveQuote ? 0 : rngChange(0, TYPICAL_VOLATILITY[a.category]);
+    const vol = awaitingLiveQuote ? 0 : baseVolume(a.category) * (0.7 + Math.random() * 0.6);
     return {
       symbol: a.symbol,
       name: a.name,
@@ -314,11 +316,11 @@ function seedAssets(): MarketAsset[] {
       change24h: change,
       decimals: a.decimals,
       volume24h: vol,
-      marketCap: baseMarketCap(a.category, a.price),
-      spark: genSpark(a.price, a.price * TYPICAL_VOLATILITY[a.category] / 100),
+      marketCap: awaitingLiveQuote ? 0 : baseMarketCap(a.category, a.price),
+      spark: awaitingLiveQuote ? [] : genSpark(a.price, a.price * TYPICAL_VOLATILITY[a.category] / 100),
       trend: deriveTrend(change),
       change7d: a.change7d,
-      rsi: genRsi(),
+      rsi: awaitingLiveQuote ? 50 : genRsi(),
       isLive: false,
       unit: a.unit,
     };
