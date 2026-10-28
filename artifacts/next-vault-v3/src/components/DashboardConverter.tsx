@@ -129,7 +129,7 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
           <span className="text-muted-foreground/35">({activeNetwork.nativeCurrency.symbol})</span>
         </div>
         <div className="text-[11px] font-mono text-foreground">
-          {gasLoading && !gasPrice ? '{t('converter.queryNetwork')}' : gasPrice ?? (gasError ? '{t('converter.rpcUnavailable')}' : '—')}
+          {gasLoading && !gasPrice ? t('converter.queryNetwork') : gasPrice ?? (gasError ? t('converter.rpcUnavailable') : '—')}
         </div>
       </div>
       <p className="text-[9px] leading-relaxed text-muted-foreground/40 mt-2">{t('converter.disclaimer')}</p>
