@@ -50,14 +50,8 @@ function MarketRow({ asset }: { asset: MarketAsset }) {
   );
 }
 
-// ─── Network stats (simulated) ────────────────────────────────────────────────
-
-const NETWORK_STATS = [
-  { label: 'TPS',      value: '1,240',  Icon: Activity,  color: 'text-cyan-400' },
-  { label: 'Gas',      value: '0.12',   Icon: Flame,     color: 'text-orange-400' },
-  { label: 'Liquidez', value: '$12.4M', Icon: Droplets,  color: 'text-blue-400' },
-  { label: 'Confiança',value: '94%',    Icon: Brain,     color: 'text-violet-400' },
-];
+interface TechTrend { id:string;title:string;url:string;domain:string;score:number;comments:number;publishedAt:string;image:string; }
+interface TechTrendFeed { source:string;updatedAt:string;refreshSeconds:number;items:TechTrend[]; }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -68,7 +62,24 @@ export function IntelligenceColumn({
   const [tipIdx] = useState(() => Math.floor(Math.random() * 5));
   const [marketGroups, setMarketGroups] = useState<MarketGroup[]>(() => getMarketGroups());
   const [marketRefreshing, setMarketRefreshing] = useState(false);
+  const [techFeed, setTechFeed] = useState<TechTrendFeed | null>(null);
+  const [techError, setTechError] = useState(false);
   const marketTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const load = async () => {
+      try {
+        const response = await fetch('/api/tech-trends');
+        if (!response.ok) throw new Error('tech trends');
+        const data = await response.json() as TechTrendFeed;
+        if (live) { setTechFeed(data); setTechError(false); }
+      } catch { if (live) setTechError(true); }
+    };
+    load();
+    const timer = window.setInterval(load, 60_000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -100,6 +111,30 @@ export function IntelligenceColumn({
   return (
     <aside className="w-72 shrink-0 border-l border-border/40 bg-background/60 backdrop-blur-sm hidden xl:flex flex-col gap-3 p-4 overflow-y-auto">
 
+      {/* Real technology trends — Hacker News, refreshed every 60 seconds */}
+      <div className={panelCard}>
+        <div className={panelLabel}>
+          <Newspaper size={11} className="text-primary" />
+          Tech Pulse
+          <span className="ml-auto flex items-center gap-1 text-[8px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE · 60s</span>
+        </div>
+        {techError && !techFeed ? <div className="text-[9px] font-mono text-muted-foreground/60">Live technology feed temporarily unavailable.</div> : null}
+        <div className="flex flex-col gap-2">
+          {techFeed?.items.slice(0,5).map((item, i) => (
+            <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="group flex gap-2.5 rounded-xl border border-border/40 bg-secondary/20 p-2 hover:border-primary/25 hover:bg-secondary/35 transition-all">
+              <div className="w-9 h-9 rounded-lg bg-background/70 border border-border/40 flex items-center justify-center shrink-0 overflow-hidden">
+                <img src={item.image} alt="" className="w-6 h-6 object-contain" loading="lazy" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-1"><span className="text-[8px] font-mono text-primary/70 mt-0.5">#{i+1}</span><p className="text-[9px] leading-snug text-foreground/90 line-clamp-2">{item.title}</p></div>
+                <div className="mt-1 flex items-center gap-1.5 text-[8px] font-mono text-muted-foreground/45"><span className="truncate">{item.domain}</span><span>·</span><span>{item.score} pts</span><span>·</span><span>{item.comments} comments</span><ExternalLink size={8} className="ml-auto opacity-0 group-hover:opacity-100" /></div>
+              </div>
+            </a>
+          ))}
+        </div>
+        {techFeed && <div className="mt-2 pt-2 border-t border-border/30 flex justify-between text-[8px] font-mono text-muted-foreground/40"><span>Source: {techFeed.source}</span><span>{new Date(techFeed.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>}
+      </div>
+
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
       <div className={panelCard}>
         <div className={panelLabel}>
@@ -121,46 +156,6 @@ export function IntelligenceColumn({
               {envMode === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}
             </span>
           </div>
-          {/* Mini network stat grid */}
-          <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-border/30">
-            {NETWORK_STATS.map(({ label, value, Icon, color }) => (
-              <div key={label} className="flex items-center gap-1.5 bg-secondary/30 rounded-lg px-2 py-1.5">
-                <Icon size={10} className={color} />
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-mono text-muted-foreground/50 uppercase">{label}</span>
-                  <span className={`text-[10px] font-mono font-bold ${color}`}>{value}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-border/30">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground/50 font-mono">{t('intel.networkActive')}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Security Status (new institutional touch) ─────────────────────── */}
-      <div className={panelCard}>
-        <div className={panelLabel}>
-          <Shield size={11} className="text-emerald-400" />
-          {t('intel.securityStatus')}
-        </div>
-        <div className="space-y-1.5">
-          {[
-            { label: 'Auditoria',     value: 'Aprovado',  ok: true },
-            { label: 'Multi-sig',     value: 'Ativo',     ok: true },
-            { label: 'Slippage Max',  value: '0.5%',      ok: true },
-            { label: 'Front-run',     value: 'Protegido', ok: true },
-          ].map(s => (
-            <div key={s.label} className={fieldRow}>
-              <span className="text-muted-foreground/60 font-mono">{s.label}</span>
-              <span className={`flex items-center gap-1 font-mono text-[10px] ${s.ok ? 'text-emerald-400' : 'text-orange-400'}`}>
-                <CheckCircle2 size={9} /> {s.value}
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* ── NV Tip (preserved) ────────────────────────────────────────────── */}
