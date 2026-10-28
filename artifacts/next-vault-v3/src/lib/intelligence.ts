@@ -531,7 +531,7 @@ export const PROVIDERS: NewsProvider[] = [
     country: 'USA',
     language: 'en',
     async fetch() {
-      return fetchRss('https://feeds.bloomberg.com/markets/news.rss', this.id, 'Bloomberg', 'https://bloomberg.com/markets', this.region, this.country, this.language);
+      return fetchRss('https://www.bloomberg.com/feeds/markets/news.rss', this.id, 'Bloomberg', 'https://bloomberg.com/markets', this.region, this.country, this.language);
     },
   },
   {
@@ -543,7 +543,7 @@ export const PROVIDERS: NewsProvider[] = [
     country: 'USA',
     language: 'en',
     async fetch() {
-      return fetchRss('https://feeds.a.dj.com/rss/RSSMarketsMain.xml', this.id, 'Wall Street Journal', 'https://www.wsj.com/news/markets', this.region, this.country, this.language);
+      return fetchRss('https://feeds.content.dowjones.io/public/rss/RSSMarketsMain', this.id, 'Wall Street Journal', 'https://www.wsj.com/news/markets', this.region, this.country, this.language);
     },
   },
   {
@@ -555,7 +555,7 @@ export const PROVIDERS: NewsProvider[] = [
     country: 'Global',
     language: 'en',
     async fetch() {
-      return fetchRss('https://feeds.a.dj.com/rss/RSSWorldNews.xml', this.id, 'Wall Street Journal', 'https://www.wsj.com/news/world', this.region, this.country, this.language, 'Geopolitics');
+      return fetchRss('https://feeds.content.dowjones.io/public/rss/RSSWorldNews', this.id, 'Wall Street Journal', 'https://www.wsj.com/news/world', this.region, this.country, this.language, 'Geopolitics');
     },
   },
   {
