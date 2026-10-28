@@ -186,7 +186,7 @@ export function IntelligenceColumn({
         <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
           <span>{t('intel.autoEvery5s')}</span>
-          <span className="ml-auto">{t('intel.simulatedData')}</span>
+          <span className="ml-auto">LIVE SOURCES</span>
         </div>
       </div>
     </aside>
