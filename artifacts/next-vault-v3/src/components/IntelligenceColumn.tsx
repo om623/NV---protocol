@@ -101,7 +101,7 @@ export function IntelligenceColumn({
         <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
           <iframe
             title="CNN Business Technology"
-            src="https://www.youtube.com/embed/PDt4-6-gY98?autoplay=1&mute=1&controls=1&rel=0&playsinline=1"
+            src="https://www.youtube.com/embed/U5okFckZk5M?autoplay=1&mute=1&controls=1&rel=0&playsinline=1"
             className="absolute inset-0 h-full w-full border-0"
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
@@ -111,7 +111,7 @@ export function IntelligenceColumn({
             <span className="text-primary">NV TECH TV</span><span className="text-white/70">CNN BUSINESS</span>
           </div>
         </div>
-        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">Official CNN Brasil technology video via YouTube. Playback availability is controlled by YouTube/CNN.</p>
+        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">CNN Brasil: Inteligência Artificial — conteúdo oficial via YouTube. Playback availability is controlled by YouTube/CNN.</p>
       </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
