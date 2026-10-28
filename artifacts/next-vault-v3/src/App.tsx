@@ -229,6 +229,7 @@ const NETWORK_LOGO_SLUGS: Record<string, string> = {
 function NetworkLogo({ network, size = 'md' }: { network: NetworkConfig; size?: 'sm' | 'md' }) {
   const [failed, setFailed] = useState(false);
   const slug = NETWORK_LOGO_SLUGS[network.id];
+  const arcMainnet = network.id === 'arc-mainnet';
   const box = size === 'sm' ? 'w-5 h-5 rounded-md' : 'w-8 h-8 rounded-lg';
   if (!slug || failed) {
     return <div className={`${box} ${network.color} flex items-center justify-center text-white shrink-0`}><Network size={size === 'sm' ? 12 : 16} /></div>;
@@ -239,7 +240,7 @@ function NetworkLogo({ network, size = 'md' }: { network: NetworkConfig; size?: 
         src={`https://icons.llamao.fi/icons/chains/rsz_${slug}.jpg`}
         alt=""
         aria-hidden="true"
-        className="w-full h-full object-cover"
+        className={`w-full h-full object-cover ${arcMainnet ? 'grayscale brightness-0' : ''}`}
         loading="lazy"
         onError={() => setFailed(true)}
       />
