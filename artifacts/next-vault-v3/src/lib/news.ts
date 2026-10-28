@@ -185,7 +185,17 @@ const fr: EventDict = {
   'desc.no_changes': 'Aucun changement pertinent depuis la dernière mise à jour.',
 };
 
-const DICTS: Record<Locale, EventDict> = { 'pt-BR': ptBR, en, es, fr, zh: ptBR, ja: ptBR, ko: ptBR, hi: ptBR, ar: ptBR };
+const DICTS: Record<Locale, EventDict> = {
+  'pt-BR': ptBR,
+  en,
+  es: { ...en, ...es },
+  fr: { ...en, ...fr },
+  zh: { ...en },
+  ja: { ...en },
+  ko: { ...en },
+  hi: { ...en },
+  ar: { ...en },
+};
 
 function getDict(locale: Locale): EventDict {
   return DICTS[locale] ?? DICTS['pt-BR'];

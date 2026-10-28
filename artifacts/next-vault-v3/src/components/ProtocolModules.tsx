@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Activity, BookOpen, ChevronRight, Clock3, Copy, Download, ExternalLink, FileText, Mail, Palette, Settings2, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { clearNVActivity, logNVActivity, readNVActivity, type NVActivity } from '../lib/activityLog';
+import { useI18n } from '../i18n/context';
 
 const panel = 'rounded-2xl border border-border/60 bg-card/80 p-5 shadow-sm';
 const titleClass = 'text-lg font-semibold text-foreground';
@@ -58,7 +59,7 @@ export function HistoryModule() {
               <div key={item.id} className="rounded-xl border border-border/60 bg-background/50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="font-medium text-sm">{item.action}</div>
-                  <span className="text-xs text-muted-foreground">{formatDate(item.timestamp)}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(item.timestamp, localeBcp47)}</span>
                 </div>
                 <div className="mt-2 break-all font-mono text-xs text-muted-foreground">{item.txHash}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">

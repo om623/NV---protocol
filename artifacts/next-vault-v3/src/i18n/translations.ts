@@ -439,6 +439,18 @@ const ptBR: Dict = {
   'purchase.rejected': 'Transação rejeitada',
   'purchase.alreadyProcessed': 'Transação já processada',
   'purchase.insufficientBalance': 'Saldo insuficiente',
+  'converter.title': 'Conversor de mercado',
+  'converter.subtitle': 'Cotações indicativas de Global Markets',
+  'converter.crypto': 'Cripto & stablecoins',
+  'converter.fiat': 'Fiat',
+  'converter.commodities': 'Commodities',
+  'converter.youHave': 'Você tem',
+  'converter.estimatedValue': 'Valor estimado',
+  'converter.equivalent': 'equivalente',
+  'converter.gas': 'Gás',
+  'converter.queryNetwork': 'Consultando rede…',
+  'converter.rpcUnavailable': 'Preço indisponível via RPC',
+  'converter.disclaimer': 'Estimativa baseada nas cotações carregadas pelo Global Markets; não é uma oferta de execução. Ações individuais ainda não têm uma fonte de cotação integrada. O preço do gás depende da disponibilidade pública do RPC selecionado.',
 };
 
 const en: Dict = {
@@ -853,6 +865,18 @@ const en: Dict = {
   'purchase.rejected': 'Transaction rejected',
   'purchase.alreadyProcessed': 'Transaction already processed',
   'purchase.insufficientBalance': 'Insufficient balance',
+  'converter.title': 'Market Converter',
+  'converter.subtitle': 'Indicative quotes from Global Markets',
+  'converter.crypto': 'Crypto & stablecoins',
+  'converter.fiat': 'Fiat',
+  'converter.commodities': 'Commodities',
+  'converter.youHave': 'You have',
+  'converter.estimatedValue': 'Estimated value',
+  'converter.equivalent': 'equivalent',
+  'converter.gas': 'Gas',
+  'converter.queryNetwork': 'Querying network…',
+  'converter.rpcUnavailable': 'Price unavailable via RPC',
+  'converter.disclaimer': 'Estimate based on Global Markets quotes; not an execution offer. Individual equities do not yet have an integrated quote source. Gas price depends on the selected public RPC.',
 };
 
 const es: Dict = {
@@ -2895,7 +2919,17 @@ Object.assign(en, nvEn);
 Object.assign(es, nvEs);
 Object.assign(fr, nvFr);
 
-const DICTS: Record<Locale, Dict> = { 'pt-BR': ptBR, en, es, fr, zh, ja, ko, hi, ar };
+const DICTS: Record<Locale, Dict> = {
+  'pt-BR': ptBR,
+  en,
+  es: { ...en, ...es },
+  fr: { ...en, ...fr },
+  zh: { ...en, ...zh },
+  ja: { ...en, ...ja },
+  ko: { ...en, ...ko },
+  hi: { ...en, ...hi },
+  ar: { ...en, ...ar },
+};
 
 export function getDict(locale: Locale): Dict {
   return DICTS[locale] ?? DICTS['pt-BR'];
