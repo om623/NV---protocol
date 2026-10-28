@@ -2895,7 +2895,7 @@ Object.assign(en, nvEn);
 Object.assign(es, nvEs);
 Object.assign(fr, nvFr);
 
-const DICTS: Record<Locale, Dict> = { 'pt-BR': ptBR, en, es, fr, zh, ja, ko, hi, ar };
+const DICTS: Record<Locale, Dict> = {\n  'pt-BR': ptBR,\n  en,\n  es: { ...en, ...es },\n  fr: { ...en, ...fr },\n  zh: { ...en, ...zh },\n  ja: { ...en, ...ja },\n  ko: { ...en, ...ko },\n  hi: { ...en, ...hi },\n  ar: { ...en, ...ar },\n };
 
 export function getDict(locale: Locale): Dict {
   return DICTS[locale] ?? DICTS['pt-BR'];
