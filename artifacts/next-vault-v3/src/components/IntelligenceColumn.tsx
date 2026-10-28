@@ -120,14 +120,17 @@ export function IntelligenceColumn({
         </div>
         {techError && !techFeed ? <div className="text-[9px] font-mono text-muted-foreground/60">Live technology feed temporarily unavailable.</div> : null}
         <div className="flex flex-col gap-2">
-          {techFeed?.items.slice(0,5).map((item, i) => (
-            <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="group flex gap-2.5 rounded-xl border border-border/40 bg-secondary/20 p-2 hover:border-primary/25 hover:bg-secondary/35 transition-all">
-              <div className="w-9 h-9 rounded-lg bg-background/70 border border-border/40 flex items-center justify-center shrink-0 overflow-hidden">
-                <img src={item.image} alt="" className="w-6 h-6 object-contain" loading="lazy" />
+          {techFeed?.items.slice(0,4).map((item, i) => (
+            <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="group relative overflow-hidden rounded-xl border border-border/40 bg-secondary/20 hover:border-primary/30 transition-all">
+              <div className="h-24 bg-gradient-to-br from-primary/10 via-background/60 to-cyan-500/10 flex items-center justify-center relative">
+                <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_50%_30%,rgba(0,229,188,0.22),transparent_55%)]" />
+                <img src={item.image} alt="" className="relative w-12 h-12 object-contain drop-shadow-[0_0_12px_rgba(0,229,188,0.25)] group-hover:scale-110 transition-transform" loading="lazy" />
+                <span className="absolute top-2 left-2 rounded-full border border-primary/20 bg-background/80 px-2 py-0.5 text-[7px] font-mono text-primary">TREND #{i+1}</span>
+                <span className="absolute top-2 right-2 rounded-full bg-background/80 px-2 py-0.5 text-[7px] font-mono text-emerald-400">{item.score} pts</span>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start gap-1"><span className="text-[8px] font-mono text-primary/70 mt-0.5">#{i+1}</span><p className="text-[9px] leading-snug text-foreground/90 line-clamp-2">{item.title}</p></div>
-                <div className="mt-1 flex items-center gap-1.5 text-[8px] font-mono text-muted-foreground/45"><span className="truncate">{item.domain}</span><span>·</span><span>{item.score} pts</span><span>·</span><span>{item.comments} comments</span><ExternalLink size={8} className="ml-auto opacity-0 group-hover:opacity-100" /></div>
+              <div className="p-2.5">
+                <p className="text-[10px] font-medium leading-snug text-foreground/90 line-clamp-2">{item.title}</p>
+                <div className="mt-1.5 flex items-center gap-1.5 text-[8px] font-mono text-muted-foreground/50"><span className="truncate">{item.domain}</span><span>·</span><span>{item.comments} discussions</span><ExternalLink size={8} className="ml-auto opacity-60" /></div>
               </div>
             </a>
           ))}
