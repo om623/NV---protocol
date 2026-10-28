@@ -156,6 +156,7 @@ export function IntelligenceColumn({
               {envMode === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}
             </span>
           </div>
+        </div>
       </div>
 
       {/* ── NV Tip (preserved) ────────────────────────────────────────────── */}
