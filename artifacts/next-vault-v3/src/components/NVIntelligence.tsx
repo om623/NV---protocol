@@ -801,15 +801,15 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   }
 
   const agentSlotLabels: Record<string, Record<string, string>> = {
-    'pt-BR': { amount:'valor', sourceToken:'token de origem', destinationToken:'token de destino', fromNetwork:'rede de origem', toNetwork:'rede de destino', token:'token', recipient:'destinatário', product:'produto' },
-    en: { amount:'amount', sourceToken:'source token', destinationToken:'destination token', fromNetwork:'source network', toNetwork:'destination network', token:'token', recipient:'recipient', product:'product' },
-    es: { amount:'importe', sourceToken:'token de origen', destinationToken:'token de destino', fromNetwork:'red de origen', toNetwork:'red de destino', token:'token', recipient:'destinatario', product:'producto' },
-    fr: { amount:'montant', sourceToken:'jeton source', destinationToken:'jeton de destination', fromNetwork:'réseau source', toNetwork:'réseau de destination', token:'jeton', recipient:'destinataire', product:'produit' },
-    zh: { amount:'金额', sourceToken:'源代币', destinationToken:'目标代币', fromNetwork:'源网络', toNetwork:'目标网络', token:'代币', recipient:'接收地址', product:'产品' },
-    ja: { amount:'金額', sourceToken:'送信元トークン', destinationToken:'送信先トークン', fromNetwork:'送信元ネットワーク', toNetwork:'送信先ネットワーク', token:'トークン', recipient:'受取人', product:'商品' },
-    ko: { amount:'금액', sourceToken:'소스 토큰', destinationToken:'대상 토큰', fromNetwork:'소스 네트워크', toNetwork:'대상 네트워크', token:'토큰', recipient:'수신자', product:'상품' },
-    hi: { amount:'राशि', sourceToken:'स्रोत टोकन', destinationToken:'गंतव्य टोकन', fromNetwork:'स्रोत नेटवर्क', toNetwork:'गंतव्य नेटवर्क', token:'टोकन', recipient:'प्राप्तकर्ता', product:'उत्पाद' },
-    ar: { amount:'المبلغ', sourceToken:'رمز المصدر', destinationToken:'رمز الوجهة', fromNetwork:'شبكة المصدر', toNetwork:'شبكة الوجهة', token:'الرمز', recipient:'المستلم', product:'المنتج' },
+    'pt-BR': { amount:'valor', sourceToken:'token de origem', destinationToken:'token de destino', network:'rede', fromNetwork:'rede de origem', toNetwork:'rede de destino', token:'token', recipient:'destinatário', product:'produto' },
+    en: { amount:'amount', sourceToken:'source token', destinationToken:'destination token', network:'network', fromNetwork:'source network', toNetwork:'destination network', token:'token', recipient:'recipient', product:'product' },
+    es: { amount:'importe', sourceToken:'token de origen', destinationToken:'token de destino', network:'red', fromNetwork:'red de origen', toNetwork:'red de destino', token:'token', recipient:'destinatario', product:'producto' },
+    fr: { amount:'montant', sourceToken:'jeton source', destinationToken:'jeton de destination', network:'réseau', fromNetwork:'réseau source', toNetwork:'réseau de destination', token:'jeton', recipient:'destinataire', product:'produit' },
+    zh: { amount:'金额', sourceToken:'源代币', destinationToken:'目标代币', network:'网络', fromNetwork:'源网络', toNetwork:'目标网络', token:'代币', recipient:'接收地址', product:'产品' },
+    ja: { amount:'金額', sourceToken:'送信元トークン', destinationToken:'送信先トークン', network:'ネットワーク', fromNetwork:'送信元ネットワーク', toNetwork:'送信先ネットワーク', token:'トークン', recipient:'受取人', product:'商品' },
+    ko: { amount:'금액', sourceToken:'소스 토큰', destinationToken:'대상 토큰', network:'네트워크', fromNetwork:'소스 네트워크', toNetwork:'대상 네트워크', token:'토큰', recipient:'수신자', product:'상품' },
+    hi: { amount:'राशि', sourceToken:'स्रोत टोकन', destinationToken:'गंतव्य टोकन', network:'नेटवर्क', fromNetwork:'स्रोत नेटवर्क', toNetwork:'गंतव्य नेटवर्क', token:'टोकन', recipient:'प्राप्तकर्ता', product:'उत्पाद' },
+    ar: { amount:'المبلغ', sourceToken:'رمز المصدر', destinationToken:'رمز الوجهة', network:'الشبكة', fromNetwork:'شبكة المصدر', toNetwork:'شبكة الوجهة', token:'الرمز', recipient:'المستلم', product:'المنتج' },
   };
   function localizeAgentSlots(slots: string[]): string[] {
     const labels = agentSlotLabels[locale] ?? agentSlotLabels.en;
@@ -1025,35 +1025,8 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       // always kept in the chat, and financial identifiers remain unchanged.
       const semantic = await understandSemantically(question);
 
-      // Deterministic pending-action slot extraction is the safety net when the
-      // semantic provider is unavailable or misclassifies a terse follow-up.
-      // It deliberately runs before any new market/query routing.
-      if (pendingAction?.type === 'swap') {
-        const amountMatch = question.match(/(?:^|\\s)(\\d+(?:[.,]\\d+)?)(?=\\s|$)/);
-        const tokenMatches = [...question.toUpperCase().matchAll(/\\b(USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\\b/g)]
-          .map(m => m[1] === 'MATIC' ? 'POL' : m[1]);
-        const patch: Record<string, string | number> = {};
-        if (amountMatch) {
-          const n = Number(amountMatch[1].replace(',', '.'));
-          if (Number.isFinite(n) && n > 0) patch.amount = n;
-        }
-        if (tokenMatches[0]) patch.sourceToken = tokenMatches[0];
-        if (tokenMatches[1]) patch.destinationToken = tokenMatches[1];
-        if (Object.keys(patch).length) {
-          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
-          setPendingAction(updated);
-          const p = updated.params ?? {};
-          const complete = p.amount != null && p.sourceToken && p.destinationToken && p.sourceToken !== p.destinationToken;
-          const summary = complete
-            ? `Swap pronto para revisão: ${p.amount} ${p.sourceToken} → ${p.destinationToken}.`
-            : locale === 'pt-BR'
-              ? 'Atualizei o Swap. Ainda faltam parâmetros para concluir a preparação.'
-              : 'I updated the Swap. Some parameters are still missing.';
-          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: complete ? updated : undefined, timestamp: Date.now() }]);
-          if (!voiceMuted) enqueueNVVoice(summary, locale);
-          return;
-        }
-      }
+      // Core v3 already owns pending financial slot filling above. Avoid a second
+      // parser here so transaction state has one deterministic authority.
 
       // Carry an unfinished operation across turns BEFORE honoring a generic
       // semantic clarification. A short reply such as "valor: 0.001 de USDC
