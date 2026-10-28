@@ -60,6 +60,7 @@ export function IntelligenceColumn({
   const [marketGroups, setMarketGroups] = useState<MarketGroup[]>(() => getMarketGroups());
   const [marketRefreshing, setMarketRefreshing] = useState(false);
   const [signalMuted, setSignalMuted] = useState(true);
+  const signalPlayerRef = useRef<HTMLIFrameElement | null>(null);
   const signalPlaylist = 'ipwupyxao_U,rCNIvbQ1_9A,Qn7hayZaaug';
   const marketTimer = useRef<number | null>(null);
 
@@ -102,9 +103,9 @@ export function IntelligenceColumn({
         </div>
         <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
           <iframe
-            key={signalMuted ? 'muted' : 'sound'}
+            ref={signalPlayerRef}
             title="NV Signal Technology"
-            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=${signalMuted ? 1 : 0}&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&playsinline=1&loop=1&playlist=${signalPlaylist}`}
+            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&loop=1&enablejsapi=1&playlist=${signalPlaylist}`}
             className="absolute -inset-[2px] h-[calc(100%+4px)] w-[calc(100%+4px)] border-0"
             allow="autoplay; encrypted-media"
             referrerPolicy="strict-origin-when-cross-origin"
@@ -119,7 +120,11 @@ export function IntelligenceColumn({
             </div>
             <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
           </div>
-          <button type="button" onClick={() => setSignalMuted(v => !v)} className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-primary/25 bg-black/75 px-2.5 py-1.5 text-[8px] font-mono text-primary backdrop-blur-md hover:bg-black/90" aria-label={signalMuted ? 'Ativar som do NV Signal' : 'Silenciar NV Signal'}>
+          <button type="button" onClick={() => {
+            const nextMuted = !signalMuted;
+            signalPlayerRef.current?.contentWindow?.postMessage(JSON.stringify({ event:'command', func:nextMuted?'mute':'unMute', args:[] }), 'https://www.youtube-nocookie.com');
+            setSignalMuted(nextMuted);
+          }} className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-primary/25 bg-black/75 px-2.5 py-1.5 text-[8px] font-mono text-primary backdrop-blur-md hover:bg-black/90" aria-label={signalMuted ? 'Ativar som do NV Signal' : 'Silenciar NV Signal'}>
             {signalMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
             <span>{signalMuted ? 'SOUND' : 'MUTE'}</span>
           </button>
