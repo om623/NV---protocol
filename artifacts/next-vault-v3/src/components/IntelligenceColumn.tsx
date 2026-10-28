@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, RadioTower } from 'lucide-react';
+import { Activity, Zap, Loader as Loader2, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Globe, RefreshCw, Radio, Route, Eye, RadioTower, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { EnvMode, NetworkConfig } from '../networks';
 import { useI18n } from '../i18n';
 import {
@@ -59,6 +59,8 @@ export function IntelligenceColumn({
   const [tipIdx] = useState(() => Math.floor(Math.random() * 5));
   const [marketGroups, setMarketGroups] = useState<MarketGroup[]>(() => getMarketGroups());
   const [marketRefreshing, setMarketRefreshing] = useState(false);
+  const [signalVideo, setSignalVideo] = useState(0);
+  const signalVideos = ['ipwupyxao_U', 'rCNIvbQ1_9A', 'Qn7hayZaaug'];
   const marketTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function IntelligenceColumn({
         <div className="relative aspect-video min-h-40 overflow-hidden rounded-2xl border border-primary/15 bg-black">
           <iframe
             title="CNN Business Technology"
-            src="https://www.youtube.com/embed/U5okFckZk5M?autoplay=1&mute=1&controls=1&rel=0&playsinline=1"
+            src={`https://www.youtube.com/embed/${signalVideos[signalVideo]}?autoplay=1&mute=1&controls=1&rel=0&playsinline=1`}
             className="absolute inset-0 h-full w-full border-0"
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
@@ -116,11 +118,15 @@ export function IntelligenceColumn({
               <span className="w-fit rounded-full border border-white/15 bg-black/60 px-2 py-1 text-white/70">TRENDING · GLOBAL · TECHNOLOGY</span>
             </div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pb-2 pt-8 text-[7px] font-mono text-white/60">
-              <span>SOURCE · CNN BRASIL</span>
+              <span>NV SIGNAL · VIDEO {signalVideo + 1}/3</span>
             </div>
           </div>
         </div>
-        <p className="mt-2 text-[8px] font-mono leading-relaxed text-muted-foreground/45">NV Signal acompanha tendências tecnológicas globais. O vídeo permanece como fonte; a camada visual é do NV.</p>
+        <div className="mt-2 flex items-center justify-between">
+          <button type="button" onClick={() => setSignalVideo(v => (v + signalVideos.length - 1) % signalVideos.length)} className="rounded-lg border border-border/50 bg-secondary/30 p-1.5 text-muted-foreground hover:text-primary" aria-label="Previous NV Signal video"><ChevronLeft size={12} /></button>
+          <div className="flex gap-1.5">{signalVideos.map((_, i) => <button key={i} type="button" onClick={() => setSignalVideo(i)} aria-label={`NV Signal video ${i+1}`} className={`h-1.5 rounded-full transition-all ${i === signalVideo ? 'w-5 bg-primary' : 'w-1.5 bg-muted-foreground/30'}`} />)}</div>
+          <button type="button" onClick={() => setSignalVideo(v => (v + 1) % signalVideos.length)} className="rounded-lg border border-border/50 bg-secondary/30 p-1.5 text-muted-foreground hover:text-primary" aria-label="Next NV Signal video"><ChevronRight size={12} /></button>
+        </div>
       </div>
 
       {/* ── Network Activity (preserved + enhanced stats) ─────────────────── */}
