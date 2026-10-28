@@ -12,11 +12,13 @@ const groupOf = (asset: MarketAsset): ConverterGroup | null => {
   return null;
 };
 const usdPerUnit = (asset: MarketAsset) => asset.category === 'fiat' ? (asset.price > 0 ? 1 / asset.price : 0) : asset.price;
-const money = (value: number, currency = 'USD') => new Intl.NumberFormat('pt-BR', {
+const money = (value: number, currency = 'USD', locale = 'pt-BR') => new Intl.NumberFormat(locale, {
   style: 'currency', currency, maximumFractionDigits: value < 0.01 ? 8 : 4,
 }).format(value);
 
-export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkConfig }) {\n  const { t, localeBcp47 } = useI18n();\n  const { number } = useFormat();
+export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkConfig }) {
+  const { t, localeBcp47 } = useI18n();
+  const { number } = useFormat();
   const [group, setGroup] = useState<ConverterGroup>('crypto');
   const [from, setFrom] = useState('BTC');
   const [to, setTo] = useState('USD');
@@ -88,9 +90,9 @@ export function DashboardConverter({ activeNetwork }: { activeNetwork: NetworkCo
       </div>
       <div className="flex flex-wrap gap-1.5 mb-3">
         {([
-          ['crypto', 'Cripto & stablecoins'],
-          ['fiat', 'Fiat'],
-          ['commodities', 'Commodities'],
+          ['crypto', t('converter.crypto')],
+          ['fiat', t('converter.fiat')],
+          ['commodities', t('converter.commodities')],
         ] as [ConverterGroup, string][]).map(([key, label]) => (
           <button key={key} type="button" onClick={() => setGroup(key)}
             className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-mono transition-colors ${group === key ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:bg-secondary'}`}>
