@@ -1125,7 +1125,7 @@ function Home() {
   const networkTokenOptions = useMemo(
     () => {
       const deduped = activeSwapTokens;
-      return deduped.map(t => ({ symbol: t.symbol, name: t.name }));
+      return deduped.map(t => ({ symbol: t.symbol, name: t.name, logoURI: t.logoURI }));
     },
     [activeSwapTokens],
   );
