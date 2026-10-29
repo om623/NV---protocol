@@ -496,7 +496,11 @@ function Home() {
         const symbol = String(request.params.token ?? 'USDC');
         if (!(value > 0)) throw new Error('Informe um valor válido.');
         if (!recipient.startsWith('0x') || recipient.length !== 42) throw new Error('Informe um endereço EVM de destino válido.');
-        const token = getNetworkTokens(activeNetwork).find(item => item.symbol === symbol);
+        const availableTokens = dedupTokens([
+          ...getNetworkTokens(activeNetwork),
+          ...(activeNetwork.type === 'mainnet' ? (discoveredTokens[activeNetwork.chainId] ?? []) : []),
+        ], activeNetwork.chainId);
+        const token = availableTokens.find(item => item.symbol === symbol);
         if (!token) throw new Error('O token solicitado não está disponível na rede atual.');
         await ensureNetwork(prov, networkChainParams(activeNetwork));
         let hash: string;
@@ -1122,7 +1126,7 @@ function Home() {
       const deduped = activeSwapTokens;
       return deduped.map(t => ({ symbol: t.symbol, name: t.name }));
     },
-    [activeNetwork],
+    [activeSwapTokens],
   );
 
   const sourceAmountNum = parseFloat(amount) || 0;
