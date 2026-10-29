@@ -52,6 +52,7 @@ import {
 import { getAsset, refreshFromApis, getMarketSentiment, getAllAssets } from './lib/marketData';
 import { isValidNum, safeBalance, safeBalanceFmt, dedupTokens } from './lib/utils';
 import { executeLifiSameChainSwap } from './lib/lifiSwap';
+import { discoverLifiTokens } from './lib/lifiTokens';
 import { executeBridge } from './lib/cctpBridgeExecutor';
 import { useI18n, useFormat } from './i18n';
 import { DigitalPresenter } from './components/DigitalPresenter';
@@ -441,6 +442,7 @@ function Home() {
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [realBalances, setRealBalances] = useState<Record<string, number> | null>(null);
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+  const [discoveredTokens, setDiscoveredTokens] = useState<Record<number, import('./networks').TokenConfig[]>>({});
   const walletSessionRef = useRef(0);
 
   // View + coming-soon state
@@ -494,7 +496,11 @@ function Home() {
         const symbol = String(request.params.token ?? 'USDC');
         if (!(value > 0)) throw new Error('Informe um valor válido.');
         if (!recipient.startsWith('0x') || recipient.length !== 42) throw new Error('Informe um endereço EVM de destino válido.');
-        const token = getNetworkTokens(activeNetwork).find(item => item.symbol === symbol);
+        const availableTokens = dedupTokens([
+          ...getNetworkTokens(activeNetwork),
+          ...(activeNetwork.type === 'mainnet' ? (discoveredTokens[activeNetwork.chainId] ?? []) : []),
+        ], activeNetwork.chainId);
+        const token = availableTokens.find(item => item.symbol === symbol);
         if (!token) throw new Error('O token solicitado não está disponível na rede atual.');
         await ensureNetwork(prov, networkChainParams(activeNetwork));
         let hash: string;
@@ -516,7 +522,10 @@ function Home() {
         if (!(value > 0)) throw new Error('Informe o valor do swap no chat.');
         if (!swapNetwork) throw new Error('A rede solicitada não está disponível no NV.');
         if (swapNetwork.type !== 'mainnet') throw new Error('O executor direto LI.FI está disponível nas mainnets compatíveis.');
-        const tokens = getNetworkTokens(swapNetwork);
+        const tokens = dedupTokens([
+          ...getNetworkTokens(swapNetwork),
+          ...(swapNetwork.type === 'mainnet' ? (discoveredTokens[swapNetwork.chainId] ?? []) : []),
+        ], swapNetwork.chainId);
         const from = tokens.find(item => item.symbol === fromSymbol);
         const to = tokens.find(item => item.symbol === toSymbol);
         if (!from || !to) throw new Error('Informe dois tokens disponíveis na rede solicitada.');
@@ -559,7 +568,7 @@ function Home() {
     } catch (error) {
       publishAgentExecutionResult({ id: request.id, ok: false, message: error instanceof Error ? error.message : 'Falha inesperada.' });
     }
-  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken, purchases]);
+  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken, purchases, discoveredTokens]);
 
 
 
@@ -659,6 +668,28 @@ function Home() {
   };
   const networkMismatch = isConnected && walletChainId !== null && walletChainId !== activeNetwork.chainId;
 
+  // Discover LI.FI-listed ERC-20s only on mainnets. Configured tokens and
+  // testnet/CCTP behavior remain unchanged.
+  useEffect(() => {
+    if (activeNetwork.type !== 'mainnet' || discoveredTokens[activeNetwork.chainId]) return;
+    let cancelled = false;
+    void discoverLifiTokens(activeNetwork).then(tokens => {
+      if (!cancelled) setDiscoveredTokens(previous => ({ ...previous, [activeNetwork.chainId]: tokens }));
+    }).catch(error => {
+      console.warn('LI.FI token discovery unavailable; using configured tokens only.', error);
+      if (!cancelled) setDiscoveredTokens(previous => ({ ...previous, [activeNetwork.chainId]: [] }));
+    });
+    return () => { cancelled = true; };
+  }, [activeNetwork, discoveredTokens]);
+
+  const activeSwapTokens = useMemo(() => {
+    const configured = getNetworkTokens(activeNetwork);
+    const discovered = activeNetwork.type === 'mainnet'
+      ? (discoveredTokens[activeNetwork.chainId] ?? [])
+      : [];
+    return dedupTokens([...configured, ...discovered], activeNetwork.chainId);
+  }, [activeNetwork, discoveredTokens]);
+
   // Destination network for cross-chain CCTP swap (separate from source activeNetwork)
   const [swapDestNetworkId, setSwapDestNetworkId] = useState<string>('base-sepolia');
 
@@ -667,13 +698,13 @@ function Home() {
 
   const refreshBalances = useCallback(async (prov: Eip1193Provider, addr: string): Promise<Record<string, number> | null> => {
     try {
-      const tokenMap = getTokensForNetwork(activeNetwork);
+      const tokenMap = Object.fromEntries(activeSwapTokens.map(token => [token.symbol, { symbol: token.symbol, address: token.address, decimals: token.decimals, isNative: token.isNative }]));
       return await getAllBalances(prov, addr, tokenMap);
     } catch {
       // Balance reads are non-fatal; wallet connection should remain successful.
       return null;
     }
-  }, [activeNetwork]);
+  }, [activeSwapTokens]);
 
   // Refresh token balances whenever the connected wallet or selected network changes.
   // This keeps the Swap panel current after switching networks without blocking connection.
@@ -786,7 +817,7 @@ function Home() {
 
     // Mainnet same-chain swaps use LI.FI. Existing USDC CCTP transfers remain unchanged.
     if (activeNetwork.type === 'mainnet' && !(sourceToken === 'USDC' && destToken === 'USDC')) {
-      const tokens = dedupTokens(getNetworkTokens(activeNetwork), activeNetwork.chainId);
+      const tokens = activeSwapTokens;
       const sourceMatches = tokens.filter(token => token.symbol === sourceToken);
       const destinationMatches = tokens.filter(token => token.symbol === destToken);
       if (sourceMatches.length !== 1 || destinationMatches.length !== 1) {
@@ -1092,11 +1123,10 @@ function Home() {
 
   const networkTokenOptions = useMemo(
     () => {
-      const raw = getNetworkTokens(activeNetwork);
-      const deduped = dedupTokens(raw, activeNetwork.chainId);
+      const deduped = activeSwapTokens;
       return deduped.map(t => ({ symbol: t.symbol, name: t.name }));
     },
-    [activeNetwork],
+    [activeSwapTokens],
   );
 
   const sourceAmountNum = parseFloat(amount) || 0;
