@@ -21,6 +21,8 @@ export interface TokenConfig {
   /** ERC-20 contract address on this network, or null for the native gas token */
   address: string | null;
   isNative: boolean;
+  /** Optional logo from a token registry. */
+  logoURI?: string;
 }
 
 export interface NetworkConfig {
