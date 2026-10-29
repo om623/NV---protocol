@@ -159,8 +159,9 @@ const EurcIcon = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
-function TokenCryptoIcon({ symbol, className = "" }: { symbol: string; className?: string }) {
-  const cls = twMerge("w-6 h-6 rounded-full shadow-sm ring-2 ring-card z-10 shrink-0", className);
+function TokenCryptoIcon({ symbol, logoURI, className = "" }: { symbol: string; logoURI?: string; className?: string }) {
+  const cls = twMerge("w-6 h-6 rounded-full shadow-sm ring-2 ring-card z-10 shrink-0 object-contain", className);
+  if (logoURI && /^https:\/\//i.test(logoURI)) return <img src={logoURI} alt="" aria-hidden="true" loading="lazy" referrerPolicy="no-referrer" className={cls} onError={e => { e.currentTarget.style.display = "none"; }} />;
   if (symbol === 'ETH')  return <EthIcon className={cls} />;
   if (symbol === 'USDC') return <UsdcIcon className={cls} />;
   if (symbol === 'EURC') return <EurcIcon className={cls} />;
@@ -170,7 +171,7 @@ function TokenCryptoIcon({ symbol, className = "" }: { symbol: string; className
 
 // ─── TokenSelect ──────────────────────────────────────────────────────────────
 
-function TokenSelect({ value, onChange, tokens = DEFAULT_TOKENS }: { value: string; onChange: (v: string) => void; tokens?: { symbol: string; name: string }[] }) {
+function TokenSelect({ value, onChange, tokens = DEFAULT_TOKENS }: { value: string; onChange: (v: string) => void; tokens?: { symbol: string; name: string; logoURI?: string }[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -182,7 +183,7 @@ function TokenSelect({ value, onChange, tokens = DEFAULT_TOKENS }: { value: stri
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(!open)}
         className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground px-3 py-2 rounded-xl transition-colors font-medium border border-border/50 shadow-sm cursor-pointer">
-        <TokenCryptoIcon symbol={value} className="w-5 h-5 ring-0 shadow-none" />
+        <TokenCryptoIcon symbol={value} logoURI={tokens.find(t => t.symbol === value)?.logoURI} className="w-5 h-5 ring-0 shadow-none" />
         <span translate="no">{value}</span>
         <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -190,11 +191,11 @@ function TokenSelect({ value, onChange, tokens = DEFAULT_TOKENS }: { value: stri
         {open && (
           <motion.div initial={{ opacity: 0, y: -5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -5, scale: 0.95 }} transition={{ duration: 0.15 }}
-            className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-xl p-2 shadow-2xl z-50">
+            className="absolute top-full right-0 mt-2 w-60 max-h-80 overflow-y-auto overscroll-contain bg-card border border-border rounded-xl p-2 shadow-2xl z-[9999]">
             {tokens.map(t => (
               <button key={t.symbol} onClick={() => { onChange(t.symbol); setOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${t.symbol === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}>
-                <TokenCryptoIcon symbol={t.symbol} className="w-5 h-5 ring-0 shadow-none" />
+                <TokenCryptoIcon symbol={t.symbol} logoURI={t.logoURI} className="w-5 h-5 ring-0 shadow-none" />
                 <div className="text-left flex flex-col">
                   <span className="font-medium text-sm" translate="no">{t.symbol}</span>
                   <span className="text-xs opacity-50">{t.name}</span>
@@ -1124,7 +1125,7 @@ function Home() {
   const networkTokenOptions = useMemo(
     () => {
       const deduped = activeSwapTokens;
-      return deduped.map(t => ({ symbol: t.symbol, name: t.name }));
+      return deduped.map(t => ({ symbol: t.symbol, name: t.name, logoURI: t.logoURI }));
     },
     [activeSwapTokens],
   );

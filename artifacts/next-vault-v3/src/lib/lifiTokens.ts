@@ -11,6 +11,8 @@ type LifiToken = {
   name?: string;
   decimals?: number;
   priceUSD?: string;
+  logoURI?: string;
+  logoUrl?: string;
 };
 
 type LifiTokenResponse = {
@@ -75,7 +77,8 @@ export async function discoverLifiTokens(network: NetworkConfig): Promise<TokenC
 
         seenSymbols.add(symbol.toUpperCase());
         seenAddresses.add(address.toLowerCase());
-        discovered.push({ symbol, name, decimals: decimals!, address, isNative: false });
+        const logoURI = [token.logoURI, token.logoUrl].find((candidate): candidate is string => typeof candidate === "string" && candidate.length <= 2048 && /^https:\/\//i.test(candidate));
+        discovered.push({ symbol, name, decimals: decimals!, address, isNative: false, ...(logoURI ? { logoURI } : {}) });
       }
 
       tokenCache.set(network.chainId, { expiresAt: Date.now() + CACHE_TTL_MS, tokens: discovered });
