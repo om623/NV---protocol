@@ -518,7 +518,10 @@ function Home() {
         if (!(value > 0)) throw new Error('Informe o valor do swap no chat.');
         if (!swapNetwork) throw new Error('A rede solicitada não está disponível no NV.');
         if (swapNetwork.type !== 'mainnet') throw new Error('O executor direto LI.FI está disponível nas mainnets compatíveis.');
-        const tokens = getNetworkTokens(swapNetwork);
+        const tokens = dedupTokens([
+          ...getNetworkTokens(swapNetwork),
+          ...(swapNetwork.type === 'mainnet' ? (discoveredTokens[swapNetwork.chainId] ?? []) : []),
+        ], swapNetwork.chainId);
         const from = tokens.find(item => item.symbol === fromSymbol);
         const to = tokens.find(item => item.symbol === toSymbol);
         if (!from || !to) throw new Error('Informe dois tokens disponíveis na rede solicitada.');
@@ -561,7 +564,7 @@ function Home() {
     } catch (error) {
       publishAgentExecutionResult({ id: request.id, ok: false, message: error instanceof Error ? error.message : 'Falha inesperada.' });
     }
-  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken, purchases]);
+  }), [provider, connectedAddress, activeNetwork, sourceToken, destToken, purchases, discoveredTokens]);
 
 
 
