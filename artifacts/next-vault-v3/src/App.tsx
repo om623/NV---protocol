@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnimatedDashboardObject } from "./components/AnimatedDashboardObject";
@@ -173,42 +174,81 @@ function TokenCryptoIcon({ symbol, logoURI, className = "" }: { symbol: string; 
 
 function TokenSelect({ value, onChange, tokens = DEFAULT_TOKENS }: { value: string; onChange: (v: string) => void; tokens?: { symbol: string; name: string; logoURI?: string }[] }) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', fn);
-    return () => document.removeEventListener('mousedown', fn);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updateMenuPosition = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(240, window.innerWidth - 16);
+    const gap = 8;
+    const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+    const below = window.innerHeight - rect.bottom - gap;
+    const above = rect.top - gap;
+    const openAbove = below < 220 && above > below;
+    const available = Math.max(120, Math.min(280, (openAbove ? above : below) - 8));
+    setMenuStyle({ position: 'fixed', left, width, maxHeight: available, zIndex: 2147483000,
+      ...(openAbove ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }) });
   }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    const reposition = () => updateMenuPosition();
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [open, updateMenuPosition]);
+
+  const selected = tokens.find(token => token.symbol === value);
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(!open)}
+      <button ref={buttonRef} type="button" onClick={() => setOpen(current => !current)}
         className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground px-3 py-2 rounded-xl transition-colors font-medium border border-border/50 shadow-sm cursor-pointer">
-        <TokenCryptoIcon symbol={value} logoURI={tokens.find(t => t.symbol === value)?.logoURI} className="w-5 h-5 ring-0 shadow-none" />
+        <TokenCryptoIcon symbol={value} logoURI={selected?.logoURI} className="w-5 h-5 ring-0 shadow-none" />
         <span translate="no">{value}</span>
         <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, y: -5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -5, scale: 0.95 }} transition={{ duration: 0.15 }}
-            className="absolute top-full right-0 mt-2 w-60 max-h-80 overflow-y-auto overscroll-contain bg-card border border-border rounded-xl p-2 shadow-2xl z-[9999]">
-            {tokens.map(t => (
-              <button key={t.symbol} onClick={() => { onChange(t.symbol); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${t.symbol === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}>
-                <TokenCryptoIcon symbol={t.symbol} logoURI={t.logoURI} className="w-5 h-5 ring-0 shadow-none" />
-                <div className="text-left flex flex-col">
-                  <span className="font-medium text-sm" translate="no">{t.symbol}</span>
-                  <span className="text-xs opacity-50">{t.name}</span>
-                </div>
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {open && (
+            <motion.div ref={menuRef} style={menuStyle}
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.12 }}
+              className="overflow-y-auto overscroll-contain bg-card border border-border rounded-xl p-2 shadow-2xl">
+              {tokens.map(token => (
+                <button key={token.symbol} type="button" onClick={() => { onChange(token.symbol); setOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${token.symbol === value ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'}`}>
+                  <TokenCryptoIcon symbol={token.symbol} logoURI={token.logoURI} className="w-5 h-5 ring-0 shadow-none" />
+                  <div className="text-left flex flex-col min-w-0">
+                    <span className="font-medium text-sm truncate" translate="no">{token.symbol}</span>
+                    <span className="text-xs opacity-50 truncate">{token.name}</span>
+                  </div>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
-
 // ─── EnvNetworkSelector ───────────────────────────────────────────────────────
 
 interface EnvNetworkSelectorProps {
