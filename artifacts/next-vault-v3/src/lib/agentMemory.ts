@@ -1,5 +1,12 @@
 export type NVAgentMode = 'assisted' | 'authorized' | null;
 
+export interface NVAgentAutomationPreference {
+  preferredNetwork?: string;
+  preferredToken?: string;
+  lastActionType?: 'swap' | 'bridge' | 'transfer' | 'payment';
+  updatedAt: number;
+}
+
 export interface NVAgentIntentMemory {
   id: string;
   text: string;
@@ -11,6 +18,7 @@ export interface NVAgentIntentMemory {
 const MODE_KEY = 'nv-agent-mode-v1';
 const INTENTS_KEY = 'nv-agent-intents-v1';
 const MAX_INTENTS = 100;
+const PREFS_KEY = 'nv-agent-automation-prefs-v1';
 
 function canStore(): boolean {
   return typeof window !== 'undefined' && Boolean(window.localStorage);
@@ -53,3 +61,31 @@ export function rememberNVAgentIntent(input: Omit<NVAgentIntentMemory, 'id' | 'c
 }
 
 export const NV_AGENT_INTENT_MEMORY_LIMIT = MAX_INTENTS;
+
+
+export function getNVAgentAutomationPreferences(): NVAgentAutomationPreference {
+  if (!canStore()) return { updatedAt: 0 };
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? '{}');
+    if (!parsed || typeof parsed !== 'object') return { updatedAt: 0 };
+    return {
+      ...(typeof parsed.preferredNetwork === 'string' ? { preferredNetwork: parsed.preferredNetwork } : {}),
+      ...(typeof parsed.preferredToken === 'string' ? { preferredToken: parsed.preferredToken } : {}),
+      ...( ['swap','bridge','transfer','payment'].includes(parsed.lastActionType) ? { lastActionType: parsed.lastActionType } : {}),
+      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0,
+    };
+  } catch {
+    return { updatedAt: 0 };
+  }
+}
+
+export function rememberNVAgentAutomationPreferences(patch: Partial<Omit<NVAgentAutomationPreference,'updatedAt'>>): void {
+  if (!canStore()) return;
+  const current = getNVAgentAutomationPreferences();
+  window.localStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...patch, updatedAt: Date.now() }));
+}
+
+export function clearNVAgentAutomationPreferences(): void {
+  if (!canStore()) return;
+  window.localStorage.removeItem(PREFS_KEY);
+}
