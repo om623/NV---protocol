@@ -2,27 +2,34 @@ import type { AgentAction } from './intelligence';
 
 export type NVIntent='transfer'|'swap'|'bridge'|'payment'|'market'|'wallet'|'news'|'tvl'|'chat'|'cancel'|'confirm';
 export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number|null>;confidence:number;}
+// Execution-token allowlist intentionally remains unchanged: it protects the
+// already validated Swap / Bridge / Transfer executors. Parser improvements
+// below only make language/slot recognition more flexible.
 const TOKENS=['USDC','EURC','ETH','SOL','POL','MATIC','AVAX','S','MON','SEI','XDC','HYPE','PLUME'];
 const NETS:Array<[RegExp,string]>=[
  [/arbitrum sepolia/i,'arbitrum-sepolia'],[/optimism sepolia/i,'optimism-sepolia'],[/ethereum sepolia|sepolia/i,'sepolia'],[/base sepolia/i,'base-sepolia'],[/arc testnet/i,'arc-testnet'],[/arc mainnet/i,'arc-mainnet'],
  [/world chain/i,'world-chain'],[/xdc network/i,'xdc'],[/hyper ?evm/i,'hyperevm'],[/arbitrum/i,'arbitrum'],[/optimism/i,'optimism'],[/ethereum/i,'ethereum'],[/polygon/i,'polygon'],[/avalanche/i,'avalanche'],[/unichain/i,'unichain'],[/linea/i,'linea'],[/codex/i,'codex'],[/sonic/i,'sonic'],[/monad/i,'monad'],[/sei/i,'sei'],[/ink/i,'ink'],[/plume/i,'plume'],[/edge/i,'edge'],[/base/i,'base'],[/arc/i,'arc-mainnet']
 ];
 function amount(q:string){
- const labelled=q.match(/(?:valor(?:\s+de)?|amount(?:\s+of)?|value(?:\s+of)?)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
- const tokenAmount=q.match(/\b(?:USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\s+(\d+(?:[.,]\d+)?)/i);
+ const number='(\\d+(?:[.,]\\d+)?)';
+ const labelled=q.match(new RegExp('(?:valor(?:\\s+de)?|amount(?:\\s+of)?|value(?:\\s+of)?|quantia|montante|enviar|envie|send|swap|bridge)\\s*[:=]?\\s*'+number,'i'));
+ const beforeToken=q.match(new RegExp(number+'\\s*(?:USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\\b','i'));
+ const afterToken=q.match(new RegExp('\\b(?:USDC|EURC|ETH|SOL|POL|MATIC|AVAX)\\s*'+number,'i'));
  const plain=q.match(/(?:^|\s)(\d+(?:[.,]\d+)?)(?=\s|$)/);
- const raw=labelled?.[1]??tokenAmount?.[1]??plain?.[1];if(!raw)return null;const n=Number(raw.replace(',','.'));return n>0?n:null;
+ const raw=labelled?.[1]??beforeToken?.[1]??afterToken?.[1]??plain?.[1];
+ if(!raw)return null;
+ const n=Number(raw.replace(',','.'));return Number.isFinite(n)&&n>0?n:null;
 }
 function tokens(q:string){return TOKENS.flatMap(t=>{const m=new RegExp('\\b'+t+'\\b','i').exec(q);return m?[{v:t==='MATIC'?'POL':t,i:m.index}]:[]}).sort((a,b)=>a.i-b.i).map(x=>x.v);}
 function networks(q:string){const out:{v:string;i:number}[]=[];let work=q;for(const [re,v] of NETS){const m=re.exec(work);if(m){out.push({v,i:m.index});work=work.slice(0,m.index)+' '.repeat(m[0].length)+work.slice(m.index+m[0].length)}}return out.sort((a,b)=>a.i-b.i).map(x=>x.v);}
 export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  const q=text.trim(),l=q.toLowerCase(),ts=tokens(q),ns=networks(q),a=amount(q),addr=q.match(/0x[0-9a-fA-F]{40}/)?.[0]??null;
- if(/^(cancel(e|ar)?|desistir|pare|parar|stop|deixa pra l[aá])\b/i.test(q))return{intent:'cancel',params:{},confidence:1};
- if(/^(confirm(e|ar)?|execute|executar|prossiga|prosseguir|pode executar|pode fazer|sim|yes|go)\b/i.test(q))return{intent:'confirm',params:{},confidence:1};
+ if(/^(cancel(e|ar)?|cancela|desistir|pare|parar|stop|abortar|aborte|esquece|deixa pra l[aá]|n[aã]o execute|nao execute)\b/i.test(q))return{intent:'cancel',params:{},confidence:1};
+ if(/^(confirm(e|ar)?|confirmo|execute|executar|pode executar|pode fazer|prossiga|prosseguir|continue|continuar|manda ver|sim|yes|go|ok|okay)\b/i.test(q))return{intent:'confirm',params:{},confidence:1};
  let intent:NVIntent|null=null;
- if(/\b(bridge|ponte|cross[- ]?chain)\b/i.test(q)||ns.length>=2)intent='bridge';
- else if(/\b(swap|trocar|troque|converter|converta)\b/i.test(q)||(a&&ts.length>=2&&/\b(para|por|to|for)\b/i.test(q)))intent='swap';
- else if(/\b(transferir|transferencia|transferência|enviar|envie|send)\b/i.test(q)||addr)intent='transfer';
+ if(/\b(bridge|bridging|ponte|cross[- ]?chain|entre redes|outra rede)\b/i.test(q)||ns.length>=2)intent='bridge';
+ else if(/\b(swap|trocar|troque|converter|converta|permutar|exchange)\b/i.test(q)||(a&&ts.length>=2&&/\b(para|por|to|for|em)\b/i.test(q)))intent='swap';
+ else if(/\b(transferir|transfira|transferencia|transferência|enviar|envie|mandar|mande|remeter|send)\b/i.test(q)||addr)intent='transfer';
  else if(/\b(comprar|compre|buy|pagamento|payment)\b/i.test(q))intent='payment';
  else if(pending)intent=pending.type as NVIntent;
  else if(/\b(tvl|total value locked)\b/i.test(q))intent='tvl';
