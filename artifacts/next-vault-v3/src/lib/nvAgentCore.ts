@@ -2,6 +2,7 @@ import type { AgentAction } from './intelligence';
 
 export type NVIntent='transfer'|'swap'|'bridge'|'payment'|'market'|'wallet'|'news'|'tvl'|'chat'|'cancel'|'confirm';
 export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number|null>;confidence:number;}
+export interface NVActionGuard{valid:boolean;issues:string[];}
 // Execution-token allowlist intentionally remains unchanged: it protects the
 // already validated Swap / Bridge / Transfer executors. Parser improvements
 // below only make language/slot recognition more flexible.
@@ -84,6 +85,17 @@ export function missingNVAction(a:AgentAction):NVActionSlot[]{const p=a.params??
  if(a.type==='bridge'){if(!(Number(p.amount)>0))m.push('amount');if(!p.fromNetwork)m.push('fromNetwork');if(!p.toNetwork)m.push('toNetwork');}
  if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('amount');if(!p.token)m.push('token');if(!p.recipient)m.push('recipient');}
  if(a.type==='payment'&&!p.product)m.push('product');return m;}
+export function validateNVAction(a:AgentAction):NVActionGuard{
+ const p=a.params??{},issues:string[]=[];
+ const amt=Number(p.amount);
+ if(['swap','bridge','transfer'].includes(a.type)&&(!Number.isFinite(amt)||amt<=0))issues.push('invalid_amount');
+ if(a.type==='swap'&&p.sourceToken&&p.destinationToken&&p.sourceToken===p.destinationToken)issues.push('same_token');
+ if(a.type==='bridge'&&p.fromNetwork&&p.toNetwork&&p.fromNetwork===p.toNetwork)issues.push('same_network');
+ if(a.type==='transfer'&&p.recipient&&!/^0x[0-9a-fA-F]{40}$/.test(String(p.recipient)))issues.push('invalid_recipient');
+ return{valid:issues.length===0,issues};
+}
+export function nextNVActionSlot(a:AgentAction):NVActionSlot|null{return missingNVAction(a)[0]??null;}
+export function canConfirmNVAction(a:AgentAction):boolean{return missingNVAction(a).length===0&&validateNVAction(a).valid;}
 export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}${p.network?' · '+p.network:''}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
 
 
