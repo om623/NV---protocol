@@ -1308,7 +1308,24 @@ function Home() {
               </div>
             </div>
 
-            <div className="hidden lg:block flex-1" />
+            <div className="hidden lg:flex flex-1 items-center justify-center px-5">
+              <div className="relative flex max-w-[650px] flex-1 items-center justify-between overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-950/20 via-background/60 to-cyan-950/20 px-5 py-2 shadow-[0_0_26px_rgba(139,92,246,.10)]">
+                <div className="relative z-10 min-w-0">
+                  <div className="text-[12px] font-semibold leading-tight text-foreground">O mundo é grande. E o NV te conecta à <span className="bg-gradient-to-r from-fuchsia-400 via-violet-300 to-cyan-300 bg-clip-text text-transparent">semi-onipresença do mercado.</span></div>
+                  <div className="mt-0.5 text-[9px] text-muted-foreground">Bem-vindo à sua casa nova, Investidor!</div>
+                </div>
+                <div className="relative ml-5 h-10 w-24 shrink-0" aria-hidden="true">
+                  <div className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full border border-cyan-300/35 bg-[radial-gradient(circle_at_35%_30%,rgba(103,232,249,.8),rgba(76,29,149,.45)_35%,rgba(2,6,23,.2)_70%)] shadow-[0_0_22px_rgba(139,92,246,.55)]" />
+                  {[0,1,2,3,4].map(i => <motion.span key={i}
+                    animate={{ opacity: [.25,1,.25], scale: [.8,1.3,.8] }}
+                    transition={{ duration: 2.4, repeat: Infinity, delay: i*.32 }}
+                    className="absolute h-1 w-1 rounded-full bg-violet-200 shadow-[0_0_8px_rgba(196,181,253,.95)]"
+                    style={{ left: 8 + i*13, top: 7 + (i%2)*18 }}
+                  />)}
+                  <div className="absolute left-2 top-1/2 h-px w-16 -rotate-[8deg] bg-gradient-to-r from-cyan-400/0 via-violet-300/60 to-cyan-300/30" />
+                </div>
+              </div>
+            </div>
 
             {/* Right: env indicator + selector + mismatch + wallet */}
             <div className="flex items-center gap-2 shrink-0">
@@ -1499,10 +1516,8 @@ function Home() {
                   <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-violet-600/20 blur-[75px] animate-pulse" />
                   <div className="relative z-10">
                     <div className="text-[10px] font-mono uppercase tracking-[.28em] text-violet-300/70">NV · Trading</div>
-                    <h2 className="mt-3 text-2xl font-semibold leading-tight text-foreground">
-                      O mundo é grande. E o NV te conecta à <span className="bg-gradient-to-r from-fuchsia-400 via-violet-300 to-cyan-300 bg-clip-text text-transparent">semi-onipresença do mercado.</span>
-                    </h2>
-                    <p className="mt-3 text-sm text-muted-foreground">Bem-vindo à sua casa nova, Investidor!</p>
+                    <h2 className="mt-3 text-2xl font-semibold leading-tight text-foreground">Mercados tokenizados em expansão.</h2>
+                    <p className="mt-3 text-sm text-muted-foreground">RWA, ações tokenizadas e NFTs reunidos em uma nova frente do NV.</p>
                     <div className="mt-5 flex items-center justify-center py-5">
                       <motion.div animate={{ rotate: [-12, 12, -12], y: [0,-3,0] }} transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                         className="flex h-20 w-20 items-center justify-center rounded-2xl border border-violet-300/30 bg-violet-500/10 shadow-[0_0_35px_rgba(168,85,247,.3)]">
