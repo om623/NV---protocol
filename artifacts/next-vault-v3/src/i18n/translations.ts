@@ -6,6 +6,7 @@ const ptBR: Dict = {
   // Navigation
   'nav.dashboard': 'Dashboard',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'Inteligência',
   'nav.history': 'Histórico',
   'nav.reports': 'Relatórios',
@@ -456,6 +457,7 @@ const ptBR: Dict = {
 const en: Dict = {
   'nav.dashboard': 'Dashboard',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'Intelligence',
   'nav.history': 'History',
   'nav.reports': 'Reports',
@@ -882,6 +884,7 @@ const en: Dict = {
 const es: Dict = {
   'nav.dashboard': 'Panel',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'Inteligencia',
   'nav.history': 'Historial',
   'nav.reports': 'Informes',
@@ -1174,6 +1177,7 @@ const es: Dict = {
 const fr: Dict = {
   'nav.dashboard': 'Tableau de bord',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'Intelligence',
   'nav.history': 'Historique',
   'nav.reports': 'Rapports',
@@ -1475,6 +1479,7 @@ const fr: Dict = {
 const zh: Dict = {
   'nav.dashboard': '仪表板',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': '情报',
   'nav.history': '历史',
   'nav.reports': '报告',
@@ -1667,6 +1672,7 @@ const zh: Dict = {
 const ja: Dict = {
   'nav.dashboard': 'ダッシュボード',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'インテリジェンス',
   'nav.history': '履歴',
   'nav.reports': 'レポート',
@@ -1859,6 +1865,7 @@ const ja: Dict = {
 const ko: Dict = {
   'nav.dashboard': '대시보드',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': '인텔리전스',
   'nav.history': '기록',
   'nav.reports': '보고서',
@@ -2051,6 +2058,7 @@ const ko: Dict = {
 const hi: Dict = {
   'nav.dashboard': 'डैशबोर्ड',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'इंटेलिजेंस',
   'nav.history': 'इतिहास',
   'nav.reports': 'रिपोर्ट',
@@ -2243,6 +2251,7 @@ const hi: Dict = {
 const ar: Dict = {
   'nav.dashboard': 'لوحة التحكم',
   'nav.swap': 'Swap',
+  'nav.rwa': 'RWA',
   'nav.intelligence': 'الذكاء',
   'nav.history': 'السجل',
   'nav.reports': 'التقارير',
