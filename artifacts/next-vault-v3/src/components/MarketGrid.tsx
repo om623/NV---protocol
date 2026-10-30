@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database, Landmark, ChartCandlestick, Images } from 'lucide-react';
 import {
   type MarketAsset, type MarketCategory, type TrendStatus,
   getAllAssets, refreshGlobalMarkets, formatVolume,
@@ -14,7 +14,8 @@ import { subscribeIndices } from '../lib/indices';
 import { useI18n } from '../i18n';
 import { logNVActivity } from '../lib/activityLog';
 
-type FilterCategory = MarketCategory | 'all' | 'tvl';
+type PreviewCategory = 'rwa' | 'tokenized-stocks' | 'nft';
+type FilterCategory = MarketCategory | 'all' | 'tvl' | PreviewCategory;
 type SortKey = 'change24h' | 'volume24h' | 'price';
 
 // ─── Sparkline ────────────────────────────────────────────────────────────────
@@ -214,6 +215,9 @@ const FILTERS: { key: FilterCategory; labelKey: string; fallback: string }[] = [
   { key: 'indices',      labelKey: 'market.indices',      fallback: 'Índices'     },
   { key: 'fiat',         labelKey: 'market.fiat',         fallback: 'Fiat'        },
   { key: 'tvl',          labelKey: 'dashboard.tvl',       fallback: 'TVL'         },
+  { key: 'rwa',          labelKey: 'market.rwa',           fallback: 'RWA'         },
+  { key: 'tokenized-stocks', labelKey: 'market.tokenizedStocks', fallback: 'Ações Tokenizadas' },
+  { key: 'nft',          labelKey: 'market.nft',           fallback: 'NFT'         },
 ];
 
 // ─── Main MarketGrid component ────────────────────────────────────────────────
@@ -260,7 +264,7 @@ export function MarketGrid() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (filter === 'tvl') return [];
+    if (filter === 'tvl' || filter === 'rwa' || filter === 'tokenized-stocks' || filter === 'nft') return [];
     let list = filter === 'all'
       ? assets
       : assets.filter(a => a.category === (filter as MarketCategory));
@@ -276,6 +280,7 @@ export function MarketGrid() {
   }, [assets, filter, sort, query]);
 
   const isTvl = filter === 'tvl';
+  const isPreview = filter === 'rwa' || filter === 'tokenized-stocks' || filter === 'nft';
 
   return (
     <motion.div
@@ -293,7 +298,7 @@ export function MarketGrid() {
             <TrendingUp size={16} className="text-primary" />
             <h2 className="text-base font-semibold text-foreground tracking-wide">{t('market.globalMarket')}</h2>
           </div>
-          {!isTvl && (
+          {!isTvl && !isPreview && (
             <button onClick={handleRefresh} disabled={refreshing}
               className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
               {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -316,7 +321,7 @@ export function MarketGrid() {
           </div>
 
           {/* Sort buttons — only shown for market categories, not TVL */}
-          {!isTvl && (
+          {!isTvl && !isPreview && (
             <>
               <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
                 {([['change24h', t('market.change') || 'Variação'], ['volume24h', t('market.volume') || 'Volume'], ['price', t('market.price') || 'Preço']] as [SortKey, string][]).map(([k, l]) => (
@@ -341,9 +346,38 @@ export function MarketGrid() {
           )}
         </div>
 
+        {isPreview && (
+          <motion.div
+            key={filter}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-secondary/20 to-transparent p-6 text-center"
+          >
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+              {filter === 'rwa' ? <Landmark size={20} /> : filter === 'tokenized-stocks' ? <ChartCandlestick size={20} /> : <Images size={20} />}
+            </div>
+            <div className="text-[9px] font-mono uppercase tracking-[0.28em] text-primary/70">NV · Tokenized Markets</div>
+            <h3 className="mt-2 text-lg font-semibold text-foreground">
+              {filter === 'rwa' ? 'Real World Assets · RWA' : filter === 'tokenized-stocks' ? 'Ações Tokenizadas' : 'NFT'}
+            </h3>
+            <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-muted-foreground">
+              {filter === 'rwa'
+                ? 'Ativos do mundo real, crédito, títulos, commodities e novas formas de propriedade on-chain.'
+                : filter === 'tokenized-stocks'
+                  ? 'Uma nova camada para descoberta e acesso a mercados de ações tokenizadas e liquidez multichain.'
+                  : 'NFTs e ativos digitais com utilidade financeira, propriedade e novas experiências on-chain.'}
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-[10px] font-mono text-primary">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              Em breve · Expansão em desenvolvimento
+            </div>
+            <p className="mt-3 text-[9px] font-mono text-muted-foreground/45">Trading · Bridges · ZK · Intents · mais opções a caminho</p>
+          </motion.div>
+        )}
+
         {/* TVL panel */}
         <AnimatePresence mode="wait">
-          {isTvl ? (
+          {isPreview ? null : isTvl ? (
             <motion.div
               key="tvl"
               initial={{ opacity: 0, y: 8 }}
