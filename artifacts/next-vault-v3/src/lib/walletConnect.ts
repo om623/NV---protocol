@@ -16,11 +16,30 @@ type EthereumProviderModule = {
 
 let providerPromise: Promise<WalletConnectProvider> | null = null;
 
-/**
- * Load the provider only when the user chooses WalletConnect.
- * Use esm.sh's bundled ESM output so the provider and its modal dependencies
- * resolve together instead of relying on a graph of unbundled CDN imports.
- */
+async function loadEthereumProvider(): Promise<EthereumProviderModule> {
+  // Some mobile browsers/networks fail to fetch one CDN. Try a second ESM
+  // distribution before reporting a load error to the user.
+  const moduleUrls = [
+    'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.21.1/+esm',
+    'https://esm.sh/@walletconnect/ethereum-provider@2.21.1?bundle',
+  ];
+  let lastError: unknown;
+
+  for (const moduleUrl of moduleUrls) {
+    try {
+      return await import(/* @vite-ignore */ moduleUrl) as EthereumProviderModule;
+    } catch (error) {
+      lastError = error;
+      console.warn('[NV Protocol] WalletConnect provider CDN failed:', moduleUrl, error);
+    }
+  }
+
+  console.error('[NV Protocol] All WalletConnect provider CDNs failed.', lastError);
+  throw new Error(
+    'Não foi possível carregar o módulo do WalletConnect. Verifique a conexão com a internet e tente novamente.',
+  );
+}
+
 async function getWalletConnectProvider(): Promise<WalletConnectProvider> {
   if (!providerPromise) {
     providerPromise = (async () => {
@@ -28,12 +47,10 @@ async function getWalletConnectProvider(): Promise<WalletConnectProvider> {
         throw new Error('O Reown Project ID não está configurado corretamente.');
       }
 
-      const moduleUrl = 'https://esm.sh/@walletconnect/ethereum-provider@2.21.1?bundle&target=es2022';
-      const module = await import(/* @vite-ignore */ moduleUrl) as EthereumProviderModule;
+      const module = await loadEthereumProvider();
       const EthereumProvider = module.default ?? module.EthereumProvider;
-
       if (typeof EthereumProvider?.init !== 'function') {
-        throw new Error('Não foi possível carregar o provider do WalletConnect. Recarregue a página e tente novamente.');
+        throw new Error('O módulo do WalletConnect foi carregado, mas não pôde ser inicializado.');
       }
 
       const configured = NETWORKS_CONFIG.filter(
@@ -68,7 +85,7 @@ async function getWalletConnectProvider(): Promise<WalletConnectProvider> {
           'O WalletConnect não conseguiu iniciar a sessão. Verifique se o domínio deste preview está autorizado no Reown Cloud e tente novamente.',
         );
       }
-      throw new Error(message || 'Falha ao iniciar o WalletConnect.');
+      throw error instanceof Error ? error : new Error(message || 'Falha ao iniciar o WalletConnect.');
     });
   }
   return providerPromise;
