@@ -4,6 +4,8 @@ export type NVIntent='transfer'|'swap'|'bridge'|'payment'|'market'|'wallet'|'new
 export interface ParsedNVTurn{intent:NVIntent;params:Record<string,string|number|null>;confidence:number;}
 export interface NVActionGuard{valid:boolean;issues:string[];}
 export type NVActionProgress={complete:boolean;missing:NVActionSlot[];next:NVActionSlot|null;guard:NVActionGuard;summary:string};
+export interface NVActionDefaults{network?:string;token?:string;}
+export interface NVActionSuggestion{slot:NVActionSlot;value:string;reason:'preference';}
 // Execution-token allowlist intentionally remains unchanged: it protects the
 // already validated Swap / Bridge / Transfer executors. Parser improvements
 // below only make language/slot recognition more flexible.
@@ -121,4 +123,36 @@ export function updatePendingNVAction(current:AgentAction|null|undefined,text:st
  if(turn.intent==='cancel')return null;
  if(turn.intent==='confirm')return current??null;
  return mergeNVAction(current,turn);
+}
+
+
+/**
+ * Applies remembered preferences only to empty, low-risk preparation slots.
+ * It never fills amount, recipient, product, bridge destination, or anything
+ * that could turn a preference into financial authorization.
+ */
+export function suggestNVActionDefaults(action:AgentAction,defaults:NVActionDefaults):NVActionSuggestion[]{
+ const p=action.params??{},out:NVActionSuggestion[]=[];
+ if(action.type==='swap'&&!p.network&&defaults.network)out.push({slot:'network',value:defaults.network,reason:'preference'});
+ if(action.type==='transfer'&&!p.network&&defaults.network)out.push({slot:'network',value:defaults.network,reason:'preference'});
+ if(action.type==='transfer'&&!p.token&&defaults.token)out.push({slot:'token',value:defaults.token,reason:'preference'});
+ return out;
+}
+
+export function applyNVActionDefaults(action:AgentAction,defaults:NVActionDefaults):AgentAction{
+ const suggestions=suggestNVActionDefaults(action,defaults);
+ if(!suggestions.length)return action;
+ const params={...(action.params??{})};
+ for(const s of suggestions)params[s.slot]=s.value;
+ return{...action,params};
+}
+
+export function describeNVActionGuard(guard:NVActionGuard):string[]{
+ return guard.issues.map(issue=>{
+   if(issue==='invalid_amount')return 'Informe um valor positivo antes de continuar.';
+   if(issue==='same_token')return 'Token de origem e destino precisam ser diferentes.';
+   if(issue==='same_network')return 'Rede de origem e destino precisam ser diferentes.';
+   if(issue==='invalid_recipient')return 'O endereço de destino não é válido.';
+   return 'Revise os parâmetros da operação.';
+ });
 }
