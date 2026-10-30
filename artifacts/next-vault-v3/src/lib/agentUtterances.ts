@@ -10,10 +10,10 @@ export type UtteranceIntent =
   | 'mode_assisted' | 'mode_authorized' | 'greeting' | 'thanks';
 
 const seeds: Record<UtteranceIntent, string[]> = {
- action_transfer:['envie usdc para','mande usdc para','transfira usdc para','quero enviar usdc','faça uma transferência','fazer transferência','enviar tokens para','mandar tokens para','pagar endereço','send usdc to'],
- action_bridge:['faça bridge de','fazer bridge de','execute bridge de','mova usdc de','mover usdc entre redes','leve usdc de','transferir entre redes','cross chain de','bridge usdc from','i want to bridge'],
+ action_transfer:['transfira','enviar','envie','mande','mandar','faça uma transferência','quero transferir','preciso transferir','pode transferir','transferência','send','transfer','envie usdc para','mande usdc para','transfira usdc para','quero enviar usdc','faça uma transferência','fazer transferência','enviar tokens para','mandar tokens para','pagar endereço','send usdc to'],
+ action_bridge:['bridge','ponte','fazer ponte','entre redes','mover entre redes','cross chain','cross-chain','quero bridge','preciso de bridge','pode fazer bridge','faça bridge de','fazer bridge de','execute bridge de','mova usdc de','mover usdc entre redes','leve usdc de','transferir entre redes','cross chain de','bridge usdc from','i want to bridge'],
  action_swap:['faça swap','faca swap','quero swap','executar swap','iniciar swap','swap','faça swap de','fazer swap de','troque por','trocar por','converta para','converter para','quero trocar','execute swap','swap tokens','i want to swap'],
- action_payment:['compre a skin','comprar skin','compre xp','comprar xp','quero comprar','desbloqueie','comprar com usdc','faça uma compra','buy xp','buy skin'],
+ action_payment:['comprar','compra','quero comprar','fazer compra','pagamento','pagar','adquirir','compre a skin','comprar skin','compre xp','comprar xp','quero comprar','desbloqueie','comprar com usdc','faça uma compra','buy xp','buy skin'],
  market_price:['preço do btc','quanto vale eth','cotação do bitcoin','valor do ethereum','preço atual','quanto está','qual o preço','cotação atual','market price','how much is','bitcoin','ethereum','solana','ouro','gold','prata','silver','petroleo','petróleo','oil','ibovespa','nasdaq','dolar','dólar','euro','real','stablecoin','cripto'],
  market_top:['top criptos','maiores criptos','ranking cripto','principais ativos','maiores moedas','top stablecoins','ranking de ativos','maiores por market cap','top crypto','largest assets','top commodities','top indices','top índices','top fiat','ranking stablecoins','ranking commodities','ranking indices','ranking fiat'],
  market_movers:['maiores altas','maiores quedas','quem mais subiu','quem mais caiu','melhores desempenhos','piores desempenhos','ativos em alta','ativos em queda','top gainers','top losers'],
@@ -23,7 +23,7 @@ const seeds: Record<UtteranceIntent, string[]> = {
  wallet_evm:['minha carteira','meu saldo','saldo evm','carteira conectada','meu endereço','qual minha rede','saldo usdc','minha wallet','evm wallet','wallet balance'],
  wallet_solana:['carteira solana','saldo solana','minha phantom','solana conectada','endereço solana','saldo sol','minha solana','sol wallet','solana wallet','phantom balance'],
  news:['notícias do mercado','notícias de cripto','o que aconteceu hoje','últimas notícias','novidades do mercado','notícias recentes','eventos recentes','market news','latest news','breaking news'],
- capabilities:['o que você faz','como pode me ajudar','quais suas funções','o que você consegue fazer','suas capacidades','como usar o agente','me ajude','o que sabe fazer','what can you do','your capabilities'],
+ capabilities:['ajuda','menu','comandos','opções','opcoes','o que posso pedir','o que você faz','como pode me ajudar','quais suas funções','o que você consegue fazer','suas capacidades','como usar o agente','me ajude','o que sabe fazer','what can you do','your capabilities'],
  bridge_info:['como funciona bridge','explique bridge','o que é cctp','rotas da bridge','redes da bridge','bridge suporta quais redes','taxa da bridge','tempo da bridge','how bridge works','bridge routes'],
  payment_info:['como pagar','como funciona pagamento','pagamentos no nv','compras no nv','pagar com usdc','sistema de pagamento','como comprar xp','como comprar skin','how to pay','payment system'],
  mode_assisted:['modo assistido','modo manual assistido','ative modo assistido','usar modo assistido','quero revisar transações','modo com assinatura','manual assisted mode','assisted mode','activate assisted','use assisted'],
@@ -32,8 +32,8 @@ const seeds: Record<UtteranceIntent, string[]> = {
  thanks:['obrigado','obrigada','valeu','agradeço','muito obrigado','perfeito obrigado','ótimo valeu','thanks','thank you','appreciate it'],
 };
 
-const prefixes=['','por favor ','nv, ','agente, ','preciso que '];
-const suffixes=['',' agora',' por favor',' no nv',' para mim'];
+const prefixes=['','por favor ','nv, ','agente, ','nv agente, ','preciso que ','quero que ','pode ','vamos ','me ajude a '];
+const suffixes=['',' agora',' por favor',' no nv',' para mim',' hoje',' nesta rede',' com segurança'];
 
 function normalize(s:string){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9x]+/g,' ').trim();}
 
