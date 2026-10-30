@@ -38,10 +38,29 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  else if(/\b(pre[cç]o|price|mercado|market|btc|bitcoin)\b/i.test(q))intent='market';
  else intent='chat';
  const params:Record<string,string|number|null>={};
+ // Pending-action aware corrections: short follow-ups update only the named
+ // slot and preserve the rest of the already prepared operation.
+ const correction=/\b(na verdade|corrig|mude|muda|troque para|use|usar|altere|alterar|instead|actually|change|set)\b/i.test(q);
  if(a)params.amount=a;if(addr)params.recipient=addr;
- if(intent==='swap'){if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];if(ns[0])params.network=ns[0];}
+ if(intent==='swap'){
+   if(ts[0])params.sourceToken=ts[0];if(ts[1])params.destinationToken=ts[1];if(ns[0])params.network=ns[0];
+   if(pending?.type==='swap'&&correction&&ts.length===1){
+     const pp=pending.params??{};
+     if(/\b(destino|destination|receber|receive|para|to)\b/i.test(q)) { delete params.sourceToken; params.destinationToken=ts[0]; }
+     else if(/\b(origem|source|de|from)\b/i.test(q)) params.sourceToken=ts[0];
+     else if(pp.sourceToken&&!pp.destinationToken) { delete params.sourceToken; params.destinationToken=ts[0]; }
+   }
+ }
  if(intent==='transfer'){if(ts[0])params.token=ts[0];if(ns[0])params.network=ns[0];}
- if(intent==='bridge'){if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];}
+ if(intent==='bridge'){
+   if(ns[0])params.fromNetwork=ns[0];if(ns[1])params.toNetwork=ns[1];
+   if(pending?.type==='bridge'&&ns.length===1){
+     const pp=pending.params??{};
+     if(/\b(destino|destination|para|to)\b/i.test(q)) { delete params.fromNetwork; params.toNetwork=ns[0]; }
+     else if(/\b(origem|source|de|from)\b/i.test(q)) params.fromNetwork=ns[0];
+     else if(pp.fromNetwork&&!pp.toNetwork) { delete params.fromNetwork; params.toNetwork=ns[0]; }
+   }
+ }
  if(intent==='payment'){
    if(/(?:skin|premium).*1000|1000.*(?:skin|premium)/i.test(l))params.product='premium-1000';
    else if(/(?:skin|premium).*500|500.*(?:skin|premium)/i.test(l))params.product='premium-500';
@@ -53,7 +72,10 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
 }
 export function mergeNVAction(current:AgentAction|undefined|null,turn:ParsedNVTurn):AgentAction|null{
  if(!['swap','bridge','transfer','payment'].includes(turn.intent))return current??null;
- const type=turn.intent as AgentAction['type']; const base=current?.type===type?current.params??{}:{};
+ const type=turn.intent as AgentAction['type'];
+ // Same operation: patch only recognized slots. A genuinely different intent
+ // starts a fresh action, preventing stale parameters from leaking across tasks.
+ const base=current?.type===type?current.params??{}:{};
  return{type,executeInChat:true,navigateTo:type==='transfer'?'consulte':type==='payment'?'perfil':type,params:{...base,...turn.params}};
 }
 export type NVActionSlot='amount'|'sourceToken'|'destinationToken'|'network'|'fromNetwork'|'toNetwork'|'token'|'recipient'|'product';
@@ -63,3 +85,13 @@ export function missingNVAction(a:AgentAction):NVActionSlot[]{const p=a.params??
  if(a.type==='transfer'){if(!(Number(p.amount)>0))m.push('amount');if(!p.token)m.push('token');if(!p.recipient)m.push('recipient');}
  if(a.type==='payment'&&!p.product)m.push('product');return m;}
 export function summarizeNVAction(a:AgentAction){const p=a.params??{};if(a.type==='swap')return `Swap: ${p.amount??'?'} ${p.sourceToken??'?'} → ${p.destinationToken??'?'}${p.network?' · '+p.network:''}`;if(a.type==='bridge')return `Bridge: ${p.amount??'?'} USDC · ${p.fromNetwork??'?'} → ${p.toNetwork??'?'}`;if(a.type==='transfer')return `Transferência: ${p.amount??'?'} ${p.token??'?'} → ${p.recipient??'?'}`;return `Pagamento: ${p.product??'?'}`;}
+
+
+// Pure helper for UI/tests: applies a conversational follow-up without ever
+// executing anything. Execution remains owned by the validated action layer.
+export function updatePendingNVAction(current:AgentAction|null|undefined,text:string):AgentAction|null{
+ const turn=parseNVTurn(text,current);
+ if(turn.intent==='cancel')return null;
+ if(turn.intent==='confirm')return current??null;
+ return mergeNVAction(current,turn);
+}
