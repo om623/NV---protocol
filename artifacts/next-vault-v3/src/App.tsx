@@ -95,10 +95,11 @@ const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fr
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'trading' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
+  { key: 'nav.trading',       Icon: TrendingUp,      view: 'trading'       },
   { key: 'nav.swap',           Icon: ArrowDown,       view: 'swap'           },
   { key: 'nav.intelligence',  Icon: Newspaper,       view: 'intelligence'   },
   { key: 'nav.history',       Icon: History,         view: 'historico' },
@@ -498,7 +499,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'trading', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
