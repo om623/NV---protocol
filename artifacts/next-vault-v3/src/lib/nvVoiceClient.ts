@@ -30,6 +30,18 @@ export function setNVVoiceMuted(nextMuted: boolean): void {
   muted = nextMuted;
 }
 
+function pickMicrosoftEdgeVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | undefined {
+  const language = lang.toLowerCase();
+  const prefix = language.split('-')[0];
+  const microsoft = voices.filter(v => /microsoft/i.test(v.name));
+  return microsoft.find(v => v.lang.toLowerCase() === language && /online|natural/i.test(v.name))
+    ?? microsoft.find(v => v.lang.toLowerCase() === language)
+    ?? microsoft.find(v => v.lang.toLowerCase().startsWith(prefix) && /online|natural/i.test(v.name))
+    ?? microsoft.find(v => v.lang.toLowerCase().startsWith(prefix))
+    ?? voices.find(v => v.lang.toLowerCase() === language)
+    ?? voices.find(v => v.lang.toLowerCase().startsWith(prefix));
+}
+
 function speak(text: string, locale: string): Promise<void> {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     console.warn('[NV Agent voice] Browser speech synthesis is unavailable.');
@@ -46,9 +58,7 @@ function speak(text: string, locale: string): Promise<void> {
 
     const chooseVoice = () => {
       const voices = window.speechSynthesis.getVoices();
-      const exact = voices.find(voice => voice.lang.toLowerCase() === lang.toLowerCase());
-      const prefix = voices.find(voice => voice.lang.toLowerCase().startsWith(lang.split('-')[0].toLowerCase()));
-      const selected = exact ?? prefix;
+      const selected = pickMicrosoftEdgeVoice(voices, lang);
       if (selected) utterance.voice = selected;
     };
     chooseVoice();

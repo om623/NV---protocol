@@ -174,20 +174,27 @@ const PRICE_KW = [
 // Well-known asset names/symbols — used to detect price intent even without
 // an explicit price keyword (e.g. "bitcoin" alone → price).
 // Also includes category terms so "top cryptocurrencies" → market_top.
-const KNOWN_ASSETS = [
-  // individual coins
-  'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'usdc', 'usdt',
-  'bnb', 'xrp', 'ada', 'avax', 'matic', 'polygon', 'dot', 'link', 'atom',
-  'near', 'apt', 'arb', 'op', 'sui', 'sei', 'tia', 'doge', 'shib',
-  'wbtc', 'dai', 'gold', 'silver', 'oil', 'brent', 'wti', 'ibovespa',
-  's&p', 'sp500', 'nasdaq', 'dow', 'nikkei', 'euro', 'eur', 'usd', 'brl',
-  // category terms — so "top cryptos", "ranking cripto", "biggest altcoins" etc. → market_top
-  'crypto', 'cripto', 'criptos', 'cryptocurrency', 'cryptocurrencies',
-  'criptomoeda', 'criptomoedas', 'altcoin', 'altcoins', 'coin', 'coins',
-  'token', 'tokens', 'stablecoin', 'stablecoins',
+function normalizeMarketText(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function hasMarketAsset(question: string, assets: MarketAsset[]): boolean {
+  const q = normalizeMarketText(question);
+  const words = new Set(q.split(/\s+/).filter(Boolean));
+  return assets.some(asset => {
+    const symbol = normalizeMarketText(asset.symbol);
+    const name = normalizeMarketText(asset.name);
+    return words.has(symbol) || (name.length >= 3 && (q === name || q.includes(' ' + name + ' ') || q.startsWith(name + ' ') || q.endsWith(' ' + name)));
+  });
+}
+
+const MARKET_CATEGORY_TERMS = [
+  'crypto','cripto','criptomoeda','cryptocurrency','altcoin','token','stablecoin',
+  'commodity','commodities','commodidade','indice','indices','index','indexes',
+  'fiat','currency','currencies','moeda','moedas','forex','fx','mercado'
 ];
 
-function detectIntent(q: string): QueryIntent {
+function detectIntent(q: string, assets: MarketAsset[] = []): QueryIntent {
   const lq = q.toLowerCase().replace(/[?!.,;:]/g, ' ');
   const words = lq.split(/\s+/);
 
@@ -237,9 +244,10 @@ function detectIntent(q: string): QueryIntent {
   // Price intent: either explicit price keyword OR a lone well-known asset name
   const hasPriceKw = PRICE_KW.some(kw => lq.includes(kw));
   // Match complete tokens only; substring checks can mistake words such as "solution" for SOL.
-  const hasAssetName = KNOWN_ASSETS.some(a => words.includes(a));
+  const hasAssetName = hasMarketAsset(q, assets);
+  const hasMarketCategory = MARKET_CATEGORY_TERMS.some(term => words.includes(term));
 
-  if (hasPriceKw || hasAssetName) {
+  if (hasPriceKw || hasAssetName || hasMarketCategory) {
     return TOP_KW.some(kw => lq.includes(kw)) ? 'market_top' : 'market_price';
   }
 
@@ -276,15 +284,12 @@ function answerMarketPrice(
   assets: MarketAsset[],
   t: (k: string) => string,
 ): AgentResponse {
-  const q = question.toLowerCase().replace(/[?!.,;:]/g, ' ');
-
+  const q = normalizeMarketText(question);
   const tokens = q.split(/\\s+/).filter(Boolean);
   const match = assets.find(a => {
-    const symbol = a.symbol.toLowerCase();
-    const name = a.name.toLowerCase();
-    // Symbols such as OP, ARB and SOL must match complete tokens. Substring
-    // matching made Portuguese words like "operação" look like the OP asset.
-    return tokens.includes(symbol) || (name.length >= 4 && q.includes(name));
+    const symbol = normalizeMarketText(a.symbol);
+    const name = normalizeMarketText(a.name);
+    return tokens.includes(symbol) || (name.length >= 3 && (q === name || q.includes(' ' + name + ' ') || q.startsWith(name + ' ') || q.endsWith(' ' + name)));
   });
 
   if (!match) {
@@ -990,7 +995,7 @@ export function agentQuery(
   const locale = opts.locale ?? ctx.locale ?? 'en';
   const t      = opts.t ?? ((k: string) => k);
 
-  const intent = detectIntent(question);
+  const intent = detectIntent(question, ctx.market?.assets ?? []);
 
   switch (intent) {
     case 'mode_assisted':
