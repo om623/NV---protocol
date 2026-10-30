@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network, Wrench, Landmark, Images } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -1493,6 +1493,42 @@ function Home() {
                 />
               )}
               
+              {activeView === 'trading' && (
+                <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+                  className="relative overflow-hidden rounded-[28px] border border-violet-500/30 bg-card/90 p-6 shadow-[0_0_44px_rgba(139,92,246,.12)]">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-violet-600/20 blur-[75px] animate-pulse" />
+                  <div className="relative z-10">
+                    <div className="text-[10px] font-mono uppercase tracking-[.28em] text-violet-300/70">NV · Trading</div>
+                    <h2 className="mt-3 text-2xl font-semibold leading-tight text-foreground">
+                      O mundo é grande. E o NV te conecta à <span className="bg-gradient-to-r from-fuchsia-400 via-violet-300 to-cyan-300 bg-clip-text text-transparent">semi-onipresença do mercado.</span>
+                    </h2>
+                    <p className="mt-3 text-sm text-muted-foreground">Bem-vindo à sua casa nova, Investidor!</p>
+                    <div className="mt-5 flex items-center justify-center py-5">
+                      <motion.div animate={{ rotate: [-12, 12, -12], y: [0,-3,0] }} transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                        className="flex h-20 w-20 items-center justify-center rounded-2xl border border-violet-300/30 bg-violet-500/10 shadow-[0_0_35px_rgba(168,85,247,.3)]">
+                        <Wrench size={42} className="text-violet-200" />
+                      </motion.div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {[
+                        ['RWA', Landmark, 'Ativos do mundo real tokenizados.'],
+                        ['Ações Tokenizadas', BarChart2, 'Novos mercados e participações tokenizadas.'],
+                        ['NFTs', Images, 'Propriedade e ativos digitais on-chain.'],
+                      ].map(([title, Icon, body]) => {
+                        const CardIcon = Icon as typeof Landmark;
+                        return <button key={title as string} onClick={() => setComingSoonFeature(title as string)}
+                          className="rounded-2xl border border-violet-500/25 bg-background/45 p-4 text-left transition-all hover:border-violet-400/55 hover:shadow-[0_0_25px_rgba(139,92,246,.15)]">
+                          <CardIcon size={20} className="mb-4 text-violet-300" />
+                          <div className="text-sm font-semibold">{title as string}</div>
+                          <div className="mt-1 min-h-8 text-[10px] text-muted-foreground">{body as string}</div>
+                          <span className="mt-4 inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[9px] font-mono text-violet-300">Em breve</span>
+                        </button>;
+                      })}
+                    </div>
+                  </div>
+                </motion.section>
+              )}
+
               {/* ── Dashboard View ────────────────────────────────────────── */}
               {activeView === 'dashboard' && (
                 <>
