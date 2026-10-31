@@ -63,7 +63,7 @@ import {
   getEditorialFocus,
 } from '../lib/intelligence';
 import { agentQuery }        from '../lib/agentApi';
-import { mergeNVAction, missingNVAction, parseNVTurn, summarizeNVAction } from '../lib/nvAgentCore';
+import { applyNVActionCorrection, applyNVActionDefaults, describeNVActionGuard, parseNVTurn, summarizeNVAction } from '../lib/nvAgentCore';
 import { buildFullContext }  from '../lib/agentContext';
 import type { NVAgentContext } from '../lib/agentContext';
 import { getAllAssets, getMarketSentiment } from '../lib/marketData';
@@ -74,7 +74,7 @@ import { requestNavigation, requestAgentExecution, subscribeAgentExecutionResult
 import { useSolanaWallet }   from '../lib/useSolanaWallet';
 import { useNVEvmWallet }    from '../lib/NVEvmWalletContext';
 import { logNVActivity } from '../lib/activityLog';
-import { getNVAgentMode, setNVAgentMode, rememberNVAgentIntent, type NVAgentMode } from '../lib/agentMemory';
+import { getNVAgentMode, setNVAgentMode, rememberNVAgentIntent, getNVAgentAutomationPreferences, rememberNVAgentAutomationPreferences, type NVAgentMode } from '../lib/agentMemory';
 
 // ─── Badge components ─────────────────────────────────────────────────────────
 
@@ -986,35 +986,55 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         ? question
         : await translateToEnglish(question);
       const coreTurn = parseNVTurn(coreInput, pendingAction);
-      if (coreTurn.intent === 'cancel' && pendingAction) {
+      const correction = applyNVActionCorrection(pendingAction, coreInput);
+
+      if (correction.cancelled && pendingAction) {
         setPendingAction(null);
         const phrase = agentPhrase();
         const msg = `${phrase.cancelled}. ${phrase.nothingSent}.`;
         setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         return;
       }
-      if (coreTurn.intent === 'confirm' && pendingAction) {
-        const missing = missingNVAction(pendingAction);
-        if (!missing.length) {
+
+      if (correction.confirmed && pendingAction) {
+        const progress = correction.progress;
+        if (progress?.complete && progress.guard.valid) {
           const msg = agentPhrase().confirmed + ' ' + summarizeNVAction(pendingAction) + '.';
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: pendingAction, timestamp: Date.now() }]);
           executeAgentAction(pendingAction);
         } else {
-          const msg = agentPhrase().beforeExecution + ': ' + localizeAgentSlots(missing).join(', ') + '.';
+          const issues = progress ? describeNVActionGuard(progress.guard) : [];
+          const missing = progress?.missing ?? [];
+          const detail = issues.length ? issues.join(' ') : localizeAgentSlots(missing).join(', ');
+          const msg = agentPhrase().beforeExecution + ': ' + detail;
           setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], timestamp: Date.now() }]);
         }
         return;
       }
-      if (['swap','bridge','transfer','payment'].includes(coreTurn.intent)) {
-        const action = mergeNVAction(pendingAction, coreTurn);
+
+      if (['swap','bridge','transfer','payment'].includes(coreTurn.intent) || (pendingAction && correction.action)) {
+        let action = correction.action;
         if (action) {
+          const prefs = getNVAgentAutomationPreferences();
+          action = applyNVActionDefaults(action, { network: prefs.preferredNetwork, token: prefs.preferredToken });
+          const progress = applyNVActionCorrection(action, '').progress;
           setPendingAction(action);
-          const missing = missingNVAction(action);
+
+          const p = action.params ?? {};
+          rememberNVAgentAutomationPreferences({
+            ...(typeof p.network === 'string' ? { preferredNetwork: p.network } : {}),
+            ...(typeof p.token === 'string' ? { preferredToken: p.token } : {}),
+            lastActionType: action.type,
+          });
+
           const phrase = agentPhrase();
-          const msg = missing.length
-            ? `${summarizeNVAction(action)}. ${phrase.stillMissing}: ${localizeAgentSlots(missing).join(', ')}.`
-            : `${summarizeNVAction(action)}. ${phrase.ready}. ${phrase.sayExecute}.`;
-          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: missing.length ? undefined : action, timestamp: Date.now() }]);
+          const issues = progress ? describeNVActionGuard(progress.guard) : [];
+          const msg = issues.length
+            ? `${summarizeNVAction(action)}. ${issues.join(' ')}`
+            : progress && !progress.complete
+              ? `${summarizeNVAction(action)}. ${phrase.stillMissing}: ${localizeAgentSlots(progress.missing).join(', ')}.`
+              : `${summarizeNVAction(action)}. ${phrase.ready}. ${phrase.sayExecute}.`;
+          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: progress?.complete && progress.guard.valid ? action ?? undefined : undefined, timestamp: Date.now() }]);
           if (!voiceMuted) enqueueNVVoice(msg, locale);
           return;
         }
