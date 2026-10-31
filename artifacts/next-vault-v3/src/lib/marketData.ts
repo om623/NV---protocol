@@ -449,7 +449,7 @@ export async function refreshFromApis(): Promise<void> {
         asset.trend = deriveTrend(asset.change24h);
         asset.isLive = true;
         asset.priceCurrency = quote.currency;
-        asset.dataSource = 'Yahoo Finance';
+        asset.dataSource = quote.source ?? 'Yahoo Finance';
         asset.lastUpdated = quote.dataTimestamp;
       }
     }
