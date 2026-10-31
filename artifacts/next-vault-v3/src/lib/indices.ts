@@ -24,6 +24,8 @@ export interface IndexQuote {
   isLive: boolean;
   /** 5-day daily close prices for mini-chart — empty if unavailable */
   spark: number[];
+  source?: string;
+  isDelayed?: boolean;
 }
 
 // ─── Index configuration ──────────────────────────────────────────────────────
@@ -81,6 +83,46 @@ interface YFChartResult {
     }> | null;
     error?: { code: string; description: string } | null;
   };
+}
+
+interface B3DailyResponse {
+  indice?: string;
+  fonte?: string;
+  serie?: Array<{ data: string; fechamento: number }>;
+}
+
+/**
+ * B3 sector indices are not consistently exposed by Yahoo Finance.
+ * Dados B3 republishes B3 official daily closing statistics as a small public JSON sample.
+ * This is a daily close feed, not an intraday quote; the UI must retain its source/date.
+ */
+const B3_DAILY_SYMBOLS = new Set(['ICON','IFNC','IMAT','IMOB','INDX','UTIL','IFIX','SMLL']);
+async function fetchB3DailyIndex(def: IndexDef): Promise<IndexQuote | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(`/b3-index-proxy/indices/${encodeURIComponent(def.symbol)}/precos`, { signal: ctrl.signal });
+    if (!res.ok) return null;
+    const json = await res.json() as B3DailyResponse;
+    const series = (json.serie ?? []).filter(p => Number.isFinite(p.fechamento) && p.fechamento > 0).sort((a,b) => a.data.localeCompare(b.data));
+    if (!series.length) return null;
+    const latest = series[series.length - 1];
+    const previous = series.length > 1 ? series[series.length - 2] : null;
+    const price = latest.fechamento;
+    const prevClose = previous?.fechamento ?? null;
+    const changePercent = prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null;
+    const timestamp = Date.parse(`${latest.data}T21:00:00-03:00`);
+    return {
+      symbol: def.symbol, name: def.name, yfSymbol: def.yfSymbol, price,
+      changePercent, prevClose, currency: def.currency,
+      dataTimestamp: Number.isFinite(timestamp) ? timestamp : Date.now(),
+      isLive: true, spark: series.slice(-5).map(p => p.fechamento),
+      source: json.fonte ?? 'B3 — estatísticas oficiais (via Dados B3)',
+      isDelayed: true,
+    };
+  } catch {
+    return null;
+  } finally { clearTimeout(timer); }
 }
 
 async function fetchYFIndex(def: IndexDef): Promise<IndexQuote | null> {
@@ -162,7 +204,7 @@ export function subscribeIndices(fn: () => void): () => void {
 }
 
 /**
- * Fetch all 11 index quotes in parallel via the Vite proxy.
+ * Fetch global index quotes; B3 sector indices use B3-sourced daily closes.
  * Skips if called within REFRESH_INTERVAL_MS of the last successful fetch.
  */
 export async function fetchAllIndices(): Promise<Map<string, IndexQuote>> {
@@ -174,7 +216,7 @@ export async function fetchAllIndices(): Promise<Map<string, IndexQuote>> {
   setState({ status: 'loading', error: null });
 
   const results = await Promise.allSettled(
-    INDEX_DEFINITIONS.map(def => fetchYFIndex(def)),
+    INDEX_DEFINITIONS.map(def => B3_DAILY_SYMBOLS.has(def.symbol) ? fetchB3DailyIndex(def) : fetchYFIndex(def)),
   );
 
   const quotes = new Map<string, IndexQuote>();
