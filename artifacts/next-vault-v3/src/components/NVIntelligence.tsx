@@ -1034,7 +1034,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             : progress && !progress.complete
               ? `${summarizeNVAction(action)}. ${phrase.stillMissing}: ${localizeAgentSlots(progress.missing).join(', ')}.`
               : `${summarizeNVAction(action)}. ${phrase.ready}. ${phrase.sayExecute}.`;
-          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: progress?.complete && progress.guard.valid ? action : undefined, timestamp: Date.now() }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: msg, sources: [], action: progress?.complete && progress.guard.valid ? action ?? undefined : undefined, timestamp: Date.now() }]);
           if (!voiceMuted) enqueueNVVoice(msg, locale);
           return;
         }
