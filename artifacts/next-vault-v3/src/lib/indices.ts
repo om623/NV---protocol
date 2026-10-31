@@ -47,6 +47,19 @@ export const INDEX_DEFINITIONS: IndexDef[] = [
   { symbol: 'N225',  name: 'Nikkei 225',            yfSymbol: '^N225',     currency: 'JPY' },
   { symbol: 'HSI',   name: 'Hang Seng',             yfSymbol: '^HSI',      currency: 'HKD' },
   { symbol: 'SHCOMP',name: 'Shanghai Composite',    yfSymbol: '000001.SS', currency: 'CNY' },
+  // Global coverage aligned with NV's supported language markets.
+  { symbol: 'MERV',  name: 'S&P MERVAL',              yfSymbol: '^MERV',     currency: 'ARS' },
+  { symbol: 'MXX',   name: 'S&P/BMV IPC',             yfSymbol: '^MXX',      currency: 'MXN' },
+  { symbol: 'KOSPI', name: 'KOSPI',                   yfSymbol: '^KS11',     currency: 'KRW' },
+  { symbol: 'NIFTY', name: 'NIFTY 50',                yfSymbol: '^NSEI',     currency: 'INR' },
+  { symbol: 'SENSEX',name: 'BSE SENSEX',              yfSymbol: '^BSESN',    currency: 'INR' },
+  { symbol: 'TASI',  name: 'Tadawul All Share',       yfSymbol: '^TASI.SR',  currency: 'SAR' },
+  { symbol: 'EGX30', name: 'EGX 30',                  yfSymbol: '^CASE30',   currency: 'EGP' },
+  { symbol: 'STOXX50',name:'EURO STOXX 50',           yfSymbol: '^STOXX50E', currency: 'EUR' },
+  { symbol: 'IBEX',  name: 'IBEX 35',                 yfSymbol: '^IBEX',     currency: 'EUR' },
+  { symbol: 'AEX',   name: 'AEX',                     yfSymbol: '^AEX',      currency: 'EUR' },
+  { symbol: 'TAIEX', name: 'Taiwan Weighted',         yfSymbol: '^TWII',     currency: 'TWD' },
+  { symbol: 'ASX200',name: 'S&P/ASX 200',             yfSymbol: '^AXJO',     currency: 'AUD' },
 ];
 
 // ─── Yahoo Finance chart API response ─────────────────────────────────────────
