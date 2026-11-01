@@ -368,8 +368,8 @@ export function MarketGrid() {
               transition={{ duration: 0.2 }}
             >
               {/* Asset grid */}
-              <div className="relative">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" onMouseLeave={() => setSelectedAsset(null)}>
+              <div className="relative" onMouseLeave={() => setSelectedAsset(null)}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {filtered.map((coin, i) => {
                   const isPositive = coin.change24h >= 0;
                   return (
