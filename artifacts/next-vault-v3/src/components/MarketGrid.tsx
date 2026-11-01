@@ -7,7 +7,7 @@ import {
 } from '../lib/marketData';
 import {
   getTvlState, fetchTvlNetworks, subscribeTvl,
-  formatTvl, type TvlEntry,
+  formatTvl, type TvlEntry, type TvlProtocol,
 } from '../lib/tvl';
 import { subscribeFiat } from '../lib/fiat';
 import { subscribeIndices } from '../lib/indices';
@@ -76,6 +76,7 @@ function TvlGrid() {
   const [refreshing, setRefreshing] = useState(false);
   const [chainQuery, setChainQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(60);
+  const [tvlView, setTvlView] = useState<'chains' | 'protocols'>('chains');
   const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -103,6 +104,8 @@ function TvlGrid() {
   const totalTvl = state.entries.reduce((sum, entry) => sum + (entry.tvlUsd ?? 0), 0);
   const matchingEntries = state.entries.filter(entry => entry.displayName.toLowerCase().includes(chainQuery.trim().toLowerCase()));
   const visibleEntries = matchingEntries.slice(0, visibleCount);
+  const matchingProtocols = state.protocols.filter(protocol => `${protocol.name} ${protocol.category || ''} ${protocol.chains.join(' ')}`.toLowerCase().includes(chainQuery.trim().toLowerCase()));
+  const visibleProtocols = matchingProtocols.slice(0, visibleCount);
 
   return (
     <div>
@@ -151,26 +154,59 @@ function TvlGrid() {
               <div className="text-lg font-semibold font-mono text-foreground">{state.entries.length.toLocaleString()}</div>
             </div>
           </div>
+          <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30 mb-3 w-fit">
+            <button onClick={() => { setTvlView('chains'); setChainQuery(''); setVisibleCount(60); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${tvlView === 'chains' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Blockchains ({state.entries.length})</button>
+            <button onClick={() => { setTvlView('protocols'); setChainQuery(''); setVisibleCount(60); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${tvlView === 'protocols' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Protocols ({state.protocols.length})</button>
+          </div>
           <div className="relative mb-3">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
-            <input value={chainQuery} onChange={e => { setChainQuery(e.target.value); setVisibleCount(60); }} placeholder="Search blockchain..." className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30" />
+            <input value={chainQuery} onChange={e => { setChainQuery(e.target.value); setVisibleCount(60); }} placeholder={tvlView === 'chains' ? 'Search blockchain...' : 'Search protocol or category...'} className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {visibleEntries.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
-          </div>
-          {visibleCount < matchingEntries.length && (
-            <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingEntries.length - visibleCount} remaining)</button>
+          {tvlView === 'chains' ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {visibleEntries.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
+              </div>
+              {visibleCount < matchingEntries.length && <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingEntries.length - visibleCount} remaining)</button>}
+              {matchingEntries.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching chains.</div>}
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {visibleProtocols.map((protocol, i) => <TvlProtocolCard key={protocol.id} protocol={protocol} rank={i + 1} />)}
+              </div>
+              {visibleCount < matchingProtocols.length && <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingProtocols.length - visibleCount} remaining)</button>}
+              {matchingProtocols.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching protocols.</div>}
+            </>
           )}
-          {matchingEntries.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching chains.</div>}
         </>
       )}
 
       <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
         <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
         <span>{t('dashboard.autoRefresh60s')}</span>
-        <span className="ml-auto">{matchingEntries.length} / {state.entries.length} {t('dashboard.networksCount')}</span>
+        <span className="ml-auto">{tvlView === 'chains' ? `${matchingEntries.length} / ${state.entries.length} chains` : `${matchingProtocols.length} / ${state.protocols.length} protocols`}</span>
       </div>
     </div>
+  );
+}
+
+function TvlProtocolCard({ protocol, rank }: { protocol: TvlProtocol; rank: number }) {
+  const unavailable = protocol.tvlUsd === null;
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: Math.min(rank - 1, 20) * 0.01, duration: 0.2 }}
+      className={`rounded-xl p-3 border ${unavailable ? 'bg-secondary/15 border-border/20 opacity-60' : 'bg-secondary/25 border-border/30 hover:border-primary/15'}`}>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <div className="text-xs font-mono font-medium text-foreground truncate">{protocol.name}</div>
+          <div className="text-[9px] text-muted-foreground/50 truncate">{protocol.category || 'DeFi protocol'}</div>
+        </div>
+        <span className="text-[8px] font-mono text-muted-foreground/60">#{rank}</span>
+      </div>
+      <div className="text-sm font-mono font-semibold text-foreground">{formatTvl(protocol.tvlUsd)}</div>
+      <div className="mt-1 text-[8px] text-muted-foreground/45 truncate">{protocol.chains.slice(0, 4).join(' · ')}{protocol.chains.length > 4 ? ` +${protocol.chains.length - 4}` : ''}</div>
+    </motion.div>
   );
 }
 
