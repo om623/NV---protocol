@@ -354,7 +354,7 @@ async function fetchStablecoinAssets(): Promise<MarketAsset[]> {
   if (!Array.isArray(payload.peggedAssets)) throw new Error('Invalid DeFiLlama stablecoins response');
   const seen = new Set<string>();
   const now = Date.now();
-  return payload.peggedAssets
+  const assets = payload.peggedAssets
     .filter(item => item && item.name && item.symbol && Number.isFinite(Number(item.price)) && Number(item.price) > 0)
     .map(item => {
       const baseSymbol = String(item.symbol).toUpperCase().replace(/[^A-Z0-9.-]/g, '').slice(0, 16) || 'STABLE';
@@ -374,6 +374,8 @@ async function fetchStablecoinAssets(): Promise<MarketAsset[]> {
       };
     })
     .sort((a,b) => b.marketCap - a.marketCap);
+  if (assets.length === 0) throw new Error('DeFiLlama returned no priced stablecoins');
+  return assets;
 }
 
 /**
@@ -404,11 +406,13 @@ export async function refreshFromApis(): Promise<void> {
     let stablecoinAssets: MarketAsset[] | null = null;
     try { stablecoinAssets = await fetchStablecoinAssets(); } catch { /* keep last successful catalog */ }
 
-    // Replace temporary stablecoin seed with the complete live catalog.
-    for (let i = CURRENT_ASSETS.length - 1; i >= 0; i--) {
-      if (CURRENT_ASSETS[i].category === 'stablecoins') CURRENT_ASSETS.splice(i, 1);
+    // Replace temporary stablecoin seed only after a valid live response.
+    if (stablecoinAssets && stablecoinAssets.length > 0) {
+      for (let i = CURRENT_ASSETS.length - 1; i >= 0; i--) {
+        if (CURRENT_ASSETS[i].category === 'stablecoins') CURRENT_ASSETS.splice(i, 1);
+      }
+      CURRENT_ASSETS.push(...stablecoinAssets);
     }
-    CURRENT_ASSETS.push(...stablecoinAssets);
 
     // Merge real crypto prices into assets
     for (const asset of CURRENT_ASSETS) {
