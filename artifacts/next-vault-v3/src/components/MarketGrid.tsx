@@ -503,21 +503,3 @@ export function MarketGrid() {
 }
 
 
-              {filtered.length === 0 && (
-                <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
-                  {t('market.noResults')} "{query}".
-                </div>
-              )}
-
-              <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
-                <span>{t('market.autoRefresh4s')}</span>
-                <span className="ml-auto">{filtered.length} {t('market.assetsCount')}</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
-}
