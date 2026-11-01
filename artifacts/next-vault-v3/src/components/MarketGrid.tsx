@@ -285,7 +285,6 @@ function TvlCard({ entry, rank }: { entry: TvlEntry; rank: number }) {
         </span>
       </div>
       </motion.div>
-    </>
   );
 }
 
@@ -605,7 +604,8 @@ export function MarketGrid() {
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
 
