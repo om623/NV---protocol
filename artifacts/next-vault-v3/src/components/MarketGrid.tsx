@@ -91,7 +91,7 @@ function TvlGrid() {
     if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
     // Force by calling after clearing the cooldown via a small trick:
     // We just re-fetch; the service will skip if too recent, but UI still shows spinner briefly.
-    fetchTvlNetworks();
+    fetchTvlNetworks(true);
     refreshTimer.current = window.setTimeout(() => setRefreshing(false), 800);
   }, []);
 
@@ -143,7 +143,7 @@ function TvlGrid() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
             <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
-              <div className="text-[9px] uppercase tracking-wider text-muted-foreground/60">Global tracked TVL</div>
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground/60">Combined TVL (listed chains)</div>
               <div className="text-lg font-semibold font-mono text-foreground">{formatTvl(totalTvl)}</div>
             </div>
             <div className="rounded-xl border border-border/30 bg-secondary/20 p-3">
@@ -201,7 +201,7 @@ function TvlCard({ entry, rank }: { entry: TvlEntry; rank: number }) {
               {entry.displayName}
             </span>
             <span className="text-[9px] text-muted-foreground/50">
-              {t('dashboard.totalValueLocked')}
+              {entry.chainId ? `Chain ID ${entry.chainId}` : (entry.tokenSymbol || t('dashboard.totalValueLocked'))}
             </span>
           </div>
         </div>
