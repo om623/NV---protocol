@@ -474,7 +474,7 @@ export function MarketGrid() {
                           )}
                         </div>
                         <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                          {coin.category === 'stablecoins' ? null : isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                           {/* Fiat has no intraday change — show daily-ref label instead */}
                           {coin.category === 'fiat'
                             ? <span className="text-[8px] text-muted-foreground/40">daily ref</span>
