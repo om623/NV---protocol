@@ -122,7 +122,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
         </div>
 
         {/* Stat cards grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-5">
           {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => (
             <motion.div
               key={label}
