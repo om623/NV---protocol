@@ -451,6 +451,9 @@ const ptBR: Dict = {
   'converter.queryNetwork': 'Consultando rede…',
   'converter.rpcUnavailable': 'Preço indisponível via RPC',
   'converter.disclaimer': 'Estimativa baseada nas cotações carregadas pelo Global Markets; não é uma oferta de execução. Ações individuais ainda não têm uma fonte de cotação integrada. O preço do gás depende da disponibilidade pública do RPC selecionado.',
+  'dash.inflation': 'Inflação',
+  'dash.inflationAnnual': 'IPCA anual · último dado oficial',
+  'dash.inflationUnavailable': 'Indisponível',
 };
 
 const en: Dict = {
@@ -877,6 +880,9 @@ const en: Dict = {
   'converter.queryNetwork': 'Querying network…',
   'converter.rpcUnavailable': 'Price unavailable via RPC',
   'converter.disclaimer': 'Estimate based on Global Markets quotes; not an execution offer. Individual equities do not yet have an integrated quote source. Gas price depends on the selected public RPC.',
+  'dash.inflation': 'Inflation',
+  'dash.inflationAnnual': 'Annual CPI · latest official data',
+  'dash.inflationUnavailable': 'Unavailable',
 };
 
 const es: Dict = {
@@ -1169,6 +1175,9 @@ const es: Dict = {
   'purchase.daily': 'Diario',
   'purchase.weekly': 'Semanal',
   'purchase.monthly': 'Mensual',
+  'dash.inflation': 'Inflación',
+  'dash.inflationAnnual': 'IPC anual · último dato oficial',
+  'dash.inflationUnavailable': 'No disponible',
 };
 
 const fr: Dict = {
@@ -1469,6 +1478,9 @@ const fr: Dict = {
   'purchase.rejected': 'Transaction rejetée',
   'purchase.alreadyProcessed': 'Transaction déjà traitée',
   'purchase.insufficientBalance': 'Solde insuffisant',
+  'dash.inflation': 'Inflation',
+  'dash.inflationAnnual': 'IPC annuel · dernière donnée officielle',
+  'dash.inflationUnavailable': 'Indisponible',
 };
 
 // ─── Chinese (Simplified) ─────────────────────────────────────────────────────
@@ -1661,6 +1673,9 @@ const zh: Dict = {
   'dashboard.loading': '加载中…',
   'dashboard.autoRefresh60s': '每60秒自动刷新',
   'dashboard.networksCount': '个网络',
+  'dash.inflation': '通货膨胀',
+  'dash.inflationAnnual': '年度居民消费价格指数 · 最新官方数据',
+  'dash.inflationUnavailable': '暂不可用',
 };
 
 // ─── Japanese ─────────────────────────────────────────────────────────────────
@@ -1853,6 +1868,9 @@ const ja: Dict = {
   'dashboard.loading': '読み込み中…',
   'dashboard.autoRefresh60s': '60秒ごとに自動更新',
   'dashboard.networksCount': 'ネットワーク',
+  'dash.inflation': 'インフレ率',
+  'dash.inflationAnnual': '年間消費者物価指数 · 最新の公式データ',
+  'dash.inflationUnavailable': '利用できません',
 };
 
 // ─── Korean ───────────────────────────────────────────────────────────────────
@@ -2045,6 +2063,9 @@ const ko: Dict = {
   'dashboard.loading': '로딩 중…',
   'dashboard.autoRefresh60s': '60초마다 자동 새로 고침',
   'dashboard.networksCount': '개 네트워크',
+  'dash.inflation': '인플레이션',
+  'dash.inflationAnnual': '연간 소비자물가지수 · 최신 공식 데이터',
+  'dash.inflationUnavailable': '사용할 수 없음',
 };
 
 // ─── Hindi ────────────────────────────────────────────────────────────────────
@@ -2237,6 +2258,9 @@ const hi: Dict = {
   'dashboard.loading': 'लोड हो रहा है…',
   'dashboard.autoRefresh60s': 'हर 60 सेकंड में स्वतः ताज़ा',
   'dashboard.networksCount': 'नेटवर्क',
+  'dash.inflation': 'मुद्रास्फीति',
+  'dash.inflationAnnual': 'वार्षिक CPI · नवीनतम आधिकारिक डेटा',
+  'dash.inflationUnavailable': 'उपलब्ध नहीं',
 };
 
 // ─── Arabic ───────────────────────────────────────────────────────────────────
@@ -2429,6 +2453,9 @@ const ar: Dict = {
   'dashboard.loading': 'جارٍ التحميل…',
   'dashboard.autoRefresh60s': 'تحديث تلقائي كل 60 ثانية',
   'dashboard.networksCount': 'شبكة',
+  'dash.inflation': 'التضخم',
+  'dash.inflationAnnual': 'مؤشر أسعار المستهلك السنوي · أحدث بيانات رسمية',
+  'dash.inflationUnavailable': 'غير متاح',
 };
 
 // ─── NV Intelligence keys injected into existing 4 locales ───────────────────
