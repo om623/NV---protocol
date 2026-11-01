@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Activity, Droplets,
-  Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye,
+  Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye, Percent,
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
 import { fetchInflation, type InflationQuote } from '../lib/inflation';
+import { fetchPolicyRate, type PolicyRateQuote } from '../lib/policyRate';
 import { isValidNum } from '../lib/utils';
 import { useI18n, useFormat } from '../i18n';
 
@@ -48,6 +49,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
   const fmt = useFormat();
   const [sentiment, setSentiment] = useState(() => getMarketSentiment());
   const [inflation, setInflation] = useState<InflationQuote | null>(null);
+  const [policyRate, setPolicyRate] = useState<PolicyRateQuote | null>(null);
   const btc = getAsset('BTC');
   const sparkData = btc?.spark?.filter(v => Number.isFinite(v) && v > 0) ?? [];
 
@@ -65,11 +67,20 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
     return () => { active = false; };
   }, [locale]);
 
+  useEffect(() => {
+    let active = true;
+    setPolicyRate(null);
+    fetchPolicyRate(locale).then(quote => { if (active) setPolicyRate(quote); });
+    return () => { active = false; };
+  }, [locale]);
+
   const tvl = sentiment.totalTvl;
   const inflationCountry = inflation ? (new Intl.DisplayNames([fmt.bcp], { type: 'region' }).of(inflation.countryCode) ?? inflation.countryCode) : '';
+  const policyRateCountry = policyRate ? (new Intl.DisplayNames([fmt.bcp], { type: 'region' }).of(policyRate.countryCode) ?? policyRate.countryCode) : '';
 
   const stats: ExecStat[] = [
     { label: t('dash.inflation'), value: inflation ? fmt.percent(inflation.value) : '—', meta: inflation ? `${inflationCountry} · World Bank · ${inflation.year}` : t('dash.inflationUnavailable'), Icon: Activity, color: 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(251,191,36,0.15)]' },
+    { label: t('dash.policyRate'), value: policyRate ? fmt.percent(policyRate.value) : '—', meta: policyRate ? `${policyRateCountry} · BIS · ${policyRate.date}` : t('dash.policyRateUnavailable'), Icon: Percent, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
@@ -122,7 +133,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
         </div>
 
         {/* Stat cards grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 mb-5">
           {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => (
             <motion.div
               key={label}
@@ -142,7 +153,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
                   {delta}
                 </div>
               )}
-              {meta && <div className="text-[9px] font-mono text-muted-foreground/50 truncate" title={t('dash.inflationAnnual')}>{meta}</div>}
+              {meta && <div className="text-[9px] font-mono text-muted-foreground/50 truncate" title={label === t('dash.inflation') ? t('dash.inflationAnnual') : t('dash.policyRateDescription')}>{meta}</div>}
             </motion.div>
           ))}
         </div>
