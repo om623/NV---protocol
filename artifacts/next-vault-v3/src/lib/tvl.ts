@@ -15,13 +15,34 @@ export interface TvlEntry {
   geckoId?: string;
 }
 
+export interface TvlProtocol {
+  id: string;
+  name: string;
+  category?: string;
+  tvlUsd: number | null;
+  chains: string[];
+  change1d: number | null;
+  change7d: number | null;
+}
+
 export type TvlStatus = 'loading' | 'loaded' | 'error' | 'unavailable';
 
 export interface TvlState {
   status: TvlStatus;
   entries: TvlEntry[];
+  protocols: TvlProtocol[];
   fetchedAt: number | null;
   errorMessage?: string;
+}
+
+interface LlamaProtocol {
+  slug?: string;
+  name: string;
+  category?: string;
+  tvl?: number;
+  chains?: string[];
+  change_1d?: number;
+  change_7d?: number;
 }
 
 interface LlamaChain {
@@ -35,7 +56,7 @@ interface LlamaChain {
 const REFRESH_INTERVAL_MS = 60_000;
 const ENDPOINT = 'https://api.llama.fi/v2/chains';
 
-let _state: TvlState = { status: 'loading', entries: [], fetchedAt: null };
+let _state: TvlState = { status: 'loading', entries: [], protocols: [], fetchedAt: null };
 let _lastFetch = 0;
 let _listeners: (() => void)[] = [];
 let _pendingFetch: Promise<void> | null = null;
@@ -67,14 +88,35 @@ export async function fetchTvlNetworks(force = false): Promise<void> {
 async function _doFetch(): Promise<void> {
   _lastFetch = Date.now();
   try {
-    const response = await fetch(ENDPOINT, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!response.ok) throw new Error(`DeFiLlama /v2/chains returned HTTP ${response.status}`);
-
-    const raw = await response.json() as LlamaChain[];
+    const [chainsResult, protocolsResult] = await Promise.allSettled([
+      fetch(ENDPOINT, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) }),
+      fetch('https://api.llama.fi/protocols', { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) }),
+    ]);
+    if (chainsResult.status !== 'fulfilled' || !chainsResult.value.ok) {
+      const status = chainsResult.status === 'fulfilled' ? chainsResult.value.status : 'network error';
+      throw new Error(`DeFiLlama /v2/chains failed: ${status}`);
+    }
+    const raw = await chainsResult.value.json() as LlamaChain[];
     if (!Array.isArray(raw) || raw.length === 0) throw new Error('DeFiLlama returned an empty chain directory');
+
+    let protocols: TvlProtocol[] = [];
+    if (protocolsResult.status === 'fulfilled' && protocolsResult.value.ok) {
+      const protocolRaw = await protocolsResult.value.json() as LlamaProtocol[];
+      if (Array.isArray(protocolRaw)) {
+        protocols = protocolRaw
+          .filter(protocol => protocol && typeof protocol.name === 'string')
+          .map(protocol => ({
+            id: protocol.slug || protocol.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            name: protocol.name,
+            category: protocol.category,
+            tvlUsd: typeof protocol.tvl === 'number' && Number.isFinite(protocol.tvl) ? protocol.tvl : null,
+            chains: Array.isArray(protocol.chains) ? protocol.chains : [],
+            change1d: typeof protocol.change_1d === 'number' ? protocol.change_1d : null,
+            change7d: typeof protocol.change_7d === 'number' ? protocol.change_7d : null,
+          }))
+          .sort((a,b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1));
+      }
+    }
 
     const now = Date.now();
     const seen = new Set<string>();
@@ -107,7 +149,7 @@ async function _doFetch(): Promise<void> {
         return b.tvlUsd - a.tvlUsd;
       });
 
-    _state = { status: 'loaded', entries, fetchedAt: now };
+    _state = { status: 'loaded', entries, protocols, fetchedAt: now };
     notify();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
