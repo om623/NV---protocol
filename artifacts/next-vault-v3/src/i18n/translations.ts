@@ -2946,6 +2946,69 @@ Object.assign(en, nvEn);
 Object.assign(es, nvEs);
 Object.assign(fr, nvFr);
 
+Object.assign(ptBR, {
+  'dash.policyRate': "Taxa de juros",
+  'dash.policyRateDescription': "Taxa básica de política monetária · último dado publicado",
+  'dash.policyRateUnavailable': "Indisponível",
+  'dash.policyRateNote': "Taxa básica definida pelo banco central; países da zona do euro compartilham a taxa do BCE."
+});
+
+Object.assign(en, {
+  'dash.policyRate': "Policy rate",
+  'dash.policyRateDescription': "Central bank policy rate · latest published data",
+  'dash.policyRateUnavailable': "Unavailable",
+  'dash.policyRateNote': "Central bank policy rate; euro-area countries share the ECB policy rate."
+});
+
+Object.assign(es, {
+  'dash.policyRate': "Tipo de interés",
+  'dash.policyRateDescription': "Tipo oficial del banco central · último dato publicado",
+  'dash.policyRateUnavailable': "No disponible",
+  'dash.policyRateNote': "Tipo oficial del banco central; los países de la zona euro comparten el tipo del BCE."
+});
+
+Object.assign(fr, {
+  'dash.policyRate': "Taux directeur",
+  'dash.policyRateDescription': "Taux directeur de la banque centrale · dernière donnée publiée",
+  'dash.policyRateUnavailable': "Indisponible",
+  'dash.policyRateNote': "Taux directeur de la banque centrale ; les pays de la zone euro partagent le taux de la BCE."
+});
+
+Object.assign(zh, {
+  'dash.policyRate': "政策利率",
+  'dash.policyRateDescription': "央行政策利率 · 最新公布数据",
+  'dash.policyRateUnavailable': "暂不可用",
+  'dash.policyRateNote': "中央银行政策利率；欧元区国家共享欧洲央行政策利率。"
+});
+
+Object.assign(ja, {
+  'dash.policyRate': "政策金利",
+  'dash.policyRateDescription': "中央銀行の政策金利 · 最新公表データ",
+  'dash.policyRateUnavailable': "利用できません",
+  'dash.policyRateNote': "中央銀行の政策金利。ユーロ圏諸国はECBの政策金利を共有します。"
+});
+
+Object.assign(ko, {
+  'dash.policyRate': "기준금리",
+  'dash.policyRateDescription': "중앙은행 정책금리 · 최신 발표 데이터",
+  'dash.policyRateUnavailable': "사용할 수 없음",
+  'dash.policyRateNote': "중앙은행 정책금리이며 유로존 국가는 ECB 정책금리를 공유합니다."
+});
+
+Object.assign(hi, {
+  'dash.policyRate': "नीतिगत ब्याज दर",
+  'dash.policyRateDescription': "केंद्रीय बैंक की नीतिगत दर · नवीनतम प्रकाशित डेटा",
+  'dash.policyRateUnavailable': "उपलब्ध नहीं",
+  'dash.policyRateNote': "केंद्रीय बैंक की नीतिगत दर; यूरो क्षेत्र के देश ECB की दर साझा करते हैं।"
+});
+
+Object.assign(ar, {
+  'dash.policyRate': "سعر الفائدة الأساسي",
+  'dash.policyRateDescription': "سعر فائدة البنك المركزي · أحدث بيانات منشورة",
+  'dash.policyRateUnavailable': "غير متاح",
+  'dash.policyRateNote': "سعر الفائدة الأساسي للبنك المركزي؛ دول منطقة اليورو تشترك في سعر البنك المركزي الأوروبي."
+});
+
 const DICTS: Record<Locale, Dict> = {
   'pt-BR': ptBR,
   en,
