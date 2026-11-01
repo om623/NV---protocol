@@ -451,6 +451,9 @@ const ptBR: Dict = {
   'converter.queryNetwork': 'Consultando rede…',
   'converter.rpcUnavailable': 'Preço indisponível via RPC',
   'converter.disclaimer': 'Estimativa baseada nas cotações carregadas pelo Global Markets; não é uma oferta de execução. Ações individuais ainda não têm uma fonte de cotação integrada. O preço do gás depende da disponibilidade pública do RPC selecionado.',
+  'dash.inflation': 'Inflação',
+  'dash.inflationAnnual': 'CPI anual · último dado oficial',
+  'dash.inflationUnavailable': 'Indisponível',
 };
 
 const en: Dict = {
@@ -877,6 +880,9 @@ const en: Dict = {
   'converter.queryNetwork': 'Querying network…',
   'converter.rpcUnavailable': 'Price unavailable via RPC',
   'converter.disclaimer': 'Estimate based on Global Markets quotes; not an execution offer. Individual equities do not yet have an integrated quote source. Gas price depends on the selected public RPC.',
+  'dash.inflation': 'Inflation',
+  'dash.inflationAnnual': 'Annual CPI · latest official data',
+  'dash.inflationUnavailable': 'Unavailable',
 };
 
 const es: Dict = {
@@ -1169,6 +1175,9 @@ const es: Dict = {
   'purchase.daily': 'Diario',
   'purchase.weekly': 'Semanal',
   'purchase.monthly': 'Mensual',
+  'dash.inflation': 'Inflación',
+  'dash.inflationAnnual': 'IPC anual · último dato oficial',
+  'dash.inflationUnavailable': 'No disponible',
 };
 
 const fr: Dict = {
@@ -1469,6 +1478,9 @@ const fr: Dict = {
   'purchase.rejected': 'Transaction rejetée',
   'purchase.alreadyProcessed': 'Transaction déjà traitée',
   'purchase.insufficientBalance': 'Solde insuffisant',
+  'dash.inflation': 'Inflation',
+  'dash.inflationAnnual': 'IPC annuel · dernière donnée officielle',
+  'dash.inflationUnavailable': 'Indisponible',
 };
 
 // ─── Chinese (Simplified) ─────────────────────────────────────────────────────
@@ -1661,6 +1673,9 @@ const zh: Dict = {
   'dashboard.loading': '加载中…',
   'dashboard.autoRefresh60s': '每60秒自动刷新',
   'dashboard.networksCount': '个网络',
+  'dash.inflation': '通货膨胀',
+  'dash.inflationAnnual': '年度居民消费价格指数 · 最新官方数据',
+  'dash.inflationUnavailable': '暂不可用',
 };
 
 // ─── Japanese ─────────────────────────────────────────────────────────────────
@@ -1853,6 +1868,9 @@ const ja: Dict = {
   'dashboard.loading': '読み込み中…',
   'dashboard.autoRefresh60s': '60秒ごとに自動更新',
   'dashboard.networksCount': 'ネットワーク',
+  'dash.inflation': 'インフレ率',
+  'dash.inflationAnnual': '年間消費者物価指数 · 最新の公式データ',
+  'dash.inflationUnavailable': '利用できません',
 };
 
 // ─── Korean ───────────────────────────────────────────────────────────────────
@@ -2045,6 +2063,9 @@ const ko: Dict = {
   'dashboard.loading': '로딩 중…',
   'dashboard.autoRefresh60s': '60초마다 자동 새로 고침',
   'dashboard.networksCount': '개 네트워크',
+  'dash.inflation': '인플레이션',
+  'dash.inflationAnnual': '연간 소비자물가지수 · 최신 공식 데이터',
+  'dash.inflationUnavailable': '사용할 수 없음',
 };
 
 // ─── Hindi ────────────────────────────────────────────────────────────────────
@@ -2237,6 +2258,9 @@ const hi: Dict = {
   'dashboard.loading': 'लोड हो रहा है…',
   'dashboard.autoRefresh60s': 'हर 60 सेकंड में स्वतः ताज़ा',
   'dashboard.networksCount': 'नेटवर्क',
+  'dash.inflation': 'मुद्रास्फीति',
+  'dash.inflationAnnual': 'वार्षिक CPI · नवीनतम आधिकारिक डेटा',
+  'dash.inflationUnavailable': 'उपलब्ध नहीं',
 };
 
 // ─── Arabic ───────────────────────────────────────────────────────────────────
@@ -2429,6 +2453,9 @@ const ar: Dict = {
   'dashboard.loading': 'جارٍ التحميل…',
   'dashboard.autoRefresh60s': 'تحديث تلقائي كل 60 ثانية',
   'dashboard.networksCount': 'شبكة',
+  'dash.inflation': 'التضخم',
+  'dash.inflationAnnual': 'مؤشر أسعار المستهلك السنوي · أحدث بيانات رسمية',
+  'dash.inflationUnavailable': 'غير متاح',
 };
 
 // ─── NV Intelligence keys injected into existing 4 locales ───────────────────
@@ -2918,6 +2945,69 @@ Object.assign(ptBR, nvPtBR);
 Object.assign(en, nvEn);
 Object.assign(es, nvEs);
 Object.assign(fr, nvFr);
+
+Object.assign(ptBR, {
+  'dash.policyRate': "Taxa de juros",
+  'dash.policyRateDescription': "Taxa básica de política monetária · último dado publicado",
+  'dash.policyRateUnavailable': "Indisponível",
+  'dash.policyRateNote': "Taxa básica definida pelo banco central; países da zona do euro compartilham a taxa do BCE."
+});
+
+Object.assign(en, {
+  'dash.policyRate': "Policy rate",
+  'dash.policyRateDescription': "Central bank policy rate · latest published data",
+  'dash.policyRateUnavailable': "Unavailable",
+  'dash.policyRateNote': "Central bank policy rate; euro-area countries share the ECB policy rate."
+});
+
+Object.assign(es, {
+  'dash.policyRate': "Tipo de interés",
+  'dash.policyRateDescription': "Tipo oficial del banco central · último dato publicado",
+  'dash.policyRateUnavailable': "No disponible",
+  'dash.policyRateNote': "Tipo oficial del banco central; los países de la zona euro comparten el tipo del BCE."
+});
+
+Object.assign(fr, {
+  'dash.policyRate': "Taux directeur",
+  'dash.policyRateDescription': "Taux directeur de la banque centrale · dernière donnée publiée",
+  'dash.policyRateUnavailable': "Indisponible",
+  'dash.policyRateNote': "Taux directeur de la banque centrale ; les pays de la zone euro partagent le taux de la BCE."
+});
+
+Object.assign(zh, {
+  'dash.policyRate': "政策利率",
+  'dash.policyRateDescription': "央行政策利率 · 最新公布数据",
+  'dash.policyRateUnavailable': "暂不可用",
+  'dash.policyRateNote': "中央银行政策利率；欧元区国家共享欧洲央行政策利率。"
+});
+
+Object.assign(ja, {
+  'dash.policyRate': "政策金利",
+  'dash.policyRateDescription': "中央銀行の政策金利 · 最新公表データ",
+  'dash.policyRateUnavailable': "利用できません",
+  'dash.policyRateNote': "中央銀行の政策金利。ユーロ圏諸国はECBの政策金利を共有します。"
+});
+
+Object.assign(ko, {
+  'dash.policyRate': "기준금리",
+  'dash.policyRateDescription': "중앙은행 정책금리 · 최신 발표 데이터",
+  'dash.policyRateUnavailable': "사용할 수 없음",
+  'dash.policyRateNote': "중앙은행 정책금리이며 유로존 국가는 ECB 정책금리를 공유합니다."
+});
+
+Object.assign(hi, {
+  'dash.policyRate': "नीतिगत ब्याज दर",
+  'dash.policyRateDescription': "केंद्रीय बैंक की नीतिगत दर · नवीनतम प्रकाशित डेटा",
+  'dash.policyRateUnavailable': "उपलब्ध नहीं",
+  'dash.policyRateNote': "केंद्रीय बैंक की नीतिगत दर; यूरो क्षेत्र के देश ECB की दर साझा करते हैं।"
+});
+
+Object.assign(ar, {
+  'dash.policyRate': "سعر الفائدة الأساسي",
+  'dash.policyRateDescription': "سعر فائدة البنك المركزي · أحدث بيانات منشورة",
+  'dash.policyRateUnavailable': "غير متاح",
+  'dash.policyRateNote': "سعر الفائدة الأساسي للبنك المركزي؛ دول منطقة اليورو تشترك في سعر البنك المركزي الأوروبي."
+});
 
 const DICTS: Record<Locale, Dict> = {
   'pt-BR': ptBR,
