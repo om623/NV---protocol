@@ -450,29 +450,29 @@ export function MarketGrid() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.16 }}
-                    className="absolute z-40 top-1 left-1/2 -translate-x-1/2 w-[min(420px,calc(100vw-2.5rem))] rounded-xl border border-primary/40 bg-card/95 backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.65)] p-4 pointer-events-none"
+                    className="absolute z-40 bottom-1 right-1 w-[min(190px,calc(100vw-2rem))] rounded-lg border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.55)] p-2 pointer-events-none"
                     aria-live="polite"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-[9px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
-                        <div className="mt-1 text-sm font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
+                        <div className="text-[7px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
+                        <div className="mt-0.5 text-[10px] leading-tight font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
                       </div>
-                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={13} /></button>
+                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={11} /></button>
                     </div>
-                    <div className="mt-3 flex items-baseline gap-2 flex-wrap">
-                      <span className="text-xl font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
+                    <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
+                      <span className="text-sm font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
                       <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
                       </span>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border/40 pt-3">
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-1 text-xs font-mono text-foreground">{formatVolume(selectedMarketAsset.volume24h)}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-1 text-xs font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
+                    <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border/40 pt-2">
+                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{formatVolume(selectedMarketAsset.volume24h)}</div></div>
+                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-0.5 text-[9px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
                       <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-1 text-xs font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
+                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-0.5 text-[9px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
                     </div>
-                    {selectedMarketAsset.unit && <div className="mt-2 text-[9px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
+                    {selectedMarketAsset.unit && <div className="mt-1 text-[8px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
                   </motion.div>
                 )}
                       </AnimatePresence>
