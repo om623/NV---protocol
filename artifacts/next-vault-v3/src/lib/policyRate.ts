@@ -3,15 +3,15 @@ import type { Locale } from '../i18n/types';
 export interface PolicyRateQuote { countryCode: string; value: number; date: string; source: 'BIS'; }
 
 const COUNTRY_BY_LOCALE: Record<Locale, { countryCode: string; bisCode: string }> = {
-  'pt-BR': { countryCode: 'BR', bisCode: 'BR' },
-  en: { countryCode: 'US', bisCode: 'US' },
-  es: { countryCode: 'ES', bisCode: 'XM' },
+  'pt-BR': { countryCode: 'BR', bisCode: 'M.BR' },
+  en: { countryCode: 'US', bisCode: 'M.US' },
+  es: { countryCode: 'ES', bisCode: 'M.XM' },
   fr: { countryCode: 'FR', bisCode: 'XM' },
-  zh: { countryCode: 'CN', bisCode: 'CN' },
-  ja: { countryCode: 'JP', bisCode: 'JP' },
-  ko: { countryCode: 'KR', bisCode: 'KR' },
-  hi: { countryCode: 'IN', bisCode: 'IN' },
-  ar: { countryCode: 'SA', bisCode: 'SA' },
+  zh: { countryCode: 'CN', bisCode: 'M.CN' },
+  ja: { countryCode: 'JP', bisCode: 'M.JP' },
+  ko: { countryCode: 'KR', bisCode: 'M.KR' },
+  hi: { countryCode: 'IN', bisCode: 'M.IN' },
+  ar: { countryCode: 'SA', bisCode: 'M.SA' },
 };
 
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
@@ -22,7 +22,7 @@ export async function fetchPolicyRate(locale: Locale): Promise<PolicyRateQuote |
   const country = COUNTRY_BY_LOCALE[locale];
   const cached = cache.get(country.bisCode);
   if (cached && cached.expiresAt > Date.now()) return cached.quote;
-  const url = `https://stats.bis.org/api/v2/data/dataflow/BIS/WS_CBPOL/1.0/D.${country.bisCode}?lastNObservations=10`;
+  const url = `https://stats.bis.org/api/v2/data/dataflow/BIS/WS_CBPOL/1.0/${country.bisCode}?lastNObservations=10`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
