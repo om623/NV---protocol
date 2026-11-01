@@ -548,7 +548,7 @@ export function MarketGrid() {
                         </div>
                       </div>
                       <AnimatePresence>
-                        {selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
+                        {i < filtered.length && selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
                   <motion.div
                     key={selectedMarketAsset.symbol}
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
