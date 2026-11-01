@@ -50,6 +50,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
   const [sentiment, setSentiment] = useState(() => getMarketSentiment());
   const [inflation, setInflation] = useState<InflationQuote | null>(null);
   const [policyRate, setPolicyRate] = useState<PolicyRateQuote | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const btc = getAsset('BTC');
   const sparkData = btc?.spark?.filter(v => Number.isFinite(v) && v > 0) ?? [];
 
@@ -133,29 +134,80 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
         </div>
 
         {/* Stat cards grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 mb-5">
-          {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => (
-            <motion.div
-              key={label}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.12 + i * 0.04, duration: 0.3 }}
-              className={`bg-secondary/30 border border-border/30 rounded-xl p-3 flex flex-col gap-1.5 transition-all duration-300 ${glow}`}
-            >
-              <div className="flex items-center gap-1.5">
-                <Icon size={11} className={color} />
-                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50 truncate">{label}</span>
-              </div>
-              <div className={`text-sm font-mono font-bold ${color} tabular-nums truncate`}>{value}</div>
-              {delta && (
-                <div className={`text-[9px] font-mono flex items-center gap-0.5 ${deltaPositive ? 'text-emerald-400' : 'text-muted-foreground/50'}`}>
-                  {deltaPositive ? <ArrowUpRight size={8} /> : <ArrowDownRight size={8} />}
-                  {delta}
+        <div
+          className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 mb-5"
+          onMouseLeave={() => setExpandedCard(null)}
+        >
+          {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => {
+            const isExpanded = expandedCard === label;
+            const detail = label === t('dash.inflation')
+              ? t('dash.inflationAnnual')
+              : label === t('dash.policyRate')
+                ? t('dash.policyRateDescription')
+                : label === t('dash.liquidity')
+                  ? `${sentiment.bullishCount} ${t('dash.bull')} · ${sentiment.neutralCount} ${t('dash.neutral')} · ${sentiment.bearishCount} ${t('dash.bear')}`
+                  : label === t('dash.tvl')
+                    ? (tvl > 0 ? 'DefiLlama · Total Value Locked' : t('dash.unavailable'))
+                    : `${activeNetwork.name} · ${envMode === 'testnet' ? t('net.testnet') : t('net.mainnet')}`;
+            return (
+              <motion.button
+                key={label}
+                type="button"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.12 + i * 0.04, duration: 0.3 }}
+                onMouseEnter={() => setExpandedCard(label)}
+                onFocus={() => setExpandedCard(label)}
+                onClick={() => setExpandedCard(current => current === label ? null : label)}
+                aria-expanded={isExpanded}
+                className={`text-left min-w-0 bg-secondary/30 border rounded-xl p-3 flex flex-col gap-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${isExpanded ? 'border-primary/40 bg-secondary/55' : 'border-border/30'} ${glow}`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Icon size={13} className={color} />
+                  <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60 truncate">{label}</span>
                 </div>
-              )}
-              {meta && <div className="text-[9px] font-mono text-muted-foreground/50 truncate" title={label === t('dash.inflation') ? t('dash.inflationAnnual') : t('dash.policyRateDescription')}>{meta}</div>}
-            </motion.div>
-          ))}
+                <div className={`text-sm font-mono font-bold ${color} tabular-nums truncate`}>{value}</div>
+                {delta && (
+                  <div className={`text-[9px] font-mono flex items-center gap-0.5 ${deltaPositive ? 'text-emerald-400' : 'text-muted-foreground/50'}`}>
+                    {deltaPositive ? <ArrowUpRight size={8} /> : <ArrowDownRight size={8} />}
+                    {delta}
+                  </div>
+                )}
+                {meta && <div className="text-[9px] font-mono text-muted-foreground/50 truncate" title={label === t('dash.inflation') ? t('dash.inflationAnnual') : t('dash.policyRateDescription')}>{meta}</div>}
+                <span className="sr-only">{isExpanded ? 'Details expanded' : 'Show details'}</span>
+              </motion.button>
+            );
+          })}
+          {expandedCard && (() => {
+            const selected = stats.find(stat => stat.label === expandedCard);
+            if (!selected) return null;
+            const detail = selected.label === t('dash.inflation')
+              ? t('dash.inflationAnnual')
+              : selected.label === t('dash.policyRate')
+                ? t('dash.policyRateDescription')
+                : selected.label === t('dash.liquidity')
+                  ? `${sentiment.bullishCount} ${t('dash.bull')} · ${sentiment.neutralCount} ${t('dash.neutral')} · ${sentiment.bearishCount} ${t('dash.bear')}`
+                  : selected.label === t('dash.tvl')
+                    ? (tvl > 0 ? 'DefiLlama · Total Value Locked' : t('dash.unavailable'))
+                    : `${activeNetwork.name} · ${envMode === 'testnet' ? t('net.testnet') : t('net.mainnet')}`;
+            return (
+              <motion.div
+                key={expandedCard}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.16 }}
+                role="status"
+                className="col-span-full min-w-0 rounded-lg border border-primary/20 bg-secondary/35 px-3 py-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <selected.Icon size={13} className={selected.color} />
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-foreground/80">{selected.label}</span>
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground break-words">{detail}</span>
+                <span className={`text-xs font-mono font-semibold ${selected.color}`}>{selected.value}</span>
+              </motion.div>
+            );
+          })()}
         </div>
 
         {/* Market sentiment bar */}
