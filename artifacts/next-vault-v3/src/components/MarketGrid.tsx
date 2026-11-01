@@ -442,19 +442,15 @@ export function MarketGrid() {
                           <MiniSpark data={coin.spark} trend={coin.trend} />
                         </div>
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-              <AnimatePresence>
-                {selectedMarketAsset && (
+                      <AnimatePresence>
+                        {selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
                   <motion.div
                     key={selectedMarketAsset.symbol}
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.16 }}
-                    className="absolute z-30 top-2 left-2 w-[min(390px,calc(100%-1rem))] rounded-xl border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_12px_42px_rgba(0,0,0,0.55)] p-4 pointer-events-none"
+                    className="absolute z-40 top-1 left-1/2 -translate-x-1/2 w-[min(420px,calc(100vw-2.5rem))] rounded-xl border border-primary/40 bg-card/95 backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.65)] p-4 pointer-events-none"
                     aria-live="polite"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -479,8 +475,33 @@ export function MarketGrid() {
                     {selectedMarketAsset.unit && <div className="mt-2 text-[9px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
                   </motion.div>
                 )}
-              </AnimatePresence>
+                      </AnimatePresence>
+
+                    </motion.div>
+                  );
+                })}
               </div>
+              </div>
+
+              {filtered.length === 0 && (
+                <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
+                  {t('market.noResults')} "{query}".
+                </div>
+              )}
+
+              <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
+                <span>{t('market.autoRefresh4s')}</span>
+                <span className="ml-auto">{filtered.length} {t('market.assetsCount')}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
 
               {filtered.length === 0 && (
                 <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
