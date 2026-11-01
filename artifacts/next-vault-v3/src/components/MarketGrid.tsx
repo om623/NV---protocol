@@ -373,7 +373,7 @@ export function MarketGrid() {
     <>
       <style>{`
         @keyframes market-assets-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-        .market-assets-viewport { max-height: 680px; min-height: 280px; overflow: hidden; }
+        .market-assets-viewport { max-height: 680px; min-height: 280px; overflow: hidden; position: relative; }
         .market-assets-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625rem; overflow: hidden; border-radius: 0.75rem; }
         .market-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent); }
         .market-slide-track { display: flex; flex-direction: column; animation: market-assets-scroll linear infinite; will-change: transform; }
@@ -555,40 +555,7 @@ export function MarketGrid() {
                           <MiniSpark data={coin.spark} trend={coin.trend} />
                         </div>
                       </div>
-                      <AnimatePresence>
-                        {copy === 0 && selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
-                  <motion.div
-                    key={selectedMarketAsset.symbol}
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute z-40 bottom-1 right-1 w-[min(190px,calc(100vw-2rem))] rounded-lg border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.55)] p-2 pointer-events-none"
-                    aria-live="polite"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[7px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
-                        <div className="mt-0.5 text-[10px] leading-tight font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
-                      </div>
-                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={11} /></button>
-                    </div>
-                    <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-sm font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
-                      <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : selectedMarketAsset.category === 'stablecoins' ? 'Variação 24h indisponível' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border/40 pt-2">
-                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{selectedMarketAsset.category === 'stablecoins' ? 'N/A' : formatVolume(selectedMarketAsset.volume24h)}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-0.5 text-[9px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-0.5 text-[9px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
-                    </div>
-                    {selectedMarketAsset.unit && <div className="mt-1 text-[8px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
-                  </motion.div>
-                )}
-                      </AnimatePresence>
+
 
                     </motion.div>
                   );
@@ -601,6 +568,41 @@ export function MarketGrid() {
                 ))}
                 </div>
               </div>
+                <AnimatePresence>
+                  {selectedMarketAsset && (
+                    <motion.section
+                      key={selectedMarketAsset.symbol}
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.16 }}
+                      className="relative z-10 mt-3 w-full rounded-xl border border-primary/35 bg-card/95 shadow-[0_10px_28px_rgba(0,0,0,0.35)] p-3"
+                      aria-live="polite"
+                      aria-label={`Market information for ${selectedMarketAsset.name}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-[8px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
+                          <div className="mt-1 text-sm font-semibold text-foreground break-words" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
+                        </div>
+                        <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={13} /></button>
+                      </div>
+                      <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                        <span className="text-base font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
+                        <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : selectedMarketAsset.category === 'stablecoins' ? 'Variação 24h indisponível' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/40 pt-3">
+                        <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-1 text-[10px] font-mono text-foreground break-words">{selectedMarketAsset.category === 'stablecoins' ? 'N/A' : formatVolume(selectedMarketAsset.volume24h)}</div></div>
+                        <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-1 text-[10px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
+                        <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-[10px] font-mono text-foreground break-words">{selectedMarketAsset.dataSource || '—'}</div></div>
+                        <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-1 text-[10px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
+                      </div>
+                      {selectedMarketAsset.unit && <div className="mt-2 text-[9px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
+                    </motion.section>
+                  )}
+                </AnimatePresence>
               </div>
 
               {filtered.length === 0 && (
