@@ -478,7 +478,9 @@ export function MarketGrid() {
                           {/* Fiat has no intraday change — show daily-ref label instead */}
                           {coin.category === 'fiat'
                             ? <span className="text-[8px] text-muted-foreground/40">daily ref</span>
-                            : Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
+                            : coin.category === 'stablecoins'
+                              ? <span className="text-[8px] text-muted-foreground/40">24h N/A</span>
+                              : Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
                         </div>
                       </div>
 
