@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Activity, Droplets,
-  Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye, Percent,
+  Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye, Percent, X,
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
@@ -149,7 +149,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
                 transition={{ delay: 0.12 + i * 0.04, duration: 0.3 }}
                 onMouseEnter={() => setExpandedCard(label)}
                 onFocus={() => setExpandedCard(label)}
-                onClick={() => setExpandedCard(current => current === label ? null : label)}
+                onClick={() => setExpandedCard(label)}
                 aria-expanded={isExpanded}
                 className={`text-left min-w-0 bg-secondary/30 border rounded-xl p-3 flex flex-col gap-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${isExpanded ? 'border-primary/40 bg-secondary/55' : 'border-border/30'} ${glow}`}
               >
@@ -196,6 +196,14 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground break-words">{detail}</span>
                 <span className={`text-xs font-mono font-semibold ${selected.color}`}>{selected.value}</span>
+                <button
+                  type="button"
+                  onClick={() => setExpandedCard(null)}
+                  aria-label="Close details"
+                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/70 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                >
+                  <X size={12} />
+                </button>
               </motion.div>
             );
           })()}
