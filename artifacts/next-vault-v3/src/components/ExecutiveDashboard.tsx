@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
+import { fetchInflation, type InflationQuote } from '../lib/inflation';
 import { isValidNum } from '../lib/utils';
 import { useI18n, useFormat } from '../i18n';
 
@@ -20,6 +21,7 @@ interface ExecStat {
   value: string;
   delta?: string;
   deltaPositive?: boolean;
+  meta?: string;
   Icon: typeof Activity;
   color: string;
   glow: string;
@@ -42,9 +44,10 @@ function sentimentBg(idx: number): string {
 }
 
 export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const fmt = useFormat();
   const [sentiment, setSentiment] = useState(() => getMarketSentiment());
+  const [inflation, setInflation] = useState<InflationQuote | null>(null);
   const btc = getAsset('BTC');
   const sparkData = btc?.spark?.filter(v => Number.isFinite(v) && v > 0) ?? [];
 
@@ -53,9 +56,19 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
     return () => clearInterval(iv);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setInflation(null);
+    fetchInflation(locale).then(quote => {
+      if (active) setInflation(quote);
+    });
+    return () => { active = false; };
+  }, [locale]);
+
   const tvl = sentiment.totalTvl;
 
   const stats: ExecStat[] = [
+    { label: t('dash.inflation'), value: inflation ? fmt.percent(inflation.value) : '—', meta: inflation ? `World Bank · ${inflation.year}` : t('dash.inflationUnavailable'), Icon: Activity, color: 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(251,191,36,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
@@ -109,7 +122,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
 
         {/* Stat cards grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 mb-5">
-          {stats.map(({ label, value, delta, deltaPositive, Icon, color, glow }, i) => (
+          {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => (
             <motion.div
               key={label}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -128,6 +141,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
                   {delta}
                 </div>
               )}
+              {meta && <div className="text-[9px] font-mono text-muted-foreground/50 truncate" title={t('dash.inflationAnnual')}>{meta}</div>}
             </motion.div>
           ))}
         </div>
