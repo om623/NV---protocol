@@ -74,13 +74,12 @@ function TvlGrid() {
   const { t } = useI18n();
   const [state, setState] = useState(getTvlState);
   const [refreshing, setRefreshing] = useState(false);
-  const [chainQuery, setChainQuery] = useState('');
+  const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(60);
-  const [tvlView, setTvlView] = useState<'chains' | 'protocols'>('chains');
+  const [view, setView] = useState<'chains' | 'protocols'>('chains');
   const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    // Subscribe to store updates
     const unsub = subscribeTvl(() => setState(getTvlState()));
     return unsub;
   }, []);
@@ -88,50 +87,36 @@ function TvlGrid() {
   const handleRefresh = useCallback(() => {
     logNVActivity({ category: 'markets', action: 'Global Markets atualizado manualmente' });
     setRefreshing(true);
-    // Reset last-fetch time so fetchTvlNetworks actually fires
     if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
-    // Force by calling after clearing the cooldown via a small trick:
-    // We just re-fetch; the service will skip if too recent, but UI still shows spinner briefly.
     fetchTvlNetworks(true);
-    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 800);
+    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 1200);
   }, []);
 
-  useEffect(() => {
-    return () => { if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current); };
+  useEffect(() => () => {
+    if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
   }, []);
 
   const isLoading = state.status === 'loading';
-  const totalTvl = state.entries.reduce((sum, entry) => sum + (entry.tvlUsd ?? 0), 0);
-  const matchingEntries = state.entries.filter(entry => entry.displayName.toLowerCase().includes(chainQuery.trim().toLowerCase()));
-  const visibleEntries = matchingEntries.slice(0, visibleCount);
-  const matchingProtocols = state.protocols.filter(protocol => `${protocol.name} ${protocol.category || ''} ${protocol.chains.join(' ')}`.toLowerCase().includes(chainQuery.trim().toLowerCase()));
+  const combinedTvl = state.entries.reduce((sum, entry) => sum + (entry.tvlUsd ?? 0), 0);
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchingChains = state.entries.filter(entry => entry.displayName.toLowerCase().includes(normalizedQuery));
+  const matchingProtocols = state.protocols.filter(protocol =>
+    `${protocol.name} ${protocol.category || ''} ${protocol.chains.join(' ')}`.toLowerCase().includes(normalizedQuery)
+  );
+  const visibleChains = matchingChains.slice(0, visibleCount);
   const visibleProtocols = matchingProtocols.slice(0, visibleCount);
 
   return (
     <div>
-      {/* Status bar */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/50">
           <Database size={9} className="text-primary/50" />
           <span>Source: DeFiLlama</span>
-          {state.fetchedAt && (
-            <span className="text-muted-foreground/30">
-              · {t('dashboard.lastUpdate')} {new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-          {state.status === 'error' && (
-            <span className="text-amber-400/70">· {t('dashboard.unavailable')}</span>
-          )}
+          {state.fetchedAt && <span className="text-muted-foreground/30">· {t('dashboard.lastUpdate')} {new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+          {state.status === 'error' && <span className="text-amber-400/70">· {t('dashboard.unavailable')}</span>}
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40"
-        >
-          {refreshing || isLoading
-            ? <Loader2 size={12} className="animate-spin" />
-            : <RefreshCw size={12} />
-          }
+        <button onClick={handleRefresh} disabled={refreshing} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
+          {refreshing || isLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
         </button>
       </div>
 
@@ -147,28 +132,31 @@ function TvlGrid() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
             <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
               <div className="text-[9px] uppercase tracking-wider text-muted-foreground/60">Combined TVL (listed chains)</div>
-              <div className="text-lg font-semibold font-mono text-foreground">{formatTvl(totalTvl)}</div>
+              <div className="text-lg font-semibold font-mono text-foreground">{formatTvl(combinedTvl)}</div>
             </div>
             <div className="rounded-xl border border-border/30 bg-secondary/20 p-3">
               <div className="text-[9px] uppercase tracking-wider text-muted-foreground/60">Tracked chains</div>
               <div className="text-lg font-semibold font-mono text-foreground">{state.entries.length.toLocaleString()}</div>
             </div>
           </div>
+
           <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30 mb-3 w-fit">
-            <button onClick={() => { setTvlView('chains'); setChainQuery(''); setVisibleCount(60); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${tvlView === 'chains' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Blockchains ({state.entries.length})</button>
-            <button onClick={() => { setTvlView('protocols'); setChainQuery(''); setVisibleCount(60); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${tvlView === 'protocols' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Protocols ({state.protocols.length})</button>
+            <button onClick={() => { setView('chains'); setQuery(''); setVisibleCount(60); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${view === 'chains' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Blockchains ({state.entries.length})</button>
+            <button onClick={() => { setView('protocols'); setQuery(''); setVisibleCount(60); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${view === 'protocols' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Protocols ({state.protocols.length})</button>
           </div>
+
           <div className="relative mb-3">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
-            <input value={chainQuery} onChange={e => { setChainQuery(e.target.value); setVisibleCount(60); }} placeholder={tvlView === 'chains' ? 'Search blockchain...' : 'Search protocol or category...'} className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30" />
+            <input value={query} onChange={e => { setQuery(e.target.value); setVisibleCount(60); }} placeholder={view === 'chains' ? 'Search blockchain...' : 'Search protocol or category...'} className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30" />
           </div>
-          {tvlView === 'chains' ? (
+
+          {view === 'chains' ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {visibleEntries.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
+                {visibleChains.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
               </div>
-              {visibleCount < matchingEntries.length && <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingEntries.length - visibleCount} remaining)</button>}
-              {matchingEntries.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching chains.</div>}
+              {visibleCount < matchingChains.length && <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingChains.length - visibleCount} remaining)</button>}
+              {matchingChains.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching chains.</div>}
             </>
           ) : (
             <>
@@ -185,18 +173,17 @@ function TvlGrid() {
       <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
         <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
         <span>{t('dashboard.autoRefresh60s')}</span>
-        <span className="ml-auto">{tvlView === 'chains' ? `${matchingEntries.length} / ${state.entries.length} chains` : `${matchingProtocols.length} / ${state.protocols.length} protocols`}</span>
+        <span className="ml-auto">{view === 'chains' ? `${matchingChains.length} / ${state.entries.length} chains` : `${matchingProtocols.length} / ${state.protocols.length} protocols`}</span>
       </div>
     </div>
   );
 }
 
 function TvlProtocolCard({ protocol, rank }: { protocol: TvlProtocol; rank: number }) {
-  const unavailable = protocol.tvlUsd === null;
   return (
     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: Math.min(rank - 1, 20) * 0.01, duration: 0.2 }}
-      className={`rounded-xl p-3 border ${unavailable ? 'bg-secondary/15 border-border/20 opacity-60' : 'bg-secondary/25 border-border/30 hover:border-primary/15'}`}>
+      className="rounded-xl p-3 border bg-secondary/25 border-border/30 hover:border-primary/15">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
           <div className="text-xs font-mono font-medium text-foreground truncate">{protocol.name}</div>
@@ -475,7 +462,6 @@ export function MarketGrid() {
                         </div>
                         <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                           {coin.category === 'stablecoins' ? null : isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                          {/* Fiat has no intraday change — show daily-ref label instead */}
                           {coin.category === 'fiat'
                             ? <span className="text-[8px] text-muted-foreground/40">daily ref</span>
                             : coin.category === 'stablecoins'
@@ -493,87 +479,18 @@ export function MarketGrid() {
 
                       {coin.category === 'stablecoins' && (
                         <div className="text-[8px] font-mono text-muted-foreground/45 mb-1">
-                          Circulating: {coin.circulatingSupplyUsd ? '
-                          {coin.dataSource
-                            ? <span className="text-[8px] font-mono text-muted-foreground/35 truncate" translate="no">{coin.dataSource}</span>
-                            : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
-                          }
-                          {!coin.isLive && (coin.category === 'fiat' || coin.category === 'indices' || coin.category === 'commodities') && <StaleChip />}
-                        </div>
-                        <div className="w-16 shrink-0">
-                          <MiniSpark data={coin.spark} trend={coin.trend} />
-                        </div>
-                      </div>
-                      <AnimatePresence>
-                        {selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
-                  <motion.div
-                    key={selectedMarketAsset.symbol}
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute z-40 bottom-1 right-1 w-[min(190px,calc(100vw-2rem))] rounded-lg border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.55)] p-2 pointer-events-none"
-                    aria-live="polite"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[7px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
-                        <div className="mt-0.5 text-[10px] leading-tight font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
-                      </div>
-                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={11} /></button>
-                    </div>
-                    <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-sm font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
-                      <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border/40 pt-2">
-                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{formatVolume(selectedMarketAsset.volume24h)}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-0.5 text-[9px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-0.5 text-[9px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
-                    </div>
-                    {selectedMarketAsset.unit && <div className="mt-1 text-[8px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
-                  </motion.div>
-                )}
-                      </AnimatePresence>
-
-                    </motion.div>
-                  );
-                })}
-              </div>
-              </div>
-
-              {filtered.length === 0 && (
-                <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
-                  {t('market.noResults')} "{query}".
-                </div>
-              )}
-
-              <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
-                <span>{t('market.autoRefresh4s')}</span>
-                <span className="ml-auto">{filtered.length} {t('market.assetsCount')}</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
-}
-
-
- + formatVolume(coin.circulatingSupplyUsd) : 'N/A'}
+                          Circulating: {coin.circulatingSupplyUsd ? '$' + formatVolume(coin.circulatingSupplyUsd) : 'N/A'}
                           {typeof coin.chainCount === 'number' ? ' · ' + coin.chainCount + ' chains' : ''}
                           {coin.pegType ? ' · ' + coin.pegType : ''}
                         </div>
                       )}
                       <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 min-w-0">
                           {coin.dataSource
                             ? <span className="text-[8px] font-mono text-muted-foreground/35 truncate" translate="no">{coin.dataSource}</span>
-                            : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
+                            : coin.category === 'stablecoins'
+                              ? <span className="text-[8px] font-mono text-amber-400/70">Live feed unavailable</span>
+                              : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
                           }
                           {!coin.isLive && (coin.category === 'fiat' || coin.category === 'indices' || coin.category === 'commodities') && <StaleChip />}
                         </div>
@@ -602,11 +519,11 @@ export function MarketGrid() {
                     <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
                       <span className="text-sm font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
                       <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
+                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : selectedMarketAsset.category === 'stablecoins' ? 'Variação 24h indisponível' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
                       </span>
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border/40 pt-2">
-                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{formatVolume(selectedMarketAsset.volume24h)}</div></div>
+                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{selectedMarketAsset.category === 'stablecoins' ? 'N/A' : formatVolume(selectedMarketAsset.volume24h)}</div></div>
                       <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-0.5 text-[9px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
                       <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
                       <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-0.5 text-[9px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
