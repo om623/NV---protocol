@@ -452,7 +452,7 @@ const ptBR: Dict = {
   'converter.rpcUnavailable': 'Preço indisponível via RPC',
   'converter.disclaimer': 'Estimativa baseada nas cotações carregadas pelo Global Markets; não é uma oferta de execução. Ações individuais ainda não têm uma fonte de cotação integrada. O preço do gás depende da disponibilidade pública do RPC selecionado.',
   'dash.inflation': 'Inflação',
-  'dash.inflationAnnual': 'IPCA anual · último dado oficial',
+  'dash.inflationAnnual': 'CPI anual · último dado oficial',
   'dash.inflationUnavailable': 'Indisponível',
 };
 
