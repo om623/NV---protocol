@@ -71,15 +71,15 @@ export const SKINS: SkinDef[] = [
   { id: 'silver',    levelRequired: 1500 },
   { id: 'gold',      levelRequired: 1750 },
   { id: 'platinum',  levelRequired: 2000 },
-  { id: 'premium-500',  levelRequired: 2000, premium: true,  price: 500,  collectorTitle: true },
-  { id: 'premium-1000', levelRequired: 2000, premium: true,  price: 1000, collectorTitle: true },
+  { id: 'premium-500',  levelRequired: 2000, premium: true,  price: 10,  collectorTitle: true },
+  { id: 'premium-1000', levelRequired: 2000, premium: true,  price: 20, collectorTitle: true },
 ];
 
 // ── XP purchase packages ─────────────────────────────────────────────────────
 export const XP_PACKAGES: XPPackageDef[] = [
-  { id: 'xp-daily',      price: 10,  xp: 30,  duration: 'daily'     },
-  { id: 'xp-weekly',     price: 25,  xp: 60,  duration: 'weekly'    },
-  { id: 'xp-quarterly',  price: 100, xp: 300, duration: 'quarterly' },
+  { id: 'xp-daily',      price: 0.2, xp: 30,  duration: 'daily'     },
+  { id: 'xp-weekly',     price: 0.5, xp: 60,  duration: 'weekly'    },
+  { id: 'xp-quarterly',  price: 1,   xp: 300, duration: 'quarterly' },
 ];
 
 // ── Season definitions (72-month event, 4-month seasons = 18 seasons) ────────
