@@ -447,7 +447,7 @@ export async function refreshFromApis(): Promise<void> {
           asset.spark = [...asset.spark.slice(1), asset.price];
         }
         asset.trend = deriveTrend(asset.change24h);
-        asset.isLive = true;
+        asset.isLive = quote.isLive;
         asset.priceCurrency = quote.currency;
         asset.dataSource = quote.source ?? 'Yahoo Finance';
         asset.lastUpdated = quote.dataTimestamp;
