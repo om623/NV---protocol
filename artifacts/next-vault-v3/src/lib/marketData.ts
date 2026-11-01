@@ -391,15 +391,18 @@ export async function refreshFromApis(): Promise<void> {
     .map(a => a.symbol);
 
   try {
-    const [priceMap, global, fng, tvl, commodityMap, indicesMap, stablecoinAssets] = await Promise.all([
+    const [priceMap, global, fng, tvl, commodityMap, indicesMap] = await Promise.all([
       fetchCryptoPrices(),
       fetchGlobalMarket(),
       fetchFearGreed(),
       fetchTotalTvl(),
       fetchCommodityPrices(commoditySymbols),
       fetchAllIndices(),
-      fetchStablecoinAssets(),
     ]);
+
+    // Stablecoin feed is independent: an outage must not block crypto, FX, indices or commodities.
+    let stablecoinAssets: MarketAsset[] | null = null;
+    try { stablecoinAssets = await fetchStablecoinAssets(); } catch { /* keep last successful catalog */ }
 
     // Replace temporary stablecoin seed with the complete live catalog.
     for (let i = CURRENT_ASSETS.length - 1; i >= 0; i--) {
