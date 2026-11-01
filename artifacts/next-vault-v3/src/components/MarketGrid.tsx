@@ -362,6 +362,8 @@ export function MarketGrid() {
 
   const isTvl = filter === 'tvl';
   const selectedMarketAsset = filtered.find(asset => asset.symbol === selectedAsset) ?? null;
+  const assetColumns = [0, 1, 2].map(columnIndex => filtered.filter((_, index) => index % 3 === columnIndex));
+  const marketSlideDuration = `${Math.min(300, Math.max(180, filtered.length * 2.8))}s`;
 
   useEffect(() => {
     if (selectedAsset && !filtered.some(asset => asset.symbol === selectedAsset)) setSelectedAsset(null);
@@ -371,10 +373,13 @@ export function MarketGrid() {
     <>
       <style>{`
         @keyframes market-assets-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-        .market-assets-viewport { max-height: 680px; min-height: 280px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent); }
-        .market-assets-track { animation: market-assets-scroll linear infinite; will-change: transform; }
-        .market-assets-viewport:hover .market-assets-track, .market-assets-viewport:focus-within .market-assets-track { animation-play-state: paused; }
-        @media (prefers-reduced-motion: reduce) { .market-assets-track { animation: none; } .market-assets-viewport { max-height: none; } }
+        .market-assets-viewport { max-height: 680px; min-height: 280px; overflow: hidden; }
+        .market-assets-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625rem; overflow: hidden; border-radius: 0.75rem; }
+        .market-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent); }
+        .market-slide-track { display: flex; flex-direction: column; animation: market-assets-scroll linear infinite; will-change: transform; }
+        .market-slide-column:hover .market-slide-track, .market-slide-column:focus-within .market-slide-track { animation-play-state: paused; }
+        @media (max-width: 1023px) { .market-assets-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } .market-slide-track { animation: none; } .market-slide-column { max-height: none; overflow: visible; mask-image: none; } } @media (max-width: 639px) { .market-assets-columns { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .market-slide-track { animation: none; } .market-slide-column { max-height: none; } }
       `}</style>
       <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -462,15 +467,19 @@ export function MarketGrid() {
               {/* Asset grid */}
               <div className="relative" onMouseLeave={() => setSelectedAsset(null)}>
               <div className="market-assets-viewport">
-                <div className="market-assets-track" style={{ animationDuration: `${Math.min(150, Math.max(38, filtered.length * 1.4))}s` }}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {[...filtered, ...filtered].map((coin, i) => {
+                <div className="market-assets-columns">
+                {assetColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="market-slide-column">
+                    <div className="market-slide-track" style={{ animationDuration: marketSlideDuration, animationDirection: columnIndex === 1 ? 'reverse' : 'normal' }}>
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((coin, i) => {
                   const isPositive = coin.change24h >= 0;
                   return (
-                    <motion.div key={`${coin.symbol}-${i}`}
+                    <motion.div key={`${copy}-${coin.symbol}`}
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: (i % Math.max(filtered.length, 1)) * 0.02, duration: 0.25 }}
+                      transition={{ delay: Math.min(columnIndex + i * 3, 20) * 0.01, duration: 0.25 }}
                       onMouseEnter={() => setSelectedAsset(coin.symbol)}
                       onFocus={() => setSelectedAsset(coin.symbol)}
                       onClick={() => setSelectedAsset(coin.symbol)}
@@ -547,7 +556,7 @@ export function MarketGrid() {
                         </div>
                       </div>
                       <AnimatePresence>
-                        {i < filtered.length && selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
+                        {copy === 0 && selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
                   <motion.div
                     key={selectedMarketAsset.symbol}
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -583,10 +592,15 @@ export function MarketGrid() {
 
                     </motion.div>
                   );
-                })}
+
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
                 </div>
-                </div>
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">{filtered.map((coin, i) => <div key={coin.symbol} className="contents">{null}</div>)}</div>
               </div>
 
               {filtered.length === 0 && (
