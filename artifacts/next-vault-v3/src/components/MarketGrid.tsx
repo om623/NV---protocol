@@ -378,7 +378,7 @@ export function MarketGrid() {
         .market-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent); }
         .market-slide-track { display: flex; flex-direction: column; animation: market-assets-scroll linear infinite; will-change: transform; }
         .market-slide-column:hover .market-slide-track, .market-slide-column:focus-within .market-slide-track { animation-play-state: paused; }
-        @media (max-width: 1023px) { .market-assets-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } .market-slide-track { animation: none; } .market-slide-column { max-height: none; overflow: visible; mask-image: none; } } @media (max-width: 639px) { .market-assets-columns { grid-template-columns: 1fr; } }
+        @media (max-width: 1023px) { .market-assets-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } .market-slide-track { display: contents; animation: none; } .market-slide-track > div:nth-child(2) { display: none; } .market-slide-column { max-height: none; overflow: visible; mask-image: none; } } @media (max-width: 639px) { .market-assets-columns { grid-template-columns: 1fr; } }
         @media (prefers-reduced-motion: reduce) { .market-slide-track { animation: none; } .market-slide-column { max-height: none; } }
       `}</style>
       <motion.div
@@ -600,7 +600,6 @@ export function MarketGrid() {
                   </div>
                 ))}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">{filtered.map((coin, i) => <div key={coin.symbol} className="contents">{null}</div>)}</div>
               </div>
 
               {filtered.length === 0 && (
