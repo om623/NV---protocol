@@ -140,15 +140,6 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
         >
           {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => {
             const isExpanded = expandedCard === label;
-            const detail = label === t('dash.inflation')
-              ? t('dash.inflationAnnual')
-              : label === t('dash.policyRate')
-                ? t('dash.policyRateDescription')
-                : label === t('dash.liquidity')
-                  ? `${sentiment.bullishCount} ${t('dash.bull')} · ${sentiment.neutralCount} ${t('dash.neutral')} · ${sentiment.bearishCount} ${t('dash.bear')}`
-                  : label === t('dash.tvl')
-                    ? (tvl > 0 ? 'DefiLlama · Total Value Locked' : t('dash.unavailable'))
-                    : `${activeNetwork.name} · ${envMode === 'testnet' ? t('net.testnet') : t('net.mainnet')}`;
             return (
               <motion.button
                 key={label}
@@ -188,8 +179,8 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
                 : selected.label === t('dash.liquidity')
                   ? `${sentiment.bullishCount} ${t('dash.bull')} · ${sentiment.neutralCount} ${t('dash.neutral')} · ${sentiment.bearishCount} ${t('dash.bear')}`
                   : selected.label === t('dash.tvl')
-                    ? (tvl > 0 ? 'DefiLlama · Total Value Locked' : t('dash.unavailable'))
-                    : `${activeNetwork.name} · ${envMode === 'testnet' ? t('net.testnet') : t('net.mainnet')}`;
+                    ? (tvl > 0 ? 'DefiLlama · Total Value Locked' : '—')
+                    : `${activeNetwork.shortName} · ${envMode === 'testnet' ? t('net.testnet') : t('net.mainnet')}`;
             return (
               <motion.div
                 key={expandedCard}
