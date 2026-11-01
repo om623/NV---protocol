@@ -41,7 +41,7 @@ export default defineConfig({
       '/b3-index-proxy': {
         target: 'https://dadosb3.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\\/b3-index-proxy/, ''),
+        rewrite: (path) => path.replace(/^\/b3-index-proxy/, ''),
       },
       // Proxy Yahoo Finance chart API to avoid CORS — no API key required
       '/yf-proxy': {
