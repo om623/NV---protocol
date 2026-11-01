@@ -90,6 +90,56 @@ interface B3DailyResponse {
   fonte?: string;
   serie?: Array<{ data: string; fechamento: number }>;
 }
+interface B3YearMatrix { results?: Array<Record<string, string | number | null>>; }
+function latestExpectedB3SessionDate(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const [year, month, day] = parts.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() - (weekday === 1 ? 3 : weekday === 0 ? 2 : weekday === 6 ? 1 : 1));
+  return date.toISOString().slice(0, 10);
+}
+function isFreshB3Close(date: string): boolean { return date >= latestExpectedB3SessionDate(); }
+function parsePtBrIndexValue(value: string | number | null | undefined): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? value : null;
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const parsed = Number(value.replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+async function fetchB3OfficialIndex(def: IndexDef): Promise<IndexQuote | null> {
+  try {
+    const res = await fetch(`/b3-official-index/${encodeURIComponent(def.symbol)}`, { signal: AbortSignal.timeout(13000) });
+    if (!res.ok) return null;
+    const json = await res.json() as B3YearMatrix;
+    const year = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date());
+    const series: Array<{ data: string; fechamento: number }> = [];
+    for (const row of json.results ?? []) {
+      const day = Number(row.day);
+      if (!Number.isInteger(day) || day < 1 || day > 31) continue;
+      for (let month = 1; month <= 12; month++) {
+        const value = parsePtBrIndexValue(row[`rateValue${month}`]);
+        if (value == null) continue;
+        const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const valid = new Date(`${date}T12:00:00Z`);
+        if (valid.getUTCFullYear() !== Number(year) || valid.getUTCMonth() !== month - 1 || valid.getUTCDate() !== day) continue;
+        series.push({ data: date, fechamento: value });
+      }
+    }
+    series.sort((a, b) => a.data.localeCompare(b.data));
+    if (!series.length) return null;
+    const latest = series[series.length - 1];
+    const previous = series.length > 1 ? series[series.length - 2] : null;
+    const prevClose = previous?.fechamento ?? null;
+    return {
+      symbol: def.symbol, name: def.name, yfSymbol: def.yfSymbol, price: latest.fechamento,
+      changePercent: prevClose ? ((latest.fechamento - prevClose) / prevClose) * 100 : null,
+      prevClose, currency: def.currency,
+      dataTimestamp: Date.parse(`${latest.data}T21:00:00-03:00`),
+      isLive: isFreshB3Close(latest.data), spark: series.slice(-5).map(point => point.fechamento),
+      source: 'B3 — estatísticas de índices (portal oficial)', isDelayed: true,
+    };
+  } catch { return null; }
+}
 
 /**
  * B3 sector indices are not consistently exposed by Yahoo Finance.
@@ -97,7 +147,7 @@ interface B3DailyResponse {
  * This is a daily close feed, not an intraday quote; the UI must retain its source/date.
  */
 const B3_DAILY_SYMBOLS = new Set(['ICON','IFNC','IMAT','IMOB','INDX','UTIL','IFIX','SMLL']);
-async function fetchB3DailyIndex(def: IndexDef): Promise<IndexQuote | null> {
+async function fetchDadosB3Index(def: IndexDef): Promise<IndexQuote | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
@@ -116,13 +166,21 @@ async function fetchB3DailyIndex(def: IndexDef): Promise<IndexQuote | null> {
       symbol: def.symbol, name: def.name, yfSymbol: def.yfSymbol, price,
       changePercent, prevClose, currency: def.currency,
       dataTimestamp: Number.isFinite(timestamp) ? timestamp : Date.now(),
-      isLive: true, spark: series.slice(-5).map(p => p.fechamento),
+      isLive: isFreshB3Close(latest.data), spark: series.slice(-5).map(p => p.fechamento),
       source: json.fonte ?? 'B3 — estatísticas oficiais (via Dados B3)',
       isDelayed: true,
     };
   } catch {
     return null;
   } finally { clearTimeout(timer); }
+}
+
+async function fetchB3DailyIndex(def: IndexDef): Promise<IndexQuote | null> {
+  // Probe both independent routes; choose the newest dated close, never the
+  // response that merely arrived last.
+  const [official, mirror] = await Promise.all([fetchB3OfficialIndex(def), fetchDadosB3Index(def)]);
+  if (official && mirror) return official.dataTimestamp >= mirror.dataTimestamp ? official : mirror;
+  return official ?? mirror;
 }
 
 async function fetchYFIndex(def: IndexDef): Promise<IndexQuote | null> {
