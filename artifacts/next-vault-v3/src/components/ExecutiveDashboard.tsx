@@ -66,9 +66,10 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
   }, [locale]);
 
   const tvl = sentiment.totalTvl;
+  const inflationCountry = inflation ? (new Intl.DisplayNames([fmt.bcp], { type: 'region' }).of(inflation.countryCode) ?? inflation.countryCode) : '';
 
   const stats: ExecStat[] = [
-    { label: t('dash.inflation'), value: inflation ? fmt.percent(inflation.value) : '—', meta: inflation ? `World Bank · ${inflation.year}` : t('dash.inflationUnavailable'), Icon: Activity, color: 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(251,191,36,0.15)]' },
+    { label: t('dash.inflation'), value: inflation ? fmt.percent(inflation.value) : '—', meta: inflation ? `${inflationCountry} · World Bank · ${inflation.year}` : t('dash.inflationUnavailable'), Icon: Activity, color: 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(251,191,36,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
