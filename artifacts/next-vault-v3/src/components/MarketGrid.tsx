@@ -601,6 +601,7 @@ export function MarketGrid() {
                 ))}
                 </div>
               </div>
+              </div>
 
               {filtered.length === 0 && (
                 <div className="text-center py-8 text-[11px] font-mono text-muted-foreground/40">
