@@ -719,127 +719,21 @@ export function MarketGrid() {
             >
               {/* Asset grid */}
               <div className="relative" onMouseLeave={() => setSelectedAsset(null)}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {filtered.map((coin, i) => {
-                  const isPositive = coin.change24h >= 0;
-                  return (
-                    <motion.div key={coin.symbol}
-                      initial={{ opacity: 0, scale: 0.96 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.02, duration: 0.25 }}
-                      onMouseEnter={() => setSelectedAsset(coin.symbol)}
-                      onFocus={() => setSelectedAsset(coin.symbol)}
-                      onClick={() => setSelectedAsset(coin.symbol)}
-                      tabIndex={0}
-                      role="button"
-                      aria-expanded={selectedAsset === coin.symbol}
-                      className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                        coin.trend === 'bullish' ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/35'
-                        : coin.trend === 'bearish' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/35'
-                        : 'bg-secondary/25 border-border/30 hover:border-primary/15'
-                      }`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center text-[10px] font-bold text-primary font-mono shrink-0">
-                            {coin.symbol.slice(0, 2)}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-mono font-medium text-foreground" translate="no">{coin.symbol}</span>
-                            <span className="text-[9px] text-muted-foreground/50 truncate max-w-[80px]">{coin.name}</span>
-                          </div>
+              <div className="hidden lg:grid grid-cols-3 gap-2.5 overflow-hidden rounded-xl" aria-label="Global market assets">
+                {assetColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="market-slide-column">
+                    <div className="market-slide-track" style={{ animationDuration: marketColumnDuration(column.length), animationDirection: columnIndex === 1 ? 'reverse' : 'normal' }}>
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((coin, i) => renderAssetCard(coin, i, copy))}
                         </div>
-                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full border ${trendBg(coin.trend)}`} translate="no">
-                          {coin.trend === 'bullish' ? 'BULL' : coin.trend === 'bearish' ? 'BEAR' : 'NEUT'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-end justify-between gap-2 mb-1.5">
-                        <div className="flex items-baseline gap-1 min-w-0">
-                          <span className="text-sm font-mono font-semibold text-foreground" translate="no">
-                            {pricePrefix(coin)}{formatPrice(coin)}
-                          </span>
-                          {coin.priceCurrency && coin.category !== 'crypto' && coin.category !== 'stablecoins' && (
-                            <span className="text-[8px] font-mono text-muted-foreground/40 shrink-0" translate="no">
-                              {coin.priceCurrency}
-                            </span>
-                          )}
-                        </div>
-                        <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {coin.category === 'stablecoins' ? null : isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                          {coin.category === 'fiat'
-                            ? <span className="text-[8px] text-muted-foreground/40">daily ref</span>
-                            : coin.category === 'stablecoins'
-                              ? <span className="text-[8px] text-muted-foreground/40">24h N/A</span>
-                              : Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
-                        </div>
-                      </div>
-
-                      {/* Unit label for commodities + fiat */}
-                      {coin.unit && (
-                        <div className="text-[8px] font-mono text-muted-foreground/40 mb-1 truncate" translate="no">
-                          {coin.unit}
-                        </div>
-                      )}
-
-                      {coin.category === 'stablecoins' && (
-                        <div className="text-[8px] font-mono text-muted-foreground/45 mb-1">
-                          Circulating: {coin.circulatingSupplyUsd ? '$' + formatVolume(coin.circulatingSupplyUsd) : 'N/A'}
-                          {typeof coin.chainCount === 'number' ? ' · ' + coin.chainCount + ' chains' : ''}
-                          {coin.pegType ? ' · ' + coin.pegType : ''}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1 min-w-0">
-                          {coin.dataSource
-                            ? <span className="text-[8px] font-mono text-muted-foreground/35 truncate" translate="no">{coin.dataSource}</span>
-                            : coin.category === 'stablecoins'
-                              ? <span className="text-[8px] font-mono text-amber-400/70">Live feed unavailable</span>
-                              : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
-                          }
-                          {!coin.isLive && (coin.category === 'fiat' || coin.category === 'indices' || coin.category === 'commodities') && <StaleChip />}
-                        </div>
-                        <div className="w-16 shrink-0">
-                          <MiniSpark data={coin.spark} trend={coin.trend} />
-                        </div>
-                      </div>
-                      <AnimatePresence>
-                        {selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
-                  <motion.div
-                    key={selectedMarketAsset.symbol}
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute z-40 bottom-1 right-1 w-[min(190px,calc(100vw-2rem))] rounded-lg border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.55)] p-2 pointer-events-none"
-                    aria-live="polite"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[7px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
-                        <div className="mt-0.5 text-[10px] leading-tight font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
-                      </div>
-                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={11} /></button>
+                      ))}
                     </div>
-                    <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-sm font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
-                      <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : selectedMarketAsset.category === 'stablecoins' ? 'Variação 24h indisponível' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border/40 pt-2">
-                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{selectedMarketAsset.category === 'stablecoins' ? 'N/A' : formatVolume(selectedMarketAsset.volume24h)}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-0.5 text-[9px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-0.5 text-[9px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
-                    </div>
-                    {selectedMarketAsset.unit && <div className="mt-1 text-[8px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
-                  </motion.div>
-                )}
-                      </AnimatePresence>
-
-                    </motion.div>
-                  );
-                })}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
+                {filtered.map((coin, i) => renderAssetCard(coin, i, 0))}
               </div>
               </div>
 
