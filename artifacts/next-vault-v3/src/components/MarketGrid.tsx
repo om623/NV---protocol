@@ -75,7 +75,6 @@ function TvlGrid() {
   const [state, setState] = useState(getTvlState);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
-  const [visibleCount, setVisibleCount] = useState(60);
   const [view, setView] = useState<'chains' | 'protocols'>('chains');
   const refreshTimer = useRef<number | null>(null);
 
@@ -103,11 +102,25 @@ function TvlGrid() {
   const matchingProtocols = state.protocols.filter(protocol =>
     `${protocol.name} ${protocol.category || ''} ${protocol.chains.join(' ')}`.toLowerCase().includes(normalizedQuery)
   );
-  const visibleChains = matchingChains.slice(0, visibleCount);
-  const visibleProtocols = matchingProtocols.slice(0, visibleCount);
+  const splitIntoColumns = <T,>(items: T[]) => [0, 1, 2].map(column =>
+    items.filter((_, index) => index % 3 === column)
+  );
+  const chainColumns = splitIntoColumns(matchingChains);
+  const protocolColumns = splitIntoColumns(matchingProtocols);
+  const columnDuration = (count: number) => `${Math.max(34, count * 4.2)}s`;
 
   return (
     <div>
+      <style>{`
+        @keyframes tvl-column-slide {
+          from { transform: translateY(0); }
+          to { transform: translateY(-50%); }
+        }
+        .tvl-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent); }
+        .tvl-slide-track { display: flex; flex-direction: column; animation: tvl-column-slide var(--tvl-duration) linear infinite; animation-direction: var(--tvl-direction, normal); will-change: transform; }
+        .tvl-slide-column:hover .tvl-slide-track, .tvl-slide-column:focus-within .tvl-slide-track { animation-play-state: paused; }
+        @media (prefers-reduced-motion: reduce) { .tvl-slide-track { animation: none; } .tvl-slide-column { max-height: none; } }
+      `}</style>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/50">
           <Database size={9} className="text-primary/50" />
@@ -152,18 +165,42 @@ function TvlGrid() {
 
           {view === 'chains' ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {visibleChains.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
+              <div className="hidden lg:grid grid-cols-3 gap-2.5 overflow-hidden rounded-xl" aria-label="TVL blockchain rankings">
+                {chainColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="tvl-slide-column" style={{ '--tvl-duration': columnDuration(column.length), '--tvl-direction': columnIndex === 1 ? 'reverse' : 'normal' } as React.CSSProperties}>
+                    <div className="tvl-slide-track">
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((entry, i) => <TvlCard key={`${copy}-${entry.id}`} entry={entry} rank={columnIndex + i * 3 + 1} />)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {visibleCount < matchingChains.length && <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingChains.length - visibleCount} remaining)</button>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
+                {matchingChains.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
+              </div>
               {matchingChains.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching chains.</div>}
             </>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {visibleProtocols.map((protocol, i) => <TvlProtocolCard key={protocol.id} protocol={protocol} rank={i + 1} />)}
+              <div className="hidden lg:grid grid-cols-3 gap-2.5 overflow-hidden rounded-xl" aria-label="TVL protocol rankings">
+                {protocolColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="tvl-slide-column" style={{ '--tvl-duration': columnDuration(column.length), '--tvl-direction': columnIndex === 1 ? 'reverse' : 'normal' } as React.CSSProperties}>
+                    <div className="tvl-slide-track">
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((protocol, i) => <TvlProtocolCard key={`${copy}-${protocol.id}`} protocol={protocol} rank={columnIndex + i * 3 + 1} />)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {visibleCount < matchingProtocols.length && <button onClick={() => setVisibleCount(count => count + 60)} className="mt-3 w-full rounded-lg border border-border/40 bg-secondary/20 py-2 text-[10px] font-mono text-muted-foreground hover:text-foreground">Load more ({matchingProtocols.length - visibleCount} remaining)</button>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
+                {matchingProtocols.map((protocol, i) => <TvlProtocolCard key={protocol.id} protocol={protocol} rank={i + 1} />)}
+              </div>
               {matchingProtocols.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching protocols.</div>}
             </>
           )}
