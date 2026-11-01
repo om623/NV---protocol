@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database, X } from 'lucide-react';
 import {
   type MarketAsset, type MarketCategory, type TrendStatus,
   getAllAssets, refreshGlobalMarkets, formatVolume,
@@ -224,6 +224,7 @@ export function MarketGrid() {
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [sort, setSort] = useState<SortKey>('change24h');
   const [query, setQuery] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimer = useRef<number | null>(null);
 
@@ -276,6 +277,11 @@ export function MarketGrid() {
   }, [assets, filter, sort, query]);
 
   const isTvl = filter === 'tvl';
+  const selectedMarketAsset = filtered.find(asset => asset.symbol === selectedAsset) ?? null;
+
+  useEffect(() => {
+    if (selectedAsset && !filtered.some(asset => asset.symbol === selectedAsset)) setSelectedAsset(null);
+  }, [selectedAsset, filtered]);
 
   return (
     <motion.div
@@ -306,7 +312,7 @@ export function MarketGrid() {
           {/* Category filter tabs */}
           <div className="flex flex-wrap gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
             {FILTERS.map(f => (
-              <button key={f.key} onClick={() => { setFilter(f.key); logNVActivity({ category: 'markets', action: 'Filtro Global Markets alterado', details: f.fallback }); }}
+              <button key={f.key} onClick={() => { setSelectedAsset(null); setFilter(f.key); logNVActivity({ category: 'markets', action: 'Filtro Global Markets alterado', details: f.fallback }); }}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
                   filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}>
@@ -362,7 +368,8 @@ export function MarketGrid() {
               transition={{ duration: 0.2 }}
             >
               {/* Asset grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" onMouseLeave={() => setSelectedAsset(null)}>
                 {filtered.map((coin, i) => {
                   const isPositive = coin.change24h >= 0;
                   return (
@@ -370,7 +377,13 @@ export function MarketGrid() {
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: i * 0.02, duration: 0.25 }}
-                      className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] cursor-pointer ${
+                      onMouseEnter={() => setSelectedAsset(coin.symbol)}
+                      onFocus={() => setSelectedAsset(coin.symbol)}
+                      onClick={() => setSelectedAsset(coin.symbol)}
+                      tabIndex={0}
+                      role="button"
+                      aria-expanded={selectedAsset === coin.symbol}
+                      className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
                         coin.trend === 'bullish' ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/35'
                         : coin.trend === 'bearish' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/35'
                         : 'bg-secondary/25 border-border/30 hover:border-primary/15'
@@ -432,6 +445,41 @@ export function MarketGrid() {
                     </motion.div>
                   );
                 })}
+              </div>
+              <AnimatePresence>
+                {selectedMarketAsset && (
+                  <motion.div
+                    key={selectedMarketAsset.symbol}
+                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute z-30 top-2 left-2 w-[min(390px,calc(100%-1rem))] rounded-xl border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_12px_42px_rgba(0,0,0,0.55)] p-4 pointer-events-none"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[9px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
+                        <div className="mt-1 text-sm font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
+                      </div>
+                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={13} /></button>
+                    </div>
+                    <div className="mt-3 flex items-baseline gap-2 flex-wrap">
+                      <span className="text-xl font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
+                      <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border/40 pt-3">
+                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-1 text-xs font-mono text-foreground">{formatVolume(selectedMarketAsset.volume24h)}</div></div>
+                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-1 text-xs font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
+                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
+                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-1 text-xs font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
+                    </div>
+                    {selectedMarketAsset.unit && <div className="mt-2 text-[9px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
+                  </motion.div>
+                )}
+              </AnimatePresence>
               </div>
 
               {filtered.length === 0 && (
