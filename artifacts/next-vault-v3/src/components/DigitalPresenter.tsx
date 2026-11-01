@@ -11,6 +11,7 @@ import {
 } from '../lib/news';
 import { fetchAllNews } from '../lib/intelligence';
 import { fetchGlobalEquityHighlights } from '../lib/equities';
+import { fetchAllIndices } from '../lib/indices';
 
 interface DigitalPresenterProps {
   context: DashboardContext;
@@ -63,14 +64,31 @@ export function DigitalPresenter({ context }: DigitalPresenterProps) {
       const now = Date.now();
       const extra: EditorialEvent[] = [];
       try {
-        const [quotesResult, newsResult, fedResult] = await Promise.allSettled([
+        const [quotesResult, newsResult, indicesResult, fedResult] = await Promise.allSettled([
           fetchGlobalEquityHighlights(),
           fetchAllNews(),
+          fetchAllIndices(),
           fetch('/api/fed-brief').then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
         const quotes = quotesResult.status === 'fulfilled' ? quotesResult.value : [];
         const news = newsResult.status === 'fulfilled' ? newsResult.value : [];
         const fedRes = fedResult.status === 'fulfilled' ? fedResult.value : null;
+
+        const globalIndices = indicesResult.status === 'fulfilled' ? indicesResult.value : new Map();
+        const featuredIndexSymbols = ['IBOV','MERV','MXX','SPX','NDX','CAC','STOXX50','N225','SHCOMP','KOSPI','NIFTY','SENSEX','TASI','EGX30'];
+        for (const symbol of featuredIndexSymbols) {
+          const q = globalIndices.get(symbol);
+          if (!q?.isLive || !Number.isFinite(q.price)) continue;
+          extra.push({
+            id: 'index_' + symbol,
+            category: 'Global Indices',
+            title: `${q.name} · ${symbol}`,
+            description: `${q.name}: ${q.price.toLocaleString(localeBcp47,{maximumFractionDigits:2})} ${q.currency}; ${q.changePercent == null ? 'variação indisponível' : `${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}%`}. Dados de mercado atualizados com timestamp da fonte.`,
+            priority: 'market_movement',
+            color: (q.changePercent ?? 0) >= 0 ? 'emerald' : 'orange',
+            timestamp: q.dataTimestamp || now,
+          });
+        }
         for (const q of quotes) {
           if (q.price == null || q.change == null) continue;
           extra.push({id:'equity_'+q.locale,category:'Global Equities',title:`${q.marketLabel} · ${q.symbol}`,description:`${q.name}: ${q.price.toLocaleString(localeBcp47,{maximumFractionDigits:2})} ${q.currency}; ${q.change>=0?'+':''}${q.change.toFixed(2)}% no último pregão.`,priority:'market_movement',color:q.change>=0?'emerald':'orange',timestamp:now});
