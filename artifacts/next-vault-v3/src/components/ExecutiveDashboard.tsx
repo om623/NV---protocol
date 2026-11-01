@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  TrendingUp, TrendingDown, Wallet, Activity, Droplets,
+  TrendingUp, TrendingDown, Activity, Droplets,
   Radio, Zap, ArrowUpRight, ArrowDownRight, Gauge, Eye,
 } from 'lucide-react';
 import type { NetworkConfig, EnvMode } from '../networks';
 import { getMarketSentiment, formatVolume, getAsset } from '../lib/marketData';
-import { safeUsd, isValidNum } from '../lib/utils';
+import { isValidNum } from '../lib/utils';
 import { useI18n, useFormat } from '../i18n';
 
 interface ExecutiveDashboardProps {
@@ -20,7 +20,7 @@ interface ExecStat {
   value: string;
   delta?: string;
   deltaPositive?: boolean;
-  Icon: typeof Wallet;
+  Icon: typeof Activity;
   color: string;
   glow: string;
 }
@@ -41,7 +41,7 @@ function sentimentBg(idx: number): string {
   return 'from-red-500 to-orange-400';
 }
 
-export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: ExecutiveDashboardProps) {
+export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboardProps) {
   const { t } = useI18n();
   const fmt = useFormat();
   const [sentiment, setSentiment] = useState(() => getMarketSentiment());
@@ -53,23 +53,9 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: Exe
     return () => clearInterval(iv);
   }, []);
 
-  const ethPrice = getAsset('ETH')?.price ?? 3215.84;
-  const eurcPrice = getAsset('EURC')?.price ?? 1.087;
-  const usdcBal = realBalances?.['USDC'] ?? null;
-  const eurcBal = realBalances?.['EURC'] ?? null;
-  const ethBal  = realBalances?.['ETH'] ?? null;
-
-  const totalPatrimony =
-    usdcBal !== null || eurcBal !== null || ethBal !== null
-      ? (usdcBal ?? 0) + (eurcBal ?? 0) * eurcPrice + (ethBal ?? 0) * ethPrice
-      : null;
-
   const tvl = sentiment.totalTvl;
 
   const stats: ExecStat[] = [
-    { label: t('dash.patrimony'), value: safeUsd(totalPatrimony ?? undefined), Icon: Wallet, color: 'text-primary', glow: 'hover:shadow-[0_0_20px_rgba(0,229,188,0.15)]' },
-    { label: t('dash.dailyProfit'), value: '—', Icon: TrendingUp, color: 'text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]' },
-    { label: t('dash.roi'), value: '—', Icon: Activity, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
     { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
@@ -122,7 +108,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork, realBalances }: Exe
         </div>
 
         {/* Stat cards grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 mb-5">
           {stats.map(({ label, value, delta, deltaPositive, Icon, color, glow }, i) => (
             <motion.div
               key={label}
