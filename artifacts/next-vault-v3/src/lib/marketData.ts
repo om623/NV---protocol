@@ -416,6 +416,7 @@ export async function refreshFromApis(): Promise<void> {
 
     // Merge real crypto prices into assets
     for (const asset of CURRENT_ASSETS) {
+      if (asset.category === 'stablecoins') continue; // Stablecoin price/supply are sourced consistently from DeFiLlama.
       const coin = priceMap.get(asset.symbol);
       if (coin) {
         asset.price = coin.current_price ?? asset.price;
