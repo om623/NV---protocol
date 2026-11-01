@@ -4,6 +4,10 @@
   "outputDirectory": "artifacts/next-vault-v3/dist/public",
   "rewrites": [
     {
+      "source": "/b3-official-index/:symbol",
+      "destination": "/api/b3-official-index?symbol=:symbol"
+    },
+    {
       "source": "/b3-index-proxy/indices/:symbol/precos",
       "destination": "/api/b3-index-proxy?symbol=:symbol"
     },
