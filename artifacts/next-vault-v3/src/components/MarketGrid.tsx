@@ -106,7 +106,8 @@ function TvlGrid() {
     items.filter((_, index) => index % 3 === column)
   );
   const chainColumns = splitIntoColumns(matchingChains);
-  const protocolColumns = splitIntoColumns(matchingProtocols);
+  const animatedProtocols = matchingProtocols.slice(0, 180);
+  const protocolColumns = splitIntoColumns(animatedProtocols);
   const columnDuration = (count: number) => `${Math.max(34, count * 4.2)}s`;
 
   return (
@@ -117,7 +118,7 @@ function TvlGrid() {
           to { transform: translateY(-50%); }
         }
         .tvl-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent); }
-        .tvl-slide-track { display: flex; flex-direction: column; animation: tvl-column-slide var(--tvl-duration) linear infinite; animation-direction: var(--tvl-direction, normal); will-change: transform; }
+        .tvl-slide-track { display: flex; flex-direction: column; animation: tvl-column-slide linear infinite; will-change: transform; }
         .tvl-slide-column:hover .tvl-slide-track, .tvl-slide-column:focus-within .tvl-slide-track { animation-play-state: paused; }
         @media (prefers-reduced-motion: reduce) { .tvl-slide-track { animation: none; } .tvl-slide-column { max-height: none; } }
       `}</style>
@@ -167,8 +168,8 @@ function TvlGrid() {
             <>
               <div className="hidden lg:grid grid-cols-3 gap-2.5 overflow-hidden rounded-xl" aria-label="TVL blockchain rankings">
                 {chainColumns.map((column, columnIndex) => (
-                  <div key={columnIndex} className="tvl-slide-column" style={{ '--tvl-duration': columnDuration(column.length), '--tvl-direction': columnIndex === 1 ? 'reverse' : 'normal' } as React.CSSProperties}>
-                    <div className="tvl-slide-track">
+                  <div key={columnIndex} className="tvl-slide-column">
+                    <div className="tvl-slide-track" style={{ animationDuration: columnDuration(column.length), animationDirection: columnIndex === 1 ? 'reverse' : 'normal' }}>
                       {[0, 1].map(copy => (
                         <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
                           {column.map((entry, i) => <TvlCard key={`${copy}-${entry.id}`} entry={entry} rank={columnIndex + i * 3 + 1} />)}
@@ -199,7 +200,7 @@ function TvlGrid() {
                 ))}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
-                {matchingProtocols.map((protocol, i) => <TvlProtocolCard key={protocol.id} protocol={protocol} rank={i + 1} />)}
+                {animatedProtocols.map((protocol, i) => <TvlProtocolCard key={protocol.id} protocol={protocol} rank={i + 1} />)}
               </div>
               {matchingProtocols.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching protocols.</div>}
             </>
@@ -210,7 +211,7 @@ function TvlGrid() {
       <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
         <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
         <span>{t('dashboard.autoRefresh60s')}</span>
-        <span className="ml-auto">{view === 'chains' ? `${matchingChains.length} / ${state.entries.length} chains` : `${matchingProtocols.length} / ${state.protocols.length} protocols`}</span>
+        <span className="ml-auto">{view === 'chains' ? `${matchingChains.length} chains` : `${animatedProtocols.length} / ${matchingProtocols.length} protocols shown`}</span>
       </div>
     </div>
   );
