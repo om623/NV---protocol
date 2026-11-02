@@ -105,7 +105,7 @@ export function IntelligenceColumn({
           <iframe
             ref={signalPlayerRef}
             title="NV Signal Technology"
-            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&loop=1&enablejsapi=1&playlist=${signalPlaylist}`}
+            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&cc_load_policy=0&playsinline=1&loop=1&enablejsapi=1&playlist=${signalPlaylist}`}
             className="absolute -inset-[2px] h-[calc(100%+4px)] w-[calc(100%+4px)] border-0"
             allow="autoplay; encrypted-media"
             referrerPolicy="strict-origin-when-cross-origin"
