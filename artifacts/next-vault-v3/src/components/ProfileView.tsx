@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink } from 'lucide-react';
+import { Sparkles, Zap, Flame, Trophy, Crown, Diamond, Star, Award, ChevronRight, Clock, TrendingUp, ShoppingCart, Check, Lock, Zap as ZapIcon, Users, Calendar, Shield, Sword, Eye, Loader as Loader2, CircleAlert as AlertCircle, ExternalLink, Bot } from 'lucide-react';
+import { NvultPrototype } from './NvultPrototype';
 import { useI18n, useFormat } from '../i18n';
 import {
   BASE_LEVEL, SWAP_XP_BASE, BOOST_DURATION_MS,
@@ -46,7 +47,7 @@ export function ProfileView({
 }: ProfileViewProps) {
   const { t } = useI18n();
   const { number } = useFormat();
-  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'skins' | 'leaderboard' | 'shop' | 'nvult'>('overview');
 
   const level = computeLevel(gamification);
   const milestone = nextMilestone(gamification);
@@ -224,6 +225,7 @@ export function ProfileView({
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border/30 overflow-x-auto">
         {([
           { key: 'overview',    label: t('profile.tabOverview'),    Icon: TrendingUp },
+          { key: 'nvult',       label: 'Nvult',                      Icon: Bot },
           { key: 'badges',      label: t('profile.tabBadges'),      Icon: Award },
           { key: 'skins',       label: t('profile.tabSkins'),       Icon: Shield },
           { key: 'leaderboard', label: t('profile.tabLeaderboard'), Icon: Users },
@@ -284,34 +286,43 @@ export function ProfileView({
         </div>
       )}
 
+      {/* Nvult character lab: demonstration-only NvA, no real payment integration. */}
+      {activeTab === 'nvult' && (
+        <NvultPrototype equippedSkin={gamification.equippedSkin} level={level} xp={gamification.xp} />
+      )}
+
       {/* ── Badges & Titles Tab ───────────────────────────────────────────── */}
       {activeTab === 'badges' && (
         <div className="space-y-4">
           {/* Badges */}
           <div>
             <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground/50 mb-2">{t('profile.badgesList')}</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {BADGES.map(badge => {
                 const unlocked = gamification.unlockedBadges.includes(badge.id);
                 const Icon = BADGE_ICONS[badge.icon] ?? Sparkles;
+                const progress = Math.min(100, Math.max(4, (level / Math.max(1, badge.levelRequired)) * 100));
                 return (
-                  <div key={badge.id} className={`rounded-xl border p-3 transition-all ${
-                    unlocked ? 'border-primary/25 bg-primary/5' : 'border-border/30 bg-secondary/20 opacity-50'
+                  <article key={badge.id} className={`group relative isolate overflow-hidden rounded-2xl border p-3.5 transition-all duration-300 ${
+                    unlocked ? 'border-primary/30 bg-gradient-to-br from-primary/[.10] via-card/80 to-violet-400/[.05] shadow-[inset_0_1px_rgba(255,255,255,.04),0_8px_24px_rgba(0,0,0,.12)]' : 'border-border/30 bg-secondary/[.16] opacity-75 hover:opacity-100'
                   }`}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        unlocked ? 'bg-primary/15 text-primary' : 'bg-secondary/50 text-muted-foreground/40'
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-7 h-20 w-20 rounded-full blur-2xl" style={{ background: unlocked ? 'rgba(45,212,191,.13)' : 'rgba(148,163,184,.04)' }} />
+                    <div className="relative flex items-start gap-3">
+                      <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner ${
+                        unlocked ? 'border-primary/35 bg-primary/[.12] text-primary' : 'border-border/40 bg-background/50 text-muted-foreground/45'
                       }`}>
-                        {unlocked ? <Icon size={14} /> : <Lock size={12} />}
+                        <div className="absolute inset-1 rounded-lg border border-white/[.06]" />
+                        {unlocked ? <Icon size={20} strokeWidth={1.7} /> : <Lock size={15} />}
+                        {unlocked && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,.8)]" />}
                       </div>
-                      <span className="text-xs font-medium text-foreground truncate">{t(`badge.${badge.id}`)}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{t(`badge.${badge.id}`)}</span>{unlocked && <Check size={11} className="shrink-0 text-emerald-300" />}</div>
+                        <div className="mt-1 text-[9px] font-mono uppercase tracking-[.12em] text-muted-foreground/50">{unlocked ? 'CONQUISTA DESBLOQUEADA' : `NÍVEL ${number(badge.levelRequired, 0)}`}</div>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-secondary/80"><div className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-300 transition-all" style={{ width: unlocked ? '100%' : progress + '%' }} /></div>
+                      </div>
                     </div>
-                    <div className="text-[9px] font-mono text-muted-foreground/40">
-                      {unlocked
-                        ? `${t('profile.unlocked')} · +${badge.levelGrant} ${t('profile.levels')}`
-                        : `${t('profile.level')} ${badge.levelRequired}`}
-                    </div>
-                  </div>
+                    <div className="relative mt-3 flex items-center justify-between border-t border-border/25 pt-2 text-[9px] font-mono text-muted-foreground/55"><span>{unlocked ? 'RECOMPENSA RECEBIDA' : 'PRÓXIMA META'}</span><span className={unlocked ? 'text-primary' : 'text-muted-foreground/60'}>{unlocked ? `+${number(badge.levelGrant, 0)} LVL` : `LVL ${number(badge.levelRequired, 0)}`}</span></div>
+                  </article>
                 );
               })}
             </div>
