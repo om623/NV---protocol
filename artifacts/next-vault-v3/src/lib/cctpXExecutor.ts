@@ -331,7 +331,7 @@ export async function executeCctpXTransfer(
       attestation,
     );
     const mintReceipt = await destinationPublic.waitForTransactionReceipt({
-      hash: mintHash, timeout: 300_000,
+      hash: mintHash as Hex, timeout: 300_000,
     });
     if (mintReceipt.status !== 'success') throw new Error('Mint de destino: transação revertida.');
 
