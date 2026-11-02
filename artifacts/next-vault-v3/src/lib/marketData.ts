@@ -35,6 +35,9 @@ export interface MarketAsset {
   lastUpdated?: number;
   /** ISO 4217 display currency for this asset */
   priceCurrency?: string;
+  circulatingSupplyUsd?: number;
+  chainCount?: number;
+  pegType?: string;
 }
 
 export interface MarketGroup {
@@ -280,15 +283,8 @@ const BASE_ASSETS: BaseAsset[] = [
   { symbol: 'EIGEN', name: 'EigenLayer', category: 'crypto', price: 1, decimals: 6, change7d: 0, coinGeckoId: 'eigenlayer' },
   { symbol: 'ETHFI', name: 'Ether.fi', category: 'crypto', price: 1, decimals: 6, change7d: 0, coinGeckoId: 'ether-fi' },
   { symbol: 'AERO', name: 'Aerodrome Finance', category: 'crypto', price: 1, decimals: 6, change7d: 0, coinGeckoId: 'aerodrome-finance' },
-
-     // STABLECOINS
-  { symbol: 'USDC',  name: 'USD Coin',        category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0,   coinGeckoId: 'usd-coin' },
-  { symbol: 'USDT',  name: 'Tether',          category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0,   coinGeckoId: 'tether' },
-  { symbol: 'EURC',  name: 'Euro Coin',       category: 'stablecoins', price: 1.087, decimals: 4, change7d: 0.8, coinGeckoId: 'eurocoin' },
-  { symbol: 'DAI',   name: 'Dai',             category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.1, coinGeckoId: 'dai' },
-  { symbol: 'USDe',  name: 'Ethena USDe',     category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.1, coinGeckoId: 'ethena-usde' },
-  { symbol: 'PYUSD', name: 'PayPal USD',      category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.0, coinGeckoId: 'paypal-usd' },
-  { symbol: 'USDS',  name: 'USDS',             category: 'stablecoins', price: 1.0, decimals: 4, change7d: 0.0, coinGeckoId: 'usds' },
+  // STABLECOINS — complete live catalog is populated from DeFiLlama.
+  { symbol: 'USDC', name: 'USD Coin', category: 'stablecoins', price: 1, decimals: 6, change7d: 0 },
 ];
 
 const TYPICAL_VOLATILITY: Record<MarketCategory, number> = {
@@ -303,8 +299,9 @@ function seedAssets(): MarketAsset[] {
   return BASE_ASSETS.map(a => {
     // Fiat and indices start with change24h=0 and no simulated drift until real data arrives
     const isStaticSeed = a.category === 'fiat' || a.category === 'indices';
-    const change = isStaticSeed ? 0 : rngChange(0, TYPICAL_VOLATILITY[a.category]);
-    const vol = baseVolume(a.category) * (0.7 + Math.random() * 0.6);
+    const isStablecoin = a.category === 'stablecoins';
+    const change = isStaticSeed || isStablecoin ? 0 : rngChange(0, TYPICAL_VOLATILITY[a.category]);
+    const vol = isStablecoin ? 0 : baseVolume(a.category) * (0.7 + Math.random() * 0.6);
     return {
       symbol: a.symbol,
       name: a.name,
@@ -313,7 +310,7 @@ function seedAssets(): MarketAsset[] {
       change24h: change,
       decimals: a.decimals,
       volume24h: vol,
-      marketCap: baseMarketCap(a.category, a.price),
+      marketCap: isStablecoin ? 0 : baseMarketCap(a.category, a.price),
       spark: genSpark(a.price, a.price * TYPICAL_VOLATILITY[a.category] / 100),
       trend: deriveTrend(change),
       change7d: a.change7d,
@@ -334,6 +331,52 @@ let liveFearGreed: FearGreedData | null = null;
 let liveTvl = 0;
 let lastApiRefresh = 0;
 const API_REFRESH_INTERVAL = 60_000; // 1 minute minimum between API calls
+
+interface LlamaStablecoin {
+  id: number | string;
+  name: string;
+  symbol: string;
+  gecko_id?: string | null;
+  pegType?: string;
+  price?: number | null;
+  circulating?: { peggedUSD?: number; peggedEUR?: number; peggedVAR?: number; peggedBTC?: number };
+  chains?: unknown[];
+}
+interface LlamaStablecoinResponse { peggedAssets?: LlamaStablecoin[]; }
+
+async function fetchStablecoinAssets(): Promise<MarketAsset[]> {
+  const response = await fetch('https://stablecoins.llama.fi/stablecoins?includePrices=true', {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`DeFiLlama stablecoins returned HTTP ${response.status}`);
+  const payload = await response.json() as LlamaStablecoinResponse;
+  if (!Array.isArray(payload.peggedAssets)) throw new Error('Invalid DeFiLlama stablecoins response');
+  const seen = new Set<string>();
+  const now = Date.now();
+  const assets = payload.peggedAssets
+    .filter(item => item && item.name && item.symbol && Number.isFinite(Number(item.price)) && Number(item.price) > 0)
+    .map(item => {
+      const baseSymbol = String(item.symbol).toUpperCase().replace(/[^A-Z0-9.-]/g, '').slice(0, 16) || 'STABLE';
+      const symbol = seen.has(baseSymbol) ? `${baseSymbol}-${String(item.id)}` : baseSymbol;
+      seen.add(baseSymbol);
+      const supplyUsd = Number(item.circulating?.peggedUSD ?? 0);
+      const price = Number(item.price);
+      return {
+        symbol, name: item.name, category: 'stablecoins' as const, price, change24h: 0,
+        decimals: price < 0.01 ? 8 : 6, volume24h: 0,
+        marketCap: Number.isFinite(supplyUsd) && supplyUsd > 0 ? supplyUsd : 0,
+        circulatingSupplyUsd: Number.isFinite(supplyUsd) && supplyUsd > 0 ? supplyUsd : undefined,
+        chainCount: Array.isArray(item.chains) ? item.chains.length : undefined,
+        pegType: item.pegType, spark: Array(24).fill(price), trend: 'neutral' as const,
+        change7d: 0, rsi: 50, isLive: true, dataSource: 'DeFiLlama',
+        lastUpdated: now, priceCurrency: 'USD',
+      };
+    })
+    .sort((a,b) => b.marketCap - a.marketCap);
+  if (assets.length === 0) throw new Error('DeFiLlama returned no priced stablecoins');
+  return assets;
+}
 
 /**
  * Fetch real data from public APIs and merge into CURRENT_ASSETS.
@@ -359,8 +402,21 @@ export async function refreshFromApis(): Promise<void> {
       fetchAllIndices(),
     ]);
 
+    // Stablecoin feed is independent: an outage must not block crypto, FX, indices or commodities.
+    let stablecoinAssets: MarketAsset[] | null = null;
+    try { stablecoinAssets = await fetchStablecoinAssets(); } catch { /* keep last successful catalog */ }
+
+    // Replace temporary stablecoin seed only after a valid live response.
+    if (stablecoinAssets && stablecoinAssets.length > 0) {
+      for (let i = CURRENT_ASSETS.length - 1; i >= 0; i--) {
+        if (CURRENT_ASSETS[i].category === 'stablecoins') CURRENT_ASSETS.splice(i, 1);
+      }
+      CURRENT_ASSETS.push(...stablecoinAssets);
+    }
+
     // Merge real crypto prices into assets
     for (const asset of CURRENT_ASSETS) {
+      if (asset.category === 'stablecoins') continue; // Stablecoin price/supply are sourced consistently from DeFiLlama.
       const coin = priceMap.get(asset.symbol);
       if (coin) {
         asset.price = coin.current_price ?? asset.price;
@@ -497,7 +553,7 @@ export function refreshGlobalMarkets(): MarketAsset[] {
   // Fiat and indices never drift — they stay at seed values until real data arrives, never fake-animate
   for (const a of CURRENT_ASSETS) {
     if (a.isLive) continue;
-    if (a.category === 'fiat' || a.category === 'indices') continue;
+    if (a.category === 'fiat' || a.category === 'indices' || a.category === 'stablecoins') continue;
     const drift = (Math.random() - 0.48) * 0.012;
     a.price = Math.max(0.0001, +(a.price * (1 + drift)).toFixed(a.decimals));
     a.change24h = Math.max(-15, Math.min(15, +(a.change24h + drift * 100).toFixed(2)));

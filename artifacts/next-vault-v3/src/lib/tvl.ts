@@ -1,228 +1,163 @@
 // ─── NV Protocol — TVL Service (DeFiLlama) ───────────────────────────────────
-//
-// Fetches per-chain TVL from DeFiLlama's public API.
-// Single call to /v2/chains — no authentication required.
-//
-// Source: https://api.llama.fi / https://api-docs.defillama.com/
-// Rate limiting: be conservative — one call per 60s max.
-//
-// NEVER invents TVL data. If a chain is missing from the API response
-// its status is 'unavailable' and the UI shows N/A.
-
-// ─── Network registry ────────────────────────────────────────────────────────
-// Visual name (for UI display) → DeFiLlama API name (for lookup).
-// When the visual name exactly matches the API name, the entry is still
-// explicit so the mapping is always auditable.
-
-export interface TvlNetwork {
-  /** Unique key used internally */
-  id: string;
-  /** Display name shown in the UI */
-  displayName: string;
-  /** Name used to look up the chain in the DeFiLlama /v2/chains response */
-  llamaName: string;
-}
-
-/**
- * Central registry of the 27 networks to track.
- * Keep sorted by rank / typical TVL descending for default display order.
- * The actual display order is computed at runtime from live TVL data.
- */
-export const TVL_NETWORKS: TvlNetwork[] = [
-  { id: 'ethereum',   displayName: 'Ethereum',       llamaName: 'Ethereum'       },
-  { id: 'solana',     displayName: 'Solana',          llamaName: 'Solana'         },
-  { id: 'base',       displayName: 'Base',            llamaName: 'Base'           },
-  { id: 'bnb',        displayName: 'BNB Chain',       llamaName: 'BSC'            },
-  { id: 'arbitrum',   displayName: 'Arbitrum',        llamaName: 'Arbitrum'       },
-  { id: 'polygon',    displayName: 'Polygon',         llamaName: 'Polygon'        },
-  { id: 'avalanche',  displayName: 'Avalanche',       llamaName: 'Avalanche'      },
-  { id: 'optimism',   displayName: 'Optimism',        llamaName: 'Optimism'       },
-  { id: 'sui',        displayName: 'Sui',             llamaName: 'Sui'            },
-  { id: 'starknet',   displayName: 'Starknet',        llamaName: 'Starknet'       },
-  { id: 'monad',      displayName: 'Monad',           llamaName: 'Monad'          },
-  { id: 'hyperevm',   displayName: 'HyperEVM',        llamaName: 'Hyperliquid L1' },
-  { id: 'aptos',      displayName: 'Aptos',           llamaName: 'Aptos'          },
-  { id: 'arc',        displayName: 'Arc',             llamaName: 'Arc'            },
-  { id: 'cronos',     displayName: 'Cronos',          llamaName: 'Cronos'         },
-  { id: 'mantle',     displayName: 'Mantle',          llamaName: 'Mantle'         },
-  { id: 'berachain',  displayName: 'Berachain',       llamaName: 'Berachain'      },
-  { id: 'sei',        displayName: 'Sei',             llamaName: 'Sei'            },
-  { id: 'unichain',   displayName: 'Unichain',        llamaName: 'Unichain'       },
-  { id: 'scroll',     displayName: 'Scroll',          llamaName: 'Scroll'         },
-  { id: 'zksync',     displayName: 'zkSync Era',      llamaName: 'ZKsync Era'     },
-  { id: 'linea',      displayName: 'Linea',           llamaName: 'Linea'          },
-  { id: 'blast',      displayName: 'Blast',           llamaName: 'Blast'          },
-  { id: 'celo',       displayName: 'Celo',            llamaName: 'Celo'           },
-  { id: 'injective',  displayName: 'Injective',       llamaName: 'Injective'      },
-  { id: 'sonic',      displayName: 'Sonic',           llamaName: 'Sonic'          },
-  { id: 'xdc',        displayName: 'XDC',             llamaName: 'XDC'            },
-] as const;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type TvlStatus = 'loading' | 'loaded' | 'error' | 'unavailable';
+// Loads the complete live chain directory from DeFiLlama instead of maintaining
+// a small manually curated network list. Missing values remain unavailable.
 
 export interface TvlEntry {
-  /** Network id (matches TVL_NETWORKS[n].id) */
   id: string;
-  /** Display name */
   displayName: string;
-  /** TVL in USD, null = unavailable */
   tvlUsd: number | null;
-  /** 1-day change %, null = not available from this endpoint */
   change1d: number | null;
-  /** 7-day change %, null = not available from this endpoint */
   change7d: number | null;
-  /** Whether data came from the API (vs. absent) */
   status: 'loaded' | 'unavailable';
-  /** Epoch ms of last successful fetch */
   fetchedAt: number;
+  chainId?: number;
+  tokenSymbol?: string;
+  geckoId?: string;
 }
+
+export interface TvlProtocol {
+  id: string;
+  name: string;
+  category?: string;
+  tvlUsd: number | null;
+  chains: string[];
+  change1d: number | null;
+  change7d: number | null;
+}
+
+export type TvlStatus = 'loading' | 'loaded' | 'error' | 'unavailable';
 
 export interface TvlState {
   status: TvlStatus;
   entries: TvlEntry[];
+  protocols: TvlProtocol[];
   fetchedAt: number | null;
   errorMessage?: string;
 }
 
-// ─── DeFiLlama API response shape ────────────────────────────────────────────
+interface LlamaProtocol {
+  slug?: string;
+  name: string;
+  category?: string;
+  tvl?: number;
+  chains?: string[];
+  change_1d?: number;
+  change_7d?: number;
+}
 
 interface LlamaChain {
   name: string;
   tvl: number;
-  change_1d?: number | null;
-  change_7d?: number | null;
+  tokenSymbol?: string;
+  chainId?: number;
+  gecko_id?: string;
 }
 
-// ─── Module-level cache ───────────────────────────────────────────────────────
+const REFRESH_INTERVAL_MS = 60_000;
+const ENDPOINT = 'https://api.llama.fi/v2/chains';
 
-const REFRESH_INTERVAL_MS = 60_000; // 60 s — per spec
-
-let _state: TvlState = {
-  status: 'loading',
-  entries: TVL_NETWORKS.map(n => ({
-    id: n.id,
-    displayName: n.displayName,
-    tvlUsd: null,
-    change1d: null,
-    change7d: null,
-    status: 'unavailable',
-    fetchedAt: 0,
-  })),
-  fetchedAt: null,
-};
-
+let _state: TvlState = { status: 'loading', entries: [], protocols: [], fetchedAt: null };
 let _lastFetch = 0;
 let _listeners: (() => void)[] = [];
 let _pendingFetch: Promise<void> | null = null;
 
 function notify() {
-  for (const fn of _listeners) {
-    try { fn(); } catch { /* ignore */ }
+  for (const listener of _listeners) {
+    try { listener(); } catch { /* isolate subscribers */ }
   }
 }
 
-/** Subscribe to TVL state changes. Returns an unsubscribe function. */
 export function subscribeTvl(fn: () => void): () => void {
   _listeners.push(fn);
-  return () => {
-    _listeners = _listeners.filter(l => l !== fn);
-  };
+  return () => { _listeners = _listeners.filter(listener => listener !== fn); };
 }
 
-/** Get the current snapshot (reactive — use subscribeTvl for updates) */
 export function getTvlState(): TvlState {
   return _state;
 }
 
-/**
- * Fetch TVL for all 27 networks from DeFiLlama in a single call.
- * Respects the 60s minimum interval; safe to call multiple times.
- * Does NOT throw — errors are captured in state.
- */
-export async function fetchTvlNetworks(): Promise<void> {
+/** Fetch every chain currently listed by DeFiLlama; no 27-chain allowlist. */
+export async function fetchTvlNetworks(force = false): Promise<void> {
   const now = Date.now();
-  if (now - _lastFetch < REFRESH_INTERVAL_MS) return;
-
-  // Deduplicate concurrent calls
+  if (!force && now - _lastFetch < REFRESH_INTERVAL_MS) return;
   if (_pendingFetch) return _pendingFetch;
-
   _pendingFetch = _doFetch().finally(() => { _pendingFetch = null; });
   return _pendingFetch;
 }
 
 async function _doFetch(): Promise<void> {
   _lastFetch = Date.now();
-
   try {
-    const res = await fetch('https://api.llama.fi/v2/chains', {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    if (!res.ok) {
-      throw new Error(`DeFiLlama /v2/chains returned HTTP ${res.status}`);
+    const [chainsResult, protocolsResult] = await Promise.allSettled([
+      fetch(ENDPOINT, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) }),
+      fetch('https://api.llama.fi/protocols', { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) }),
+    ]);
+    if (chainsResult.status !== 'fulfilled' || !chainsResult.value.ok) {
+      const status = chainsResult.status === 'fulfilled' ? chainsResult.value.status : 'network error';
+      throw new Error(`DeFiLlama /v2/chains failed: ${status}`);
     }
+    const raw = await chainsResult.value.json() as LlamaChain[];
+    if (!Array.isArray(raw) || raw.length === 0) throw new Error('DeFiLlama returned an empty chain directory');
 
-    const raw = (await res.json()) as LlamaChain[];
-
-    // Build lookup by name (case-sensitive — we match DeFiLlama's casing exactly)
-    const byName = new Map<string, LlamaChain>();
-    for (const chain of raw) {
-      if (chain.name) byName.set(chain.name, chain);
+    let protocols: TvlProtocol[] = [];
+    if (protocolsResult.status === 'fulfilled' && protocolsResult.value.ok) {
+      const protocolRaw = await protocolsResult.value.json() as LlamaProtocol[];
+      if (Array.isArray(protocolRaw)) {
+        protocols = protocolRaw
+          .filter(protocol => protocol && typeof protocol.name === 'string')
+          .map(protocol => ({
+            id: protocol.slug || protocol.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            name: protocol.name,
+            category: protocol.category,
+            tvlUsd: typeof protocol.tvl === 'number' && Number.isFinite(protocol.tvl) ? protocol.tvl : null,
+            chains: Array.isArray(protocol.chains) ? protocol.chains : [],
+            change1d: typeof protocol.change_1d === 'number' ? protocol.change_1d : null,
+            change7d: typeof protocol.change_7d === 'number' ? protocol.change_7d : null,
+          }))
+          .sort((a,b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1));
+      }
     }
 
     const now = Date.now();
-    const entries: TvlEntry[] = TVL_NETWORKS.map(n => {
-      const chain = byName.get(n.llamaName);
-      if (!chain || typeof chain.tvl !== 'number') {
+    const seen = new Set<string>();
+    const entries: TvlEntry[] = raw
+      .filter(chain => chain && typeof chain.name === 'string' && chain.name.trim())
+      .map(chain => {
+        const name = chain.name.trim();
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const uniqueId = seen.has(id) ? `${id}-${String(chain.chainId ?? seen.size)}` : id;
+        seen.add(id);
+        const validTvl = typeof chain.tvl === 'number' && Number.isFinite(chain.tvl) && chain.tvl >= 0;
         return {
-          id: n.id,
-          displayName: n.displayName,
-          tvlUsd: null,
+          id: uniqueId,
+          displayName: name,
+          tvlUsd: validTvl ? chain.tvl : null,
+          // /v2/chains supplies current TVL only; do not fabricate daily/weekly deltas.
           change1d: null,
           change7d: null,
-          status: 'unavailable' as const,
+          status: validTvl ? 'loaded' as const : 'unavailable' as const,
           fetchedAt: now,
+          chainId: typeof chain.chainId === 'number' ? chain.chainId : undefined,
+          tokenSymbol: chain.tokenSymbol,
+          geckoId: chain.gecko_id,
         };
-      }
-      return {
-        id: n.id,
-        displayName: n.displayName,
-        tvlUsd: chain.tvl,
-        change1d: typeof chain.change_1d === 'number' ? chain.change_1d : null,
-        change7d: typeof chain.change_7d === 'number' ? chain.change_7d : null,
-        status: 'loaded' as const,
-        fetchedAt: now,
-      };
-    });
+      })
+      .sort((a, b) => {
+        if (a.tvlUsd === null && b.tvlUsd === null) return a.displayName.localeCompare(b.displayName);
+        if (a.tvlUsd === null) return 1;
+        if (b.tvlUsd === null) return -1;
+        return b.tvlUsd - a.tvlUsd;
+      });
 
-    // Sort by TVL descending; unavailable go to the bottom
-    entries.sort((a, b) => {
-      if (a.tvlUsd === null && b.tvlUsd === null) return 0;
-      if (a.tvlUsd === null) return 1;
-      if (b.tvlUsd === null) return -1;
-      return b.tvlUsd - a.tvlUsd;
-    });
-
-    _state = { status: 'loaded', entries, fetchedAt: now };
+    _state = { status: 'loaded', entries, protocols, fetchedAt: now };
     notify();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // Keep previous entries on error (stale data is better than blank)
-    _state = {
-      ..._state,
-      status: 'error',
-      errorMessage: msg,
-    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    _state = { ..._state, status: 'error', errorMessage: message };
     notify();
   }
 }
 
-// ─── Format helpers ───────────────────────────────────────────────────────────
-
-/** Format a TVL value for display (e.g. $51.5B, $1.2M, N/A) */
 export function formatTvl(usd: number | null): string {
   if (usd === null || !Number.isFinite(usd)) return 'N/A';
   if (usd === 0) return '$0';
@@ -233,19 +168,13 @@ export function formatTvl(usd: number | null): string {
   return `$${usd.toFixed(0)}`;
 }
 
-/** Format a percent change for display (e.g. +2.34%, -1.12%, N/A) */
 export function formatTvlChange(pct: number | null): string {
   if (pct === null || !Number.isFinite(pct)) return 'N/A';
-  const sign = pct >= 0 ? '+' : '';
-  return `${sign}${pct.toFixed(2)}%`;
+  return `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
 }
 
-// ─── Auto-refresh ─────────────────────────────────────────────────────────────
-
-// Initial fetch on module load
+// Initial fetch and conservative one-minute refresh.
 fetchTvlNetworks();
-
-// Periodic refresh every 60s
 if (typeof setInterval !== 'undefined') {
   setInterval(() => { fetchTvlNetworks(); }, REFRESH_INTERVAL_MS);
 }

@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Loader as Loader2, Search, Database } from 'lucide-react';
 import {
   type MarketAsset, type MarketCategory, type TrendStatus,
   getAllAssets, refreshGlobalMarkets, formatVolume,
 } from '../lib/marketData';
 import {
   getTvlState, fetchTvlNetworks, subscribeTvl,
-  formatTvl, type TvlEntry,
+  formatTvl, type TvlEntry, type TvlProtocol,
 } from '../lib/tvl';
 import { subscribeFiat } from '../lib/fiat';
 import { subscribeIndices } from '../lib/indices';
@@ -34,10 +34,6 @@ function MiniSpark({ data, trend }: { data: number[]; trend: TrendStatus }) {
       <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
-}
-
-function trendColor(t: TrendStatus) {
-  return t === 'bullish' ? 'text-emerald-400' : t === 'bearish' ? 'text-red-400' : 'text-muted-foreground';
 }
 
 function trendBg(t: TrendStatus) {
@@ -74,10 +70,11 @@ function TvlGrid() {
   const { t } = useI18n();
   const [state, setState] = useState(getTvlState);
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState<'chains' | 'protocols'>('chains');
   const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    // Subscribe to store updates
     const unsub = subscribeTvl(() => setState(getTvlState()));
     return unsub;
   }, []);
@@ -85,45 +82,51 @@ function TvlGrid() {
   const handleRefresh = useCallback(() => {
     logNVActivity({ category: 'markets', action: 'Global Markets atualizado manualmente' });
     setRefreshing(true);
-    // Reset last-fetch time so fetchTvlNetworks actually fires
     if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
-    // Force by calling after clearing the cooldown via a small trick:
-    // We just re-fetch; the service will skip if too recent, but UI still shows spinner briefly.
-    fetchTvlNetworks();
-    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 800);
+    fetchTvlNetworks(true);
+    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 1200);
   }, []);
 
-  useEffect(() => {
-    return () => { if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current); };
+  useEffect(() => () => {
+    if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current);
   }, []);
 
   const isLoading = state.status === 'loading';
+  const combinedTvl = state.entries.reduce((sum, entry) => sum + (entry.tvlUsd ?? 0), 0);
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchingChains = state.entries.filter(entry => entry.displayName.toLowerCase().includes(normalizedQuery));
+  const matchingProtocols = state.protocols.filter(protocol =>
+    `${protocol.name} ${protocol.category || ''} ${protocol.chains.join(' ')}`.toLowerCase().includes(normalizedQuery)
+  );
+  const splitIntoColumns = <T,>(items: T[]) => [0, 1, 2].map(column =>
+    items.filter((_, index) => index % 3 === column)
+  );
+  const chainColumns = splitIntoColumns(matchingChains);
+  const animatedProtocols = matchingProtocols.slice(0, 180);
+  const protocolColumns = splitIntoColumns(animatedProtocols);
+  const columnDuration = (count: number) => `${Math.max(34, count * 4.2)}s`;
 
   return (
     <div>
-      {/* Status bar */}
+      <style>{`
+        @keyframes tvl-column-slide {
+          from { transform: translateY(0); }
+          to { transform: translateY(-50%); }
+        }
+        .tvl-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent); }
+        .tvl-slide-track { display: flex; flex-direction: column; animation: tvl-column-slide linear infinite; will-change: transform; }
+        .tvl-slide-column:hover .tvl-slide-track, .tvl-slide-column:focus-within .tvl-slide-track { animation-play-state: paused; }
+        @media (prefers-reduced-motion: reduce) { .tvl-slide-track { animation: none; } .tvl-slide-column { max-height: none; } }
+      `}</style>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/50">
           <Database size={9} className="text-primary/50" />
           <span>Source: DeFiLlama</span>
-          {state.fetchedAt && (
-            <span className="text-muted-foreground/30">
-              · {t('dashboard.lastUpdate')} {new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-          {state.status === 'error' && (
-            <span className="text-amber-400/70">· {t('dashboard.unavailable')}</span>
-          )}
+          {state.fetchedAt && <span className="text-muted-foreground/30">· {t('dashboard.lastUpdate')} {new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+          {state.status === 'error' && <span className="text-amber-400/70">· {t('dashboard.unavailable')}</span>}
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40"
-        >
-          {refreshing || isLoading
-            ? <Loader2 size={12} className="animate-spin" />
-            : <RefreshCw size={12} />
-          }
+        <button onClick={handleRefresh} disabled={refreshing} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40">
+          {refreshing || isLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
         </button>
       </div>
 
@@ -135,19 +138,96 @@ function TvlGrid() {
       )}
 
       {!isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {state.entries.map((entry, i) => (
-            <TvlCard key={entry.id} entry={entry} rank={i + 1} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+            <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground/60">Combined TVL (listed chains)</div>
+              <div className="text-lg font-semibold font-mono text-foreground">{formatTvl(combinedTvl)}</div>
+            </div>
+            <div className="rounded-xl border border-border/30 bg-secondary/20 p-3">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground/60">Tracked chains</div>
+              <div className="text-lg font-semibold font-mono text-foreground">{state.entries.length.toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30 mb-3 w-fit">
+            <button onClick={() => { setView('chains'); setQuery(''); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${view === 'chains' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Blockchains ({state.entries.length})</button>
+            <button onClick={() => { setView('protocols'); setQuery(''); }} className={`px-3 py-1.5 rounded-md text-[10px] font-mono ${view === 'protocols' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Protocols ({state.protocols.length})</button>
+          </div>
+
+          <div className="relative mb-3">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
+            <input value={query} onChange={e => { setQuery(e.target.value); }} placeholder={view === 'chains' ? 'Search blockchain...' : 'Search protocol or category...'} className="w-full bg-secondary/30 border border-border/30 rounded-lg pl-7 pr-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/30" />
+          </div>
+
+          {view === 'chains' ? (
+            <>
+              <div className="hidden lg:grid grid-cols-3 gap-2.5 overflow-hidden rounded-xl" aria-label="TVL blockchain rankings">
+                {chainColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="tvl-slide-column">
+                    <div className="tvl-slide-track" style={{ animationDuration: columnDuration(column.length), animationDirection: columnIndex === 1 ? 'reverse' : 'normal' }}>
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((entry, i) => <TvlCard key={`${copy}-${entry.id}`} entry={entry} rank={columnIndex + i * 3 + 1} />)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
+                {matchingChains.map((entry, i) => <TvlCard key={entry.id} entry={entry} rank={i + 1} />)}
+              </div>
+              {matchingChains.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching chains.</div>}
+            </>
+          ) : (
+            <>
+              <div className="hidden lg:grid grid-cols-3 gap-2.5 overflow-hidden rounded-xl" aria-label="TVL protocol rankings">
+                {protocolColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="tvl-slide-column" style={{ '--tvl-duration': columnDuration(column.length), '--tvl-direction': columnIndex === 1 ? 'reverse' : 'normal' } as React.CSSProperties}>
+                    <div className="tvl-slide-track">
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((protocol, i) => <TvlProtocolCard key={`${copy}-${protocol.id}`} protocol={protocol} rank={columnIndex + i * 3 + 1} />)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
+                {animatedProtocols.map((protocol, i) => <TvlProtocolCard key={protocol.id} protocol={protocol} rank={i + 1} />)}
+              </div>
+              {matchingProtocols.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground">No matching protocols.</div>}
+            </>
+          )}
+        </>
       )}
 
       <div className="mt-3 flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
         <span className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
         <span>{t('dashboard.autoRefresh60s')}</span>
-        <span className="ml-auto">{state.entries.length} {t('dashboard.networksCount')}</span>
+        <span className="ml-auto">{view === 'chains' ? `${matchingChains.length} chains` : `${animatedProtocols.length} / ${matchingProtocols.length} protocols shown`}</span>
       </div>
     </div>
+  );
+}
+
+function TvlProtocolCard({ protocol, rank }: { protocol: TvlProtocol; rank: number }) {
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: Math.min(rank - 1, 20) * 0.01, duration: 0.2 }}
+      className="rounded-xl p-3 border bg-secondary/25 border-border/30 hover:border-primary/15">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <div className="text-xs font-mono font-medium text-foreground truncate">{protocol.name}</div>
+          <div className="text-[9px] text-muted-foreground/50 truncate">{protocol.category || 'DeFi protocol'}</div>
+        </div>
+        <span className="text-[8px] font-mono text-muted-foreground/60">#{rank}</span>
+      </div>
+      <div className="text-sm font-mono font-semibold text-foreground">{formatTvl(protocol.tvlUsd)}</div>
+      <div className="mt-1 text-[8px] text-muted-foreground/45 truncate">{protocol.chains.slice(0, 4).join(' · ')}{protocol.chains.length > 4 ? ` +${protocol.chains.length - 4}` : ''}</div>
+    </motion.div>
   );
 }
 
@@ -178,7 +258,7 @@ function TvlCard({ entry, rank }: { entry: TvlEntry; rank: number }) {
               {entry.displayName}
             </span>
             <span className="text-[9px] text-muted-foreground/50">
-              {t('dashboard.totalValueLocked')}
+              {entry.chainId ? `Chain ID ${entry.chainId}` : (entry.tokenSymbol || t('dashboard.totalValueLocked'))}
             </span>
           </div>
         </div>
@@ -200,7 +280,7 @@ function TvlCard({ entry, rank }: { entry: TvlEntry; rank: number }) {
           {formatTvl(entry.tvlUsd)}
         </span>
       </div>
-    </motion.div>
+      </motion.div>
   );
 }
 
@@ -224,7 +304,6 @@ export function MarketGrid() {
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [sort, setSort] = useState<SortKey>('change24h');
   const [query, setQuery] = useState('');
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimer = useRef<number | null>(null);
 
@@ -277,14 +356,22 @@ export function MarketGrid() {
   }, [assets, filter, sort, query]);
 
   const isTvl = filter === 'tvl';
-  const selectedMarketAsset = filtered.find(asset => asset.symbol === selectedAsset) ?? null;
-
-  useEffect(() => {
-    if (selectedAsset && !filtered.some(asset => asset.symbol === selectedAsset)) setSelectedAsset(null);
-  }, [selectedAsset, filtered]);
+  const assetColumns = [0, 1, 2].map(columnIndex => filtered.filter((_, index) => index % 3 === columnIndex));
+  const marketSlideDuration = `${Math.min(600, Math.max(360, filtered.length * 5.6))}s`;
 
   return (
-    <motion.div
+    <>
+      <style>{`
+        @keyframes market-assets-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+        .market-assets-viewport { max-height: 680px; min-height: 280px; overflow: hidden; position: relative; }
+        .market-assets-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625rem; overflow: hidden; border-radius: 0.75rem; }
+        .market-slide-column { min-height: 280px; max-height: 680px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent); }
+        .market-slide-track { display: flex; flex-direction: column; animation: market-assets-scroll linear infinite; will-change: transform; }
+        .market-slide-column:hover .market-slide-track, .market-slide-column:focus-within .market-slide-track { animation-play-state: paused; }
+        @media (max-width: 1023px) { .market-assets-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } .market-slide-track { display: contents; animation: none; } .market-slide-track > div:nth-child(2) { display: none; } .market-slide-column { max-height: none; overflow: visible; mask-image: none; } } @media (max-width: 639px) { .market-assets-columns { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .market-slide-track { animation: none; } .market-slide-column { max-height: none; } }
+      `}</style>
+      <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.14, duration: 0.4 }}
@@ -312,7 +399,7 @@ export function MarketGrid() {
           {/* Category filter tabs */}
           <div className="flex flex-wrap gap-1 bg-secondary/30 rounded-lg p-1 border border-border/30">
             {FILTERS.map(f => (
-              <button key={f.key} onClick={() => { setSelectedAsset(null); setFilter(f.key); logNVActivity({ category: 'markets', action: 'Filtro Global Markets alterado', details: f.fallback }); }}
+              <button key={f.key} onClick={() => { setFilter(f.key); logNVActivity({ category: 'markets', action: 'Filtro Global Markets alterado', details: f.fallback }); }}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
                   filter === f.key ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}>
@@ -368,22 +455,22 @@ export function MarketGrid() {
               transition={{ duration: 0.2 }}
             >
               {/* Asset grid */}
-              <div className="relative" onMouseLeave={() => setSelectedAsset(null)}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {filtered.map((coin, i) => {
+              <div className="relative">
+              <div className="market-assets-viewport">
+                <div className="market-assets-columns">
+                {assetColumns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="market-slide-column">
+                    <div className="market-slide-track" style={{ animationDuration: marketSlideDuration, animationDirection: columnIndex === 1 ? 'reverse' : 'normal' }}>
+                      {[0, 1].map(copy => (
+                        <div key={copy} className="flex flex-col gap-2.5 pb-2.5">
+                          {column.map((coin, i) => {
                   const isPositive = coin.change24h >= 0;
                   return (
-                    <motion.div key={coin.symbol}
+                    <motion.div key={`${copy}-${coin.symbol}`}
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.02, duration: 0.25 }}
-                      onMouseEnter={() => setSelectedAsset(coin.symbol)}
-                      onFocus={() => setSelectedAsset(coin.symbol)}
-                      onClick={() => setSelectedAsset(coin.symbol)}
-                      tabIndex={0}
-                      role="button"
-                      aria-expanded={selectedAsset === coin.symbol}
-                      className={`relative rounded-xl p-3 border transition-all duration-200 hover:scale-[1.02] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                      transition={{ delay: Math.min(columnIndex + i * 3, 30) * 0.025, duration: 0.65 }}
+                      className={`relative rounded-xl p-3 border transition-all duration-500 hover:scale-[1.01] ${
                         coin.trend === 'bullish' ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/35'
                         : coin.trend === 'bearish' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/35'
                         : 'bg-secondary/25 border-border/30 hover:border-primary/15'
@@ -415,11 +502,12 @@ export function MarketGrid() {
                           )}
                         </div>
                         <div className={`flex items-center gap-0.5 text-[10px] font-mono font-medium shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                          {/* Fiat has no intraday change — show daily-ref label instead */}
+                          {coin.category === 'stablecoins' ? null : isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                           {coin.category === 'fiat'
                             ? <span className="text-[8px] text-muted-foreground/40">daily ref</span>
-                            : Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
+                            : coin.category === 'stablecoins'
+                              ? <span className="text-[8px] text-muted-foreground/40">24h N/A</span>
+                              : Number.isFinite(coin.change24h) ? `${isPositive ? '+' : ''}${coin.change24h.toFixed(2)}%` : '—'}
                         </div>
                       </div>
 
@@ -430,11 +518,20 @@ export function MarketGrid() {
                         </div>
                       )}
 
+                      {coin.category === 'stablecoins' && (
+                        <div className="text-[8px] font-mono text-muted-foreground/45 mb-1">
+                          Circulating: {coin.circulatingSupplyUsd ? '$' + formatVolume(coin.circulatingSupplyUsd) : 'N/A'}
+                          {typeof coin.chainCount === 'number' ? ' · ' + coin.chainCount + ' chains' : ''}
+                          {coin.pegType ? ' · ' + coin.pegType : ''}
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1 min-w-0">
                           {coin.dataSource
                             ? <span className="text-[8px] font-mono text-muted-foreground/35 truncate" translate="no">{coin.dataSource}</span>
-                            : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
+                            : coin.category === 'stablecoins'
+                              ? <span className="text-[8px] font-mono text-amber-400/70">Live feed unavailable</span>
+                              : <span className="text-[9px] font-mono text-muted-foreground/50" translate="no">Vol {formatVolume(coin.volume24h)}</span>
                           }
                           {!coin.isLive && (coin.category === 'fiat' || coin.category === 'indices' || coin.category === 'commodities') && <StaleChip />}
                         </div>
@@ -442,45 +539,20 @@ export function MarketGrid() {
                           <MiniSpark data={coin.spark} trend={coin.trend} />
                         </div>
                       </div>
-                      <AnimatePresence>
-                        {selectedMarketAsset && selectedMarketAsset.symbol === coin.symbol && (
-                  <motion.div
-                    key={selectedMarketAsset.symbol}
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute z-40 bottom-1 right-1 w-[min(190px,calc(100vw-2rem))] rounded-lg border border-primary/35 bg-card/95 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.55)] p-2 pointer-events-none"
-                    aria-live="polite"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[7px] uppercase tracking-widest font-mono text-primary/80">{selectedMarketAsset.category}</div>
-                        <div className="mt-0.5 text-[10px] leading-tight font-semibold text-foreground" translate="no">{selectedMarketAsset.name} · {selectedMarketAsset.symbol}</div>
-                      </div>
-                      <button type="button" onClick={() => setSelectedAsset(null)} aria-label="Close market details" className="pointer-events-auto shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><X size={11} /></button>
-                    </div>
-                    <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-sm font-mono font-bold text-foreground" translate="no">{pricePrefix(selectedMarketAsset)}{formatPrice(selectedMarketAsset)} {selectedMarketAsset.priceCurrency ?? 'USD'}</span>
-                      <span className={`text-xs font-mono font-semibold ${selectedMarketAsset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {selectedMarketAsset.category === 'fiat' ? 'Referência diária' : `${selectedMarketAsset.change24h >= 0 ? '+' : ''}${selectedMarketAsset.change24h.toFixed(2)}% · 24h`}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border/40 pt-2">
-                      <div><div className="text-[7px] uppercase tracking-wider text-muted-foreground/50">Volume 24h</div><div className="mt-0.5 text-[9px] font-mono text-foreground truncate">{formatVolume(selectedMarketAsset.volume24h)}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Tendência</div><div className={`mt-0.5 text-[9px] font-mono uppercase ${trendColor(selectedMarketAsset.trend)}`}>{selectedMarketAsset.trend}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Fonte</div><div className="mt-1 text-xs font-mono text-foreground">{selectedMarketAsset.dataSource || '—'}</div></div>
-                      <div><div className="text-[8px] uppercase tracking-wider text-muted-foreground/50">Dados</div><div className={`mt-0.5 text-[9px] font-mono ${selectedMarketAsset.isLive ? 'text-emerald-400' : 'text-amber-400'}`}>{selectedMarketAsset.isLive ? 'Ao vivo' : 'Última referência disponível'}</div></div>
-                    </div>
-                    {selectedMarketAsset.unit && <div className="mt-1 text-[8px] font-mono text-muted-foreground/60">Unidade: {selectedMarketAsset.unit}</div>}
-                  </motion.div>
-                )}
-                      </AnimatePresence>
+
 
                     </motion.div>
                   );
-                })}
+
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                </div>
               </div>
+                
               </div>
 
               {filtered.length === 0 && (
@@ -498,7 +570,8 @@ export function MarketGrid() {
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
 
