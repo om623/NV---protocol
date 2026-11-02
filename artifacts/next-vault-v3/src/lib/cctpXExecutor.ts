@@ -12,7 +12,6 @@ import {
   zeroAddress,
   type Address,
   type Hex,
-  type PublicClient,
 } from 'viem';
 import type { EIP1193Provider as ViemProvider } from 'viem';
 import type { Eip1193Provider } from './arc';
@@ -139,15 +138,6 @@ function assertTokenId(tokenId: string): asserts tokenId is Hex {
   }
 }
 
-async function waitForReceipt(
-  client: PublicClient,
-  hash: Hex,
-  label: string,
-): Promise<void> {
-  const receipt = await client.waitForTransactionReceipt({ hash, timeout: 300_000 });
-  if (receipt.status !== 'success') throw new Error(`${label}: transação revertida.`);
-}
-
 export async function executeCctpXTransfer(
   params: CctpXTransferParams,
 ): Promise<CctpXTransferResult> {
@@ -270,7 +260,10 @@ export async function executeCctpXTransfer(
       functionName: 'approve',
       args: [sourceManager, amountUnits],
     });
-    await waitForReceipt(sourcePublic, approveHash, 'Aprovação');
+    const approveReceipt = await sourcePublic.waitForTransactionReceipt({
+      hash: approveHash, timeout: 300_000,
+    });
+    if (approveReceipt.status !== 'success') throw new Error('Aprovação: transação revertida.');
 
     progress('Solicitando cotação atualizada de taxa à Circle Iris...');
     const quoteResponse = await fetch(
@@ -315,7 +308,10 @@ export async function executeCctpXTransfer(
       value: BigInt(quote.feeTotalAmount),
     });
     burnTxHash = transferHash;
-    await waitForReceipt(sourcePublic, transferHash, 'Burn cross-chain');
+    const burnReceipt = await sourcePublic.waitForTransactionReceipt({
+      hash: transferHash, timeout: 300_000,
+    });
+    if (burnReceipt.status !== 'success') throw new Error('Burn cross-chain: transação revertida.');
 
     progress('Aguardando a atestação da Circle Iris...');
     const attestation = await waitForCctpAttestation(fromNetwork, transferHash);
@@ -334,7 +330,10 @@ export async function executeCctpXTransfer(
       toNetwork,
       attestation,
     );
-    await waitForReceipt(destinationPublic, mintHash, 'Mint de destino');
+    const mintReceipt = await destinationPublic.waitForTransactionReceipt({
+      hash: mintHash, timeout: 300_000,
+    });
+    if (mintReceipt.status !== 'success') throw new Error('Mint de destino: transação revertida.');
 
     return { success: true, token, burnTxHash: transferHash, mintTxHash: mintHash };
   } catch (error) {
