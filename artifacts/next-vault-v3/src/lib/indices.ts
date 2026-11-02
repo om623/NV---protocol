@@ -62,6 +62,14 @@ export const INDEX_DEFINITIONS: IndexDef[] = [
   { symbol: 'AEX',   name: 'AEX',                     yfSymbol: '^AEX',      currency: 'EUR' },
   { symbol: 'TAIEX', name: 'Taiwan Weighted',         yfSymbol: '^TWII',     currency: 'TWD' },
   { symbol: 'ASX200',name: 'S&P/ASX 200',             yfSymbol: '^AXJO',     currency: 'AUD' },
+  { symbol: 'ICON', name: 'B3 Consumer Index', yfSymbol: 'ICON', currency: 'BRL' },
+  { symbol: 'IFNC', name: 'B3 Financials Index', yfSymbol: 'IFNC', currency: 'BRL' },
+  { symbol: 'IMAT', name: 'B3 Basic Materials Index', yfSymbol: 'IMAT', currency: 'BRL' },
+  { symbol: 'IMOB', name: 'B3 Real Estate Index', yfSymbol: 'IMOB', currency: 'BRL' },
+  { symbol: 'INDX', name: 'B3 Industrials Index', yfSymbol: 'INDX', currency: 'BRL' },
+  { symbol: 'UTIL', name: 'B3 Public Utilities Index', yfSymbol: 'UTIL', currency: 'BRL' },
+  { symbol: 'IFIX', name: 'B3 Real Estate Investment Fund Index', yfSymbol: 'IFIX', currency: 'BRL' },
+  { symbol: 'SMLL', name: 'B3 Small Cap Index', yfSymbol: 'SMLL', currency: 'BRL' },
 ];
 
 // ─── Yahoo Finance chart API response ─────────────────────────────────────────
