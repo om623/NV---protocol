@@ -10,6 +10,7 @@ import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
 import { SolanaBridgePanel } from './SolanaBridgePanel';
+import { CctpXPanel } from './CctpXPanel';
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
@@ -85,6 +86,7 @@ export function BridgeView({
   envMode,
 }: BridgeViewProps) {
   const routes = getBridgeRoutes();
+  const [bridgeMode, setBridgeMode] = useState<'usdc' | 'cctpx'>('usdc');
 
   // ─────────────────────────────────────────────────────────────
   // ROTAS DISPONÍVEIS para o modo atual
@@ -326,6 +328,31 @@ export function BridgeView({
         </div>
       </div>
 
+      <div className="flex gap-2 rounded-xl border border-border/40 bg-secondary/10 p-1">
+        <button
+          type="button"
+          onClick={() => setBridgeMode('usdc')}
+          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            bridgeMode === 'usdc'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          USDC
+        </button>
+        <button
+          type="button"
+          onClick={() => setBridgeMode('cctpx')}
+          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            bridgeMode === 'cctpx'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          ERC-20 · CCTP X
+        </button>
+      </div>
+
       {/* ─────────────────────────────────────────────
           SOLANA BRIDGE (non-EVM path)
           Rendered when "Solana ↗" is selected as FROM
@@ -333,7 +360,7 @@ export function BridgeView({
           EVM bridge path below.
       ───────────────────────────────────────────── */}
 
-      {isMainnet && fromNetwork === 'solana' && (
+      {bridgeMode === 'usdc' && isMainnet && fromNetwork === 'solana' && (
         <SolanaBridgePanel
           evmProvider={provider}
           evmAddress={connectedAddress}
@@ -344,7 +371,7 @@ export function BridgeView({
           MAIN CARD (EVM bridge — hidden when Solana FROM)
       ───────────────────────────────────────────── */}
 
-      {!(isMainnet && fromNetwork === 'solana') && (<>
+      {bridgeMode === 'usdc' && !(isMainnet && fromNetwork === 'solana') && (<>
       <div className="rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
 
         {/* ─────────────────────────────────────────
