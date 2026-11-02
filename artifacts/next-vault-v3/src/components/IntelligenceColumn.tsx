@@ -110,16 +110,6 @@ export function IntelligenceColumn({
             allow="autoplay; encrypted-media"
             referrerPolicy="strict-origin-when-cross-origin"
           />
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent px-3 py-2 text-[8px] font-mono">
-              <span className="tracking-[0.18em] text-primary">NV SIGNAL</span><span className="flex items-center gap-1 text-emerald-300"><span className="w-1 h-1 rounded-full bg-emerald-300 animate-pulse" />ON AIR</span>
-            </div>
-            <div className="absolute left-2 top-8 flex flex-col gap-1 text-[7px] font-mono">
-              <span className="w-fit rounded-full border border-primary/30 bg-black/65 px-2 py-1 text-primary">TECHNOLOGY</span>
-              <span className="w-fit rounded-full border border-white/15 bg-black/60 px-2 py-1 text-white/70">NV SIGNAL · CONTINUOUS</span>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
-          </div>
           <button type="button" onClick={() => {
             const nextMuted = !signalMuted;
             signalPlayerRef.current?.contentWindow?.postMessage(JSON.stringify({ event:'command', func:nextMuted?'mute':'unMute', args:[] }), 'https://www.youtube-nocookie.com');
