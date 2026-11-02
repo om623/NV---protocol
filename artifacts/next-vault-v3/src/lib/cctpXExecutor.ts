@@ -12,6 +12,7 @@ import {
   zeroAddress,
   type Address,
   type Hex,
+  type PublicClient,
 } from 'viem';
 import type { EIP1193Provider as ViemProvider } from 'viem';
 import type { Eip1193Provider } from './arc';
@@ -139,7 +140,7 @@ function assertTokenId(tokenId: string): asserts tokenId is Hex {
 }
 
 async function waitForReceipt(
-  client: ReturnType<typeof createPublicClient>,
+  client: PublicClient,
   hash: Hex,
   label: string,
 ): Promise<void> {
@@ -235,6 +236,16 @@ export async function executeCctpXTransfer(
 
     if (!sourceTrust || !destinationTrust) {
       throw new Error('As redes ainda não confiam uma na outra para este token. A configuração do emissor está incompleta.');
+    }
+    if (sourceManager === zeroAddress || destinationManager === zeroAddress) {
+      throw new Error('TokenManager não registrado em uma das redes.');
+    }
+    const [sourceCode, destinationCode] = await Promise.all([
+      sourcePublic.getBytecode({ address: sourceToken }),
+      destinationPublic.getBytecode({ address: destinationToken }),
+    ]);
+    if (!sourceCode || sourceCode === '0x' || !destinationCode || destinationCode === '0x') {
+      throw new Error('O contrato ERC-20 não foi encontrado em uma das redes configuradas.');
     }
 
     const balance = await sourcePublic.readContract({
