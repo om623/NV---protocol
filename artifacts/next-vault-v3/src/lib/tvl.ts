@@ -41,6 +41,7 @@ interface LlamaProtocol {
   category?: string;
   tvl?: number;
   chains?: string[];
+  chainTvls?: Record<string, number>;
   change_1d?: number;
   change_7d?: number;
 }
@@ -105,16 +106,36 @@ async function _doFetch(): Promise<void> {
       if (Array.isArray(protocolRaw)) {
         protocols = protocolRaw
           .filter(protocol => protocol && typeof protocol.name === 'string')
-          .map(protocol => ({
-            id: protocol.slug || protocol.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            name: protocol.name,
-            category: protocol.category,
-            tvlUsd: typeof protocol.tvl === 'number' && Number.isFinite(protocol.tvl) ? protocol.tvl : null,
-            chains: Array.isArray(protocol.chains) ? protocol.chains : [],
-            change1d: typeof protocol.change_1d === 'number' ? protocol.change_1d : null,
-            change7d: typeof protocol.change_7d === 'number' ? protocol.change_7d : null,
-          }))
-          .sort((a,b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1));
+          .map(protocol => {
+            const chains = Array.isArray(protocol.chains) ? protocol.chains : [];
+            const reportedTvl = typeof protocol.tvl === 'number'
+              && Number.isFinite(protocol.tvl) && protocol.tvl > 0
+              ? protocol.tvl
+              : null;
+
+            // Some records in /protocols report tvl=0 while their per-chain
+            // breakdown still contains live value. Recover only from the
+            // explicitly listed chains (never sum unrelated metric keys).
+            const chainBreakdownTvl = chains.reduce((sum, chain) => {
+              const value = protocol.chainTvls?.[chain];
+              return sum + (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0);
+            }, 0);
+            const tvlUsd = reportedTvl ?? (chainBreakdownTvl > 0 ? chainBreakdownTvl : null);
+
+            return {
+              id: protocol.slug || protocol.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              name: protocol.name,
+              category: protocol.category,
+              tvlUsd,
+              chains,
+              change1d: typeof protocol.change_1d === 'number' ? protocol.change_1d : null,
+              change7d: typeof protocol.change_7d === 'number' ? protocol.change_7d : null,
+            };
+          })
+          // Hide retired, untracked, and genuinely zero-TVL protocols rather
+          // than presenting a misleading "$0" card in the live rankings.
+          .filter(protocol => protocol.tvlUsd !== null && protocol.tvlUsd > 0)
+          .sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
       }
     }
 
