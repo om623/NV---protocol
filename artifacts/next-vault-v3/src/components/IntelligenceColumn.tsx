@@ -64,6 +64,30 @@ export function IntelligenceColumn({
   const signalPlaylist = 'ipwupyxao_U,rCNIvbQ1_9A,Qn7hayZaaug';
   const marketTimer = useRef<number | null>(null);
 
+  // YouTube may restore the viewer's saved caption preference after loading
+  // each playlist item. Reapply the empty caption track without touching playback.
+  useEffect(() => {
+    const disableCaptions = () => {
+      const player = signalPlayerRef.current?.contentWindow;
+      if (!player) return;
+      for (const module of ['captions', 'cc']) {
+        try {
+          player.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'setOption',
+            args: [module, 'track', {}],
+          }), 'https://www.youtube-nocookie.com');
+        } catch {
+          // Caption controls must never interrupt video playback.
+        }
+      }
+    };
+
+    disableCaptions();
+    const retryTimer = window.setInterval(disableCaptions, 2500);
+    return () => window.clearInterval(retryTimer);
+  }, []);
+
   useEffect(() => {
     const iv = setInterval(() => {
       refreshGlobalMarkets();
@@ -105,21 +129,11 @@ export function IntelligenceColumn({
           <iframe
             ref={signalPlayerRef}
             title="NV Signal Technology"
-            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&loop=1&enablejsapi=1&playlist=${signalPlaylist}`}
+            src={`https://www.youtube-nocookie.com/embed/ipwupyxao_U?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&cc_load_policy=0&playsinline=1&loop=1&enablejsapi=1&playlist=${signalPlaylist}`}
             className="absolute -inset-[2px] h-[calc(100%+4px)] w-[calc(100%+4px)] border-0"
             allow="autoplay; encrypted-media"
             referrerPolicy="strict-origin-when-cross-origin"
           />
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent px-3 py-2 text-[8px] font-mono">
-              <span className="tracking-[0.18em] text-primary">NV SIGNAL</span><span className="flex items-center gap-1 text-emerald-300"><span className="w-1 h-1 rounded-full bg-emerald-300 animate-pulse" />ON AIR</span>
-            </div>
-            <div className="absolute left-2 top-8 flex flex-col gap-1 text-[7px] font-mono">
-              <span className="w-fit rounded-full border border-primary/30 bg-black/65 px-2 py-1 text-primary">TECHNOLOGY</span>
-              <span className="w-fit rounded-full border border-white/15 bg-black/60 px-2 py-1 text-white/70">NV SIGNAL · CONTINUOUS</span>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
-          </div>
           <button type="button" onClick={() => {
             const nextMuted = !signalMuted;
             signalPlayerRef.current?.contentWindow?.postMessage(JSON.stringify({ event:'command', func:nextMuted?'mute':'unMute', args:[] }), 'https://www.youtube-nocookie.com');
