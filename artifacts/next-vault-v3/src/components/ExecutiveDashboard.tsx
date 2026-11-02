@@ -44,7 +44,7 @@ function sentimentBg(idx: number): string {
   return 'from-red-500 to-orange-400';
 }
 
-export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboardProps) {
+export function ExecutiveDashboard(_props: ExecutiveDashboardProps) {
   const { t, locale } = useI18n();
   const fmt = useFormat();
   const [sentiment, setSentiment] = useState(() => getMarketSentiment());
@@ -84,7 +84,6 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
     { label: t('dash.policyRate'), value: policyRate ? fmt.percent(policyRate.value) : '—', meta: policyRate ? `${policyRateCountry} · BIS · ${policyRate.date}` : t('dash.policyRateUnavailable'), Icon: Percent, color: 'text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]' },
     { label: t('dash.liquidity'), value: isValidNum(sentiment.totalVolume) ? formatVolume(sentiment.totalVolume) : '—', delta: `${sentiment.bullishCount + sentiment.bearishCount + sentiment.neutralCount} ${t('dash.assets')}`, deltaPositive: true, Icon: Droplets, color: 'text-blue-400', glow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.15)]' },
     { label: t('dash.tvl'), value: tvl > 0 ? fmt.compact(tvl) : '—', delta: tvl > 0 ? 'DefiLlama' : 'placeholder', deltaPositive: tvl > 0, Icon: Zap, color: 'text-violet-400', glow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.15)]' },
-    { label: t('dash.network'), value: activeNetwork.shortName, delta: envMode === 'testnet' ? t('net.testnet') : t('net.mainnet'), deltaPositive: envMode === 'testnet', Icon: Radio, color: envMode === 'testnet' ? 'text-green-400' : 'text-amber-400', glow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' },
   ];
 
   const sparkW = 520, sparkH = 82;
@@ -135,7 +134,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
 
         {/* Stat cards grid */}
         <div
-          className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 mb-5"
+          className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-5"
           onMouseLeave={() => setExpandedCard(null)}
         >
           {stats.map(({ label, value, delta, deltaPositive, meta, Icon, color, glow }, i) => {
@@ -180,7 +179,7 @@ export function ExecutiveDashboard({ envMode, activeNetwork }: ExecutiveDashboar
                   ? `${sentiment.bullishCount} ${t('dash.bull')} · ${sentiment.neutralCount} ${t('dash.neutral')} · ${sentiment.bearishCount} ${t('dash.bear')}`
                   : selected.label === t('dash.tvl')
                     ? (tvl > 0 ? 'DefiLlama · Total Value Locked' : '—')
-                    : `${activeNetwork.shortName} · ${envMode === 'testnet' ? t('net.testnet') : t('net.mainnet')}`;
+                    : '—';
             return (
               <motion.div
                 key={expandedCard}
