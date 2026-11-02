@@ -64,6 +64,30 @@ export function IntelligenceColumn({
   const signalPlaylist = 'ipwupyxao_U,rCNIvbQ1_9A,Qn7hayZaaug';
   const marketTimer = useRef<number | null>(null);
 
+  // YouTube may restore the viewer's saved caption preference after loading
+  // each playlist item. Reapply the empty caption track without touching playback.
+  useEffect(() => {
+    const disableCaptions = () => {
+      const player = signalPlayerRef.current?.contentWindow;
+      if (!player) return;
+      for (const module of ['captions', 'cc']) {
+        try {
+          player.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'setOption',
+            args: [module, 'track', {}],
+          }), 'https://www.youtube-nocookie.com');
+        } catch {
+          // Caption controls must never interrupt video playback.
+        }
+      }
+    };
+
+    disableCaptions();
+    const retryTimer = window.setInterval(disableCaptions, 2500);
+    return () => window.clearInterval(retryTimer);
+  }, []);
+
   useEffect(() => {
     const iv = setInterval(() => {
       refreshGlobalMarkets();
