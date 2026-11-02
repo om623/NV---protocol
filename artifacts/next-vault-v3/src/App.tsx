@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
+import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network, Wrench, Landmark, Images } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -95,10 +95,11 @@ const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fr
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'trading' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
+  { key: 'nav.trading',       Icon: TrendingUp,      view: 'trading'       },
   { key: 'nav.swap',           Icon: ArrowDown,       view: 'swap'           },
   { key: 'nav.intelligence',  Icon: Newspaper,       view: 'intelligence'   },
   { key: 'nav.history',       Icon: History,         view: 'historico' },
@@ -498,7 +499,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'trading', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
@@ -1307,7 +1308,24 @@ function Home() {
               </div>
             </div>
 
-            <div className="hidden lg:block flex-1" />
+            <div className="hidden lg:flex flex-1 items-center justify-center px-5">
+              <div className="relative flex max-w-[650px] flex-1 items-center justify-between overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-950/20 via-background/60 to-cyan-950/20 px-5 py-2 shadow-[0_0_26px_rgba(139,92,246,.10)]">
+                <div className="relative z-10 min-w-0">
+                  <div className="text-[12px] font-semibold leading-tight text-foreground">O mundo é grande. E o NV te conecta à <span className="bg-gradient-to-r from-fuchsia-400 via-violet-300 to-cyan-300 bg-clip-text text-transparent">semi-onipresença do mercado.</span></div>
+                  <div className="mt-0.5 text-[9px] text-muted-foreground">Bem-vindo à sua casa nova, Investidor!</div>
+                </div>
+                <div className="relative ml-5 h-10 w-24 shrink-0" aria-hidden="true">
+                  <div className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full border border-cyan-300/35 bg-[radial-gradient(circle_at_35%_30%,rgba(103,232,249,.8),rgba(76,29,149,.45)_35%,rgba(2,6,23,.2)_70%)] shadow-[0_0_22px_rgba(139,92,246,.55)]" />
+                  {[0,1,2,3,4].map(i => <motion.span key={i}
+                    animate={{ opacity: [.25,1,.25], scale: [.8,1.3,.8] }}
+                    transition={{ duration: 2.4, repeat: Infinity, delay: i*.32 }}
+                    className="absolute h-1 w-1 rounded-full bg-violet-200 shadow-[0_0_8px_rgba(196,181,253,.95)]"
+                    style={{ left: 8 + i*13, top: 7 + (i%2)*18 }}
+                  />)}
+                  <div className="absolute left-2 top-1/2 h-px w-16 -rotate-[8deg] bg-gradient-to-r from-cyan-400/0 via-violet-300/60 to-cyan-300/30" />
+                </div>
+              </div>
+            </div>
 
             {/* Right: env indicator + selector + mismatch + wallet */}
             <div className="flex items-center gap-2 shrink-0">
@@ -1492,6 +1510,40 @@ function Home() {
                 />
               )}
               
+              {activeView === 'trading' && (
+                <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+                  className="relative overflow-hidden rounded-[28px] border border-violet-500/30 bg-card/90 p-6 shadow-[0_0_44px_rgba(139,92,246,.12)]">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-violet-600/20 blur-[75px] animate-pulse" />
+                  <div className="relative z-10">
+                    <div className="text-[10px] font-mono uppercase tracking-[.28em] text-violet-300/70">NV · Trading</div>
+                    <h2 className="mt-3 text-2xl font-semibold leading-tight text-foreground">Mercados tokenizados em expansão.</h2>
+                    <p className="mt-3 text-sm text-muted-foreground">RWA, ações tokenizadas e NFTs reunidos em uma nova frente do NV.</p>
+                    <div className="mt-5 flex items-center justify-center py-5">
+                      <motion.div animate={{ rotate: [-12, 12, -12], y: [0,-3,0] }} transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                        className="flex h-20 w-20 items-center justify-center rounded-2xl border border-violet-300/30 bg-violet-500/10 shadow-[0_0_35px_rgba(168,85,247,.3)]">
+                        <Wrench size={42} className="text-violet-200" />
+                      </motion.div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {[
+                        ['RWA', Landmark, 'Ativos do mundo real tokenizados.'],
+                        ['Ações Tokenizadas', BarChart2, 'Novos mercados e participações tokenizadas.'],
+                        ['NFTs', Images, 'Propriedade e ativos digitais on-chain.'],
+                      ].map(([title, Icon, body]) => {
+                        const CardIcon = Icon as typeof Landmark;
+                        return <button key={title as string} onClick={() => setComingSoonFeature(title as string)}
+                          className="rounded-2xl border border-violet-500/25 bg-background/45 p-4 text-left transition-all hover:border-violet-400/55 hover:shadow-[0_0_25px_rgba(139,92,246,.15)]">
+                          <CardIcon size={20} className="mb-4 text-violet-300" />
+                          <div className="text-sm font-semibold">{title as string}</div>
+                          <div className="mt-1 min-h-8 text-[10px] text-muted-foreground">{body as string}</div>
+                          <span className="mt-4 inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[9px] font-mono text-violet-300">Em breve</span>
+                        </button>;
+                      })}
+                    </div>
+                  </div>
+                </motion.section>
+              )}
+
               {/* ── Dashboard View ────────────────────────────────────────── */}
               {activeView === 'dashboard' && (
                 <>
