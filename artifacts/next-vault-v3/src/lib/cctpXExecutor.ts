@@ -88,6 +88,11 @@ const ERC20_ABI = [
     inputs: [{ name: 'account', type: 'address' }],
     outputs: [{ name: 'balance', type: 'uint256' }],
   },
+  {
+    type: 'function', name: 'decimals', stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: 'value', type: 'uint8' }],
+  },
 ] as const;
 
 interface IrisTokenInfo {
@@ -236,6 +241,19 @@ export async function executeCctpXTransfer(
     ]);
     if (!sourceCode || sourceCode === '0x' || !destinationCode || destinationCode === '0x') {
       throw new Error('O contrato ERC-20 não foi encontrado em uma das redes configuradas.');
+    }
+
+    const [sourceDecimals, destinationDecimals] = await Promise.all([
+      sourcePublic.readContract({
+        address: sourceToken, abi: ERC20_ABI, functionName: 'decimals',
+      }),
+      destinationPublic.readContract({
+        address: destinationToken, abi: ERC20_ABI, functionName: 'decimals',
+      }),
+    ]);
+    if (sourceDecimals !== token.decimals || destinationDecimals !== token.decimals ||
+        sourceDecimals !== destinationDecimals) {
+      throw new Error('Os decimais do ERC-20 não correspondem ao registro CCTP X nas duas redes.');
     }
 
     const balance = await sourcePublic.readContract({
