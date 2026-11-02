@@ -203,13 +203,13 @@ async function _doFetch(): Promise<void> {
 export function formatTvl(usd: number | null): string {
   if (usd === null || !Number.isFinite(usd)) return 'N/A';
   if (usd === 0) return '$0';
-  if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
-  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
-  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(1)}M`;
-  if (usd >= 1e3) return `${(usd / 1e3).toFixed(0)}K`;
-  if (usd < 0.01) return `${usd.toPrecision(2)}`;
-  if (usd < 1) return `${usd.toFixed(4).replace(/0+$/, '').replace(/\\.$/, '')}`;
-  return `${usd.toFixed(2).replace(/\\.00$/, '')}`;
+  if (usd >= 1e12) return '$' + (usd / 1e12).toFixed(2) + 'T';
+  if (usd >= 1e9) return '$' + (usd / 1e9).toFixed(2) + 'B';
+  if (usd >= 1e6) return '$' + (usd / 1e6).toFixed(1) + 'M';
+  if (usd >= 1e3) return '$' + (usd / 1e3).toFixed(0) + 'K';
+  if (usd < 0.01) return '$' + usd.toPrecision(2);
+  if (usd < 1) return '$' + usd.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  return '$' + usd.toFixed(2).replace(/\.00$/, '');
 }
 
 export function formatTvlChange(pct: number | null): string {
