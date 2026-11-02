@@ -104,36 +104,57 @@ async function _doFetch(): Promise<void> {
     if (protocolsResult.status === 'fulfilled' && protocolsResult.value.ok) {
       const protocolRaw = await protocolsResult.value.json() as LlamaProtocol[];
       if (Array.isArray(protocolRaw)) {
-        protocols = protocolRaw
+        const mappedProtocols = protocolRaw
           .filter(protocol => protocol && typeof protocol.name === 'string')
           .map(protocol => {
             const chains = Array.isArray(protocol.chains) ? protocol.chains : [];
+            const slug = protocol.slug || protocol.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
             const reportedTvl = typeof protocol.tvl === 'number'
               && Number.isFinite(protocol.tvl) && protocol.tvl > 0
               ? protocol.tvl
               : null;
-
-            // Some records in /protocols report tvl=0 while their per-chain
-            // breakdown still contains live value. Recover only from the
-            // explicitly listed chains (never sum unrelated metric keys).
+            // Use only exact chain keys here; summing metric suffixes such as
+            // "-staking" and "-borrowed" can double-count the same deposits.
             const chainBreakdownTvl = chains.reduce((sum, chain) => {
               const value = protocol.chainTvls?.[chain];
               return sum + (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0);
             }, 0);
-            const tvlUsd = reportedTvl ?? (chainBreakdownTvl > 0 ? chainBreakdownTvl : null);
-
             return {
-              id: protocol.slug || protocol.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              id: slug,
               name: protocol.name,
               category: protocol.category,
-              tvlUsd,
+              tvlUsd: reportedTvl ?? (chainBreakdownTvl > 0 ? chainBreakdownTvl : null),
               chains,
               change1d: typeof protocol.change_1d === 'number' ? protocol.change_1d : null,
               change7d: typeof protocol.change_7d === 'number' ? protocol.change_7d : null,
             };
           })
-          // Hide retired, untracked, and genuinely zero-TVL protocols rather
-          // than presenting a misleading "$0" card in the live rankings.
+          .sort((a, b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1));
+
+        // Only the visible ranking can contain zero/missing records. Resolve
+        // those individually through DeFiLlama's authoritative /tvl/{slug}
+        // endpoint, with bounded concurrency to avoid a request burst.
+        const visibleCandidates = mappedProtocols.slice(0, 180);
+        const needsLookup = visibleCandidates.filter(protocol => protocol.tvlUsd === null || protocol.tvlUsd <= 0);
+        let cursor = 0;
+        const workers = Array.from({ length: Math.min(6, needsLookup.length) }, async () => {
+          while (cursor < needsLookup.length) {
+            const protocol = needsLookup[cursor++];
+            try {
+              const response = await fetch(`https://api.llama.fi/tvl/${encodeURIComponent(protocol.id)}`, {
+                headers: { Accept: 'application/json' },
+                signal: AbortSignal.timeout(10_000),
+              });
+              if (!response.ok) continue;
+              const value: unknown = await response.json();
+              if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+                protocol.tvlUsd = value;
+              }
+            } catch { /* keep unresolved values unavailable and exclude below */ }
+          }
+        });
+        await Promise.all(workers);
+        protocols = visibleCandidates
           .filter(protocol => protocol.tvlUsd !== null && protocol.tvlUsd > 0)
           .sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
       }
@@ -185,8 +206,10 @@ export function formatTvl(usd: number | null): string {
   if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
   if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
   if (usd >= 1e6) return `$${(usd / 1e6).toFixed(1)}M`;
-  if (usd >= 1e3) return `$${(usd / 1e3).toFixed(0)}K`;
-  return `$${usd.toFixed(0)}`;
+  if (usd >= 1e3) return `${(usd / 1e3).toFixed(0)}K`;
+  if (usd < 0.01) return `${usd.toPrecision(2)}`;
+  if (usd < 1) return `${usd.toFixed(4).replace(/0+$/, '').replace(/\\.$/, '')}`;
+  return `${usd.toFixed(2).replace(/\\.00$/, '')}`;
 }
 
 export function formatTvlChange(pct: number | null): string {
