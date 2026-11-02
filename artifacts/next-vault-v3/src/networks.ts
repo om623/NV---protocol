@@ -63,7 +63,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     rpcUrl: 'https://rpc.testnet.arc.io',
     explorerUrl: 'https://explorer.testnet.arc.io',
     nativeCurrency: { symbol: 'USDC', decimals: 18 },
-    status: 'online',
+    status: 'offline',
     tokens: [
       // Source: developers.circle.com/stablecoins/usdc-contract-addresses.md
       { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x3600000000000000000000000000000000000000', isNative: true },
@@ -100,7 +100,7 @@ export const NETWORKS_CONFIG: NetworkConfig[] = [
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    status: 'online',
+    status: 'offline',
     tokens: [
       { symbol: 'ETH', name: 'Ethereum', decimals: 18, address: null, isNative: true },
       // Source: developers.circle.com/stablecoins/usdc-contract-addresses.md
