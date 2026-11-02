@@ -53,6 +53,7 @@ import {
 import { getAsset, refreshFromApis, getMarketSentiment, getAllAssets } from './lib/marketData';
 import { isValidNum, safeBalance, safeBalanceFmt, dedupTokens } from './lib/utils';
 import { executeLifiSameChainSwap } from './lib/lifiSwap';
+import { executeTestnetV3Swap } from './lib/testnetV3Swap';
 import { discoverLifiTokens } from './lib/lifiTokens';
 import { executeBridge } from './lib/cctpBridgeExecutor';
 import { useI18n, useFormat } from './i18n';
@@ -923,6 +924,82 @@ function Home() {
         setSwapCctpStep(null);
         toast({ title: t('wallet.swapFailed'), description: msg, variant: 'destructive' });
         console.error('LI.FI SWAP ERROR:', err);
+      } finally {
+        setSwapCctpRunning(false);
+      }
+      return;
+    }
+
+    // Testnet same-chain swaps use a separate, allowlisted DEX executor.
+    // The existing cross-chain USDC → USDC CCTP flow below remains untouched.
+    if (activeNetwork.type === 'testnet' && !(sourceToken === 'USDC' && destToken === 'USDC')) {
+      const tokens = activeSwapTokens;
+      const sourceMatches = tokens.filter(token => token.symbol === sourceToken);
+      const destinationMatches = tokens.filter(token => token.symbol === destToken);
+      if (sourceMatches.length !== 1 || destinationMatches.length !== 1) {
+        toast({
+          title: 'Token route is ambiguous',
+          description: 'The selected token must resolve to exactly one contract on this testnet. No transaction was sent.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      let from = connectedAddress;
+      if (!from) {
+        try {
+          const accounts = await getAccounts(prov);
+          from = accounts?.[0] ?? null;
+        } catch { /* handled below */ }
+      }
+      if (!from) {
+        toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' });
+        return;
+      }
+
+      setSwapCctpRunning(true);
+      setSwapCctpStep('Checking live testnet DEX liquidity…');
+      setSwapCctpError(null);
+      try {
+        const result = await executeTestnetV3Swap({
+          provider: prov,
+          walletAddress: from,
+          network: activeNetwork,
+          sourceToken: sourceMatches[0],
+          destinationToken: destinationMatches[0],
+          amount,
+        });
+        logNVActivity({
+          category: 'swap',
+          action: 'Testnet swap concluído',
+          details: `${amount} ${sourceToken} → ${destToken} via ${result.tool}`,
+          txHash: result.transactionHash,
+          network: activeNetwork.name,
+        });
+        setTransactions(prev => [{
+          id: result.transactionHash,
+          fromToken: sourceToken,
+          toToken: destToken,
+          fromAmount: n,
+          toAmount: Number(result.estimatedOutput),
+          time: 'Just now',
+          status: 'Success',
+        }, ...prev]);
+        const xpGained = gamification.recordSwap(result.transactionHash);
+        toast({
+          title: 'Testnet swap concluído ✓',
+          description: `${sourceToken} → ${destToken} confirmado em ${activeNetwork.name}. TX: ${result.transactionHash.slice(0, 16)}…`,
+        });
+        if (xpGained > 0) toast({ title: `+${xpGained} XP` });
+        setSwapCctpStep('Swap confirmed');
+        setAmount('');
+        await refreshBalances(prov, from);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Falha ao executar o swap na testnet.';
+        setSwapCctpError(msg);
+        setSwapCctpStep(null);
+        toast({ title: t('wallet.swapFailed'), description: msg, variant: 'destructive' });
+        console.error('TESTNET SWAP ERROR:', err);
       } finally {
         setSwapCctpRunning(false);
       }
