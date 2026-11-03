@@ -435,19 +435,21 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
             <button key={key}
               onClick={() => { onNavigate(view); onClose?.(); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
-                active
-                  ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
-                  : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+                view === 'radar'
+                  ? (active ? 'bg-violet-500/12 text-violet-200 border border-violet-400/25 shadow-[0_0_18px_rgba(139,92,246,0.18)]' : 'text-violet-300/80 hover:bg-violet-500/10 hover:text-violet-100')
+                  : active
+                    ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
+                    : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
               }`}>
               {active && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
+                <div className={view === 'radar' ? 'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-400 rounded-r-full' : 'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full'} />
               )}
               <Icon size={15} className={`shrink-0 transition-colors ${view === 'radar' ? 'text-violet-300 animate-pulse group-hover:text-violet-100' : active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
               <span className="flex-1 text-left">{t(key)}</span>
               {comingSoon && (
                 <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">{t('nav.comingSoon')}</span>
               )}
-              {active && <ChevronRight size={12} className="text-primary/40" />}
+              {active && <ChevronRight size={12} className={view === 'radar' ? 'text-violet-300/70' : 'text-primary/40'} />}
             </button>
           );
         })}
