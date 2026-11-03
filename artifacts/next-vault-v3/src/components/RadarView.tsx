@@ -226,9 +226,8 @@ export function RadarView() {
                   ))}
                 </div>
                 <div className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(110deg,transparent_35%,rgba(255,255,255,0.08)_48%,transparent_60%)]" />
+                <div className="absolute bottom-[1%] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-violet-300/15 bg-background/70 px-3 py-1 text-[9px] font-mono tracking-widest text-violet-200/70">EARTH • BUSINESS NETWORK</div>
               </div>
-              <div className="absolute bottom-[1%] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-violet-300/15 bg-background/70 px-3 py-1 text-[9px] font-mono tracking-widest text-violet-200/70">EARTH • BUSINESS NETWORK</div>
-            </div>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {regions.map(item => <button key={item.id} onClick={() => setRegion(item.id)} className={`rounded-full border px-2.5 py-1 text-[10px] transition-colors ${region === item.id ? 'border-violet-300/40 bg-violet-500/15 text-violet-100' : 'border-white/10 text-muted-foreground hover:border-violet-300/30'}`}>{t(item.id)}</button>)}
               <button onClick={() => setRegion('all')} className={`rounded-full border px-2.5 py-1 text-[10px] ${region === 'all' ? 'border-violet-300/40 bg-violet-500/15 text-violet-100' : 'border-white/10 text-muted-foreground'}`}>{t('allRegions')}</button>
