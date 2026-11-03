@@ -436,7 +436,7 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
               onClick={() => { onNavigate(view); onClose?.(); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
                 view === 'radar'
-                  ? (active ? 'bg-violet-500/12 text-violet-200 border border-violet-400/25 shadow-[0_0_18px_rgba(139,92,246,0.18)]' : 'text-violet-300/80 hover:bg-violet-500/10 hover:text-violet-100')
+                  ? (active ? 'bg-violet-500/25 text-violet-50 border border-violet-300/60 shadow-[0_0_24px_rgba(168,85,247,0.42),inset_0_0_14px_rgba(139,92,246,0.16)]' : 'text-violet-200 bg-violet-500/10 border border-violet-400/25 hover:bg-violet-500/20 hover:text-white shadow-[0_0_14px_rgba(139,92,246,0.20)]')
                   : active
                     ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
                     : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
@@ -444,7 +444,7 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
               {active && (
                 <div className={view === 'radar' ? 'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-400 rounded-r-full' : 'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full'} />
               )}
-              <Icon size={15} className={`shrink-0 transition-colors ${view === 'radar' ? 'text-violet-300 animate-pulse group-hover:text-violet-100' : active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
+              <Icon size={15} className={`shrink-0 transition-colors ${view === 'radar' ? 'text-violet-300 animate-pulse drop-shadow-[0_0_8px_rgba(192,132,252,0.95)] group-hover:text-white' : active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
               <span className="flex-1 text-left">{t(key)}</span>
               {comingSoon && (
                 <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">{t('nav.comingSoon')}</span>
