@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
+import { Settings, Radar, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -65,6 +65,7 @@ import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
 import { subscribeNavigation, requestIntelligenceTab, subscribeAgentExecution, publishAgentExecutionResult } from './lib/navigationStore';
 import { HistoryModule, ReportsModule, SettingsModule, HelpModule, logNVModuleView } from './components/ProtocolModules';
+import { RadarView } from './components/RadarView';
 import { logNVActivity } from './lib/activityLog';
 
 
@@ -96,7 +97,7 @@ const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fr
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence' | 'radar';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
@@ -110,6 +111,7 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes' },
   { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda' },
+  { key: 'nav.radar',         Icon: Radar,            view: 'radar' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -440,7 +442,7 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
               {active && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
               )}
-              <Icon size={15} className={`shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
+              <Icon size={15} className={`shrink-0 transition-colors ${view === 'radar' ? 'text-violet-300 animate-pulse group-hover:text-violet-100' : active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
               <span className="flex-1 text-left">{t(key)}</span>
               {comingSoon && (
                 <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">{t('nav.comingSoon')}</span>
@@ -499,7 +501,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda', 'radar'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
@@ -1477,12 +1479,13 @@ function Home() {
 
           {/* ── Main scroll area ────────────────────────────────────────── */}
           <main className="flex-1 overflow-y-auto">
-            <div className="max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5">
+            <div className={activeView === 'radar' ? 'mx-auto w-full max-w-[1480px] px-4 pt-5 pb-10 flex flex-col gap-5' : 'mx-auto w-full max-w-[520px] px-4 pt-5 pb-10 flex flex-col gap-5'}>
 
               {activeView === 'historico' && <HistoryModule />}
               {activeView === 'relatorios' && <ReportsModule />}
               {activeView === 'configuracoes' && <SettingsModule />}
               {activeView === 'ajuda' && <HelpModule />}
+              {activeView === 'radar' && <RadarView />}
 
               {/* ── Consulte ─────────────────────────────────────────────── */}
               {activeView === 'consulte' && (
