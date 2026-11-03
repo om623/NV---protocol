@@ -185,7 +185,7 @@ export function RadarView() {
 
   return (
     <section className="w-full min-w-0 space-y-5 pb-8" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-      <style>{'.radar-globe-spin{transform-origin:50% 50%;animation:radar-earth-rotation 72s linear infinite}@keyframes radar-earth-rotation{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.radar-earth-texture{background-image:linear-gradient(180deg,rgba(5,12,35,.08),rgba(3,8,28,.18)),url("https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg");background-size:cover,100% 100%;background-position:center,center;background-repeat:no-repeat;box-shadow:inset -22px -12px 42px rgba(1,5,22,.72),inset 10px 8px 28px rgba(125,211,252,.10),0 0 42px rgba(37,99,235,.22)}@keyframes radar-earth-glow{0%,100%{filter:drop-shadow(0 0 10px rgba(56,189,248,.18))}50%{filter:drop-shadow(0 0 22px rgba(56,189,248,.38))}}.radar-earth-texture{animation:radar-earth-glow 5s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.radar-globe-spin,.radar-earth-texture{animation:none}}'}</style>
+      <style>{'@keyframes radar-earth-rotation{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.radar-globe-spin{animation:radar-earth-rotation 72s linear infinite;transform-origin:50% 50%}@media(prefers-reduced-motion:reduce){.radar-globe-spin{animation:none}}'}</style>
       <div className="relative overflow-hidden rounded-3xl border border-violet-400/20 bg-[radial-gradient(ellipse_at_top_right,rgba(124,58,237,0.20),transparent_45%),linear-gradient(145deg,rgba(13,16,30,0.98),rgba(8,10,20,0.98))] p-5 md:p-7 shadow-[0_20px_70px_rgba(76,29,149,0.12)]">
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-violet-600/10 blur-3xl pointer-events-none" />
         <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -207,7 +207,7 @@ export function RadarView() {
       </div>
 
       {tab === 'overview' && (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)] 2xl:grid-cols-[minmax(0,1.45fr)_minmax(270px,0.8fr)_minmax(220px,0.68fr)] gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)] gap-5">
           <div className="rounded-2xl border border-white/10 bg-card/70 p-4 md:p-5 min-w-0">
             <div className="flex items-center justify-between gap-3">
               <div><h2 className="text-sm font-semibold text-foreground">{t('globalMap')}</h2><p className="mt-1 text-xs text-muted-foreground">{t('mapHint')}</p></div>
@@ -218,16 +218,43 @@ export function RadarView() {
               <div className="absolute inset-[7%] rounded-full border border-violet-300/20 shadow-[0_0_55px_rgba(139,92,246,0.18),inset_0_0_45px_rgba(59,130,246,0.12)]" />
               <div className="absolute inset-[9%] overflow-hidden rounded-full border border-sky-300/20 bg-[radial-gradient(circle_at_34%_28%,rgba(59,130,246,0.35),rgba(15,23,42,0.95)_62%,rgba(4,8,20,1))]">
                 <div className="radar-globe-spin absolute inset-0">
-                  <div className="radar-earth-texture absolute inset-0 rounded-full" />
-                  <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_35%_28%,rgba(255,255,255,0.12),transparent_42%),linear-gradient(90deg,rgba(2,6,23,0.08),transparent_45%,rgba(2,6,23,0.25))]" />
-                </div>
+                  <svg viewBox="0 0 400 400" className="h-full w-full" role="img" aria-label="Stylized rotating Earth with business regions">
+                    <defs><clipPath id="radar-earth-clip"><circle cx="200" cy="200" r="195" /></clipPath><radialGradient id="radar-earth-shade" cx="35%" cy="30%"><stop offset="0%" stopColor="#38bdf8" stopOpacity=".20" /><stop offset="65%" stopColor="#1e40af" stopOpacity=".08" /><stop offset="100%" stopColor="#020617" stopOpacity=".75" /></radialGradient></defs>
+                    <g clipPath="url(#radar-earth-clip)">
+                      <g stroke="#93c5fd" strokeOpacity=".17" fill="none">
+                        <circle cx="200" cy="200" r="190" /><ellipse cx="200" cy="200" rx="130" ry="195" /><ellipse cx="200" cy="200" rx="65" ry="195" /><ellipse cx="200" cy="200" rx="195" ry="65" /><ellipse cx="200" cy="200" rx="195" ry="130" /><path d="M0 200H400M0 100H400M0 300H400" />
+                      </g>
+                      <g fill="#38bdf8" fillOpacity=".38" stroke="#7dd3fc" strokeOpacity=".48" strokeWidth="1.4" strokeLinejoin="round">
+                        {/* North America: Alaska, Canada, USA, Central America and Greenland */}
+                        <path d="M28 105L45 82 67 72 83 79 96 70 117 79 130 92 151 96 161 111 151 126 135 129 129 145 112 151 103 166 84 164 75 178 61 168 53 151 39 144 31 126Z" />
+                        <path d="M91 173L105 177 113 191 123 196 127 210 118 220 111 210 101 205 96 191Z" />
+                        <path d="M132 55L148 45 166 49 174 64 163 79 146 76Z" />
+                        {/* South America */}
+                        <path d="M126 218L144 211 158 219 165 237 159 254 153 271 149 292 140 315 132 342 122 329 119 306 111 286 114 265 105 247 111 231Z" />
+                        {/* Europe */}
+                        <path d="M190 112L202 101 218 103 226 112 240 108 250 118 244 130 231 132 223 143 208 139 198 130Z" />
+                        {/* Africa */}
+                        <path d="M190 151L209 143 230 148 246 163 244 183 254 202 246 225 236 249 222 274 210 286 201 268 196 246 184 225 179 202 183 179Z" />
+                        {/* Asia */}
+                        <path d="M239 105L258 91 281 89 299 97 319 93 340 105 360 112 374 129 365 143 344 145 330 158 311 155 298 169 278 161 261 169 248 153 232 144 226 127Z" />
+                        {/* India and Southeast Asia */}
+                        <path d="M270 169L286 173 294 191 287 209 278 224 270 207 263 190Z" />
+                        <path d="M313 177L329 180 339 194 333 207 321 201Z" />
+                        {/* Japan, Indonesia and Australia */}
+                        <path d="M356 165L362 174 358 185 352 178Z" />
+                        <path d="M302 237L323 229 346 235 360 251 352 269 330 276 311 267 298 251Z" />
+                      </g>
+                      <circle cx="200" cy="200" r="195" fill="url(#radar-earth-shade)" />
+                    </g>
+                  </svg>
                   {globePoints.map(point => (
                     <button key={point.id} onClick={() => setRegion(point.id)} title={t(point.id)} className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all ${region === point.id ? 'h-5 w-5 border-white bg-violet-300 shadow-[0_0_22px_8px_rgba(167,139,250,0.55)]' : 'h-3 w-3 border-violet-100/80 bg-violet-400 shadow-[0_0_14px_4px_rgba(139,92,246,0.55)] hover:scale-150'}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} aria-label={t(point.id)} />
                   ))}
                 </div>
                 <div className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(110deg,transparent_35%,rgba(255,255,255,0.08)_48%,transparent_60%)]" />
-                <div className="absolute bottom-[1%] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-violet-300/15 bg-background/70 px-3 py-1 text-[9px] font-mono tracking-widest text-violet-200/70">EARTH • BUSINESS NETWORK</div>
               </div>
+              <div className="absolute bottom-[1%] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-violet-300/15 bg-background/70 px-3 py-1 text-[9px] font-mono tracking-widest text-violet-200/70">EARTH • BUSINESS NETWORK</div>
+            </div>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {regions.map(item => <button key={item.id} onClick={() => setRegion(item.id)} className={`rounded-full border px-2.5 py-1 text-[10px] transition-colors ${region === item.id ? 'border-violet-300/40 bg-violet-500/15 text-violet-100' : 'border-white/10 text-muted-foreground hover:border-violet-300/30'}`}>{t(item.id)}</button>)}
               <button onClick={() => setRegion('all')} className={`rounded-full border px-2.5 py-1 text-[10px] ${region === 'all' ? 'border-violet-300/40 bg-violet-500/15 text-violet-100' : 'border-white/10 text-muted-foreground'}`}>{t('allRegions')}</button>
@@ -246,21 +273,6 @@ export function RadarView() {
               <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{t('signalsHint')}</p>
               <div className="mt-3 space-y-2">{[1, 2, 3, 4].map(n => <div key={n} className="flex items-start gap-2 text-xs text-foreground/80"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,.7)]" />{t(`signal${n}`)}</div>)}</div>
             </div>
-          </div>
-
-          <div className="hidden 2xl:flex 2xl:flex-col 2xl:gap-4">
-            <article className="relative overflow-hidden rounded-2xl border border-sky-400/25 bg-[linear-gradient(145deg,rgba(8,31,72,.78),rgba(7,13,35,.92))] p-4 shadow-[0_0_28px_rgba(37,99,235,.10)]">
-              <div className="absolute -right-7 -top-7 h-24 w-24 rounded-full bg-amber-400/10 blur-2xl" />
-              <div className="relative flex items-center gap-2 text-amber-300"><Sparkles size={17}/><h2 className="text-sm font-semibold text-white">{t('sectorFocus')}</h2></div>
-              <p className="relative mt-3 text-xs leading-relaxed text-slate-300">{t('signalsHint')}</p>
-              <div className="mt-4 flex items-end justify-end gap-1"><span className="h-3 w-2 rounded-t bg-violet-500"/><span className="h-5 w-2 rounded-t bg-violet-400"/><span className="h-8 w-2 rounded-t bg-fuchsia-400"/><span className="h-11 w-2 rounded-t bg-sky-400"/></div>
-            </article>
-            <article className="relative overflow-hidden rounded-2xl border border-violet-400/25 bg-[linear-gradient(145deg,rgba(26,20,66,.76),rgba(7,13,35,.94))] p-4">
-              <div className="absolute -right-8 -bottom-8 h-28 w-28 rounded-full bg-violet-500/15 blur-2xl" />
-              <div className="relative flex items-center gap-2 text-sky-300"><Activity size={17}/><h2 className="text-sm font-semibold text-white">{t('companiesRef')}</h2></div>
-              <p className="relative mt-3 text-xs leading-relaxed text-slate-300">{t('dataNote')}</p>
-              <div className="relative mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-[10px] text-violet-200"><span>{t('regions')}</span><span className="font-mono">{regions.length.toString().padStart(2,'0')} / 06</span></div>
-            </article>
           </div>
         </div>
       )}
