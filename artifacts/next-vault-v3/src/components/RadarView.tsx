@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity, ArrowUpRight, Bookmark, BookmarkCheck, Building2, ChevronRight,
   Factory, Globe, Layers3, MapPin, Radar, Search, ShieldCheck, Sparkles, Star,
-  TrendingUp, X,
+  X,
 } from 'lucide-react';
 import { useI18n } from '../i18n';
 
@@ -185,6 +185,7 @@ export function RadarView() {
 
   return (
     <section className="w-full min-w-0 space-y-5 pb-8" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <style>{'@keyframes radar-earth-rotation{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.radar-globe-spin{animation:radar-earth-rotation 72s linear infinite;transform-origin:50% 50%}@media(prefers-reduced-motion:reduce){.radar-globe-spin{animation:none}}'}</style>
       <div className="relative overflow-hidden rounded-3xl border border-violet-400/20 bg-[radial-gradient(ellipse_at_top_right,rgba(124,58,237,0.20),transparent_45%),linear-gradient(145deg,rgba(13,16,30,0.98),rgba(8,10,20,0.98))] p-5 md:p-7 shadow-[0_20px_70px_rgba(76,29,149,0.12)]">
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-violet-600/10 blur-3xl pointer-events-none" />
         <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
