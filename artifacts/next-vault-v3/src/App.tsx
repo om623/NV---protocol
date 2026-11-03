@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
+import { Settings, Radar, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -65,6 +65,7 @@ import type { DashboardContext } from './lib/news';
 import { NVEvmWalletProvider, useSetNVEvmWallet } from './lib/NVEvmWalletContext';
 import { subscribeNavigation, requestIntelligenceTab, subscribeAgentExecution, publishAgentExecutionResult } from './lib/navigationStore';
 import { HistoryModule, ReportsModule, SettingsModule, HelpModule, logNVModuleView } from './components/ProtocolModules';
+import { RadarView } from './components/RadarView';
 import { logNVActivity } from './lib/activityLog';
 
 
@@ -96,7 +97,7 @@ const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fr
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence' | 'radar';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
@@ -110,6 +111,7 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes' },
   { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda' },
+  { key: 'nav.radar',         Icon: Radar,            view: 'radar' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -433,19 +435,21 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
             <button key={key}
               onClick={() => { onNavigate(view); onClose?.(); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
-                active
-                  ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
-                  : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+                view === 'radar'
+                  ? (active ? 'bg-violet-500/25 text-violet-50 border border-violet-300/60 shadow-[0_0_24px_rgba(168,85,247,0.42),inset_0_0_14px_rgba(139,92,246,0.16)]' : 'text-violet-200 bg-violet-500/10 border border-violet-400/25 hover:bg-violet-500/20 hover:text-white shadow-[0_0_14px_rgba(139,92,246,0.20)]')
+                  : active
+                    ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
+                    : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
               }`}>
               {active && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
+                <div className={view === 'radar' ? 'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-400 rounded-r-full' : 'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full'} />
               )}
-              <Icon size={15} className={`shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
+              <Icon size={15} className={`shrink-0 transition-colors ${view === 'radar' ? 'text-violet-300 animate-pulse drop-shadow-[0_0_8px_rgba(192,132,252,0.95)] group-hover:text-white' : active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
               <span className="flex-1 text-left">{t(key)}</span>
               {comingSoon && (
                 <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">{t('nav.comingSoon')}</span>
               )}
-              {active && <ChevronRight size={12} className="text-primary/40" />}
+              {active && <ChevronRight size={12} className={view === 'radar' ? 'text-violet-300/70' : 'text-primary/40'} />}
             </button>
           );
         })}
@@ -499,7 +503,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda', 'radar'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
@@ -1477,12 +1481,13 @@ function Home() {
 
           {/* ── Main scroll area ────────────────────────────────────────── */}
           <main className="flex-1 overflow-y-auto">
-            <div className="max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5">
+            <div className={activeView === 'radar' ? 'mx-auto w-full max-w-[1480px] px-4 pt-5 pb-10 flex flex-col gap-5' : 'mx-auto w-full max-w-[520px] px-4 pt-5 pb-10 flex flex-col gap-5'}>
 
               {activeView === 'historico' && <HistoryModule />}
               {activeView === 'relatorios' && <ReportsModule />}
               {activeView === 'configuracoes' && <SettingsModule />}
               {activeView === 'ajuda' && <HelpModule />}
+              {activeView === 'radar' && <RadarView />}
 
               {/* ── Consulte ─────────────────────────────────────────────── */}
               {activeView === 'consulte' && (
