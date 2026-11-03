@@ -185,7 +185,7 @@ export function RadarView() {
 
   return (
     <section className="w-full min-w-0 space-y-5 pb-8" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-      <style>{'.radar-globe-spin{transform-origin:50% 50%}.radar-earth-texture{background-image:linear-gradient(180deg,rgba(5,12,35,.08),rgba(3,8,28,.18)),url("https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg");background-size:cover,200% 100%;background-position:center,50% 50%;background-repeat:no-repeat;box-shadow:inset -22px -12px 42px rgba(1,5,22,.72),inset 10px 8px 28px rgba(125,211,252,.10),0 0 42px rgba(37,99,235,.22)}@keyframes radar-earth-glow{0%,100%{filter:drop-shadow(0 0 10px rgba(56,189,248,.18))}50%{filter:drop-shadow(0 0 22px rgba(56,189,248,.38))}}.radar-earth-texture{animation:radar-earth-glow 5s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.radar-earth-texture{animation:none}}'}</style>
+      <style>{'.radar-globe-spin{transform-origin:50% 50%}.radar-earth-texture{background-image:linear-gradient(180deg,rgba(5,12,35,.08),rgba(3,8,28,.18)),url("https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg");background-size:cover,100% 100%;background-position:center,center;background-repeat:no-repeat;box-shadow:inset -22px -12px 42px rgba(1,5,22,.72),inset 10px 8px 28px rgba(125,211,252,.10),0 0 42px rgba(37,99,235,.22)}@keyframes radar-earth-glow{0%,100%{filter:drop-shadow(0 0 10px rgba(56,189,248,.18))}50%{filter:drop-shadow(0 0 22px rgba(56,189,248,.38))}}.radar-earth-texture{animation:radar-earth-glow 5s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.radar-earth-texture{animation:none}}'}</style>
       <div className="relative overflow-hidden rounded-3xl border border-violet-400/20 bg-[radial-gradient(ellipse_at_top_right,rgba(124,58,237,0.20),transparent_45%),linear-gradient(145deg,rgba(13,16,30,0.98),rgba(8,10,20,0.98))] p-5 md:p-7 shadow-[0_20px_70px_rgba(76,29,149,0.12)]">
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-violet-600/10 blur-3xl pointer-events-none" />
         <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -217,7 +217,7 @@ export function RadarView() {
               <div className="absolute inset-[4%] rounded-full bg-violet-500/10 blur-2xl" />
               <div className="absolute inset-[7%] rounded-full border border-violet-300/20 shadow-[0_0_55px_rgba(139,92,246,0.18),inset_0_0_45px_rgba(59,130,246,0.12)]" />
               <div className="absolute inset-[9%] overflow-hidden rounded-full border border-sky-300/20 bg-[radial-gradient(circle_at_34%_28%,rgba(59,130,246,0.35),rgba(15,23,42,0.95)_62%,rgba(4,8,20,1))]">
-                <div className="radar-globe-spin absolute inset-0" aria-hidden="true">
+                <div className="radar-globe-spin absolute inset-0">
                   <div className="radar-earth-texture absolute inset-0 rounded-full" />
                   <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_35%_28%,rgba(255,255,255,0.12),transparent_42%),linear-gradient(90deg,rgba(2,6,23,0.08),transparent_45%,rgba(2,6,23,0.25))]" />
                 </div>
