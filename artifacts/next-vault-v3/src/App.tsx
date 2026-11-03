@@ -1277,11 +1277,11 @@ function Home() {
       isLiveData: sentiment.isLive,
       isWalletConnected: isConnected,
       // The presenter reports configured network availability, not a hardcoded online state.
-      // Arc Testnet and Ethereum Sepolia are intentionally presented as offline when selected for informational browsing.
+      // Arc Testnet and Base Sepolia are intentionally presented as offline when selected for informational browsing.
       networkOnline:
         activeNetwork.status === 'online' &&
         activeNetwork.id !== 'arc-testnet' &&
-        activeNetwork.id !== 'sepolia',
+        activeNetwork.id !== 'base-sepolia',
       recentSwapActivity: transactions.length > 0,
     };
   }, [activeNetwork.name, activeNetwork.id, activeNetwork.status, isConnected, transactions.length]);
