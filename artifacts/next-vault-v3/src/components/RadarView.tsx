@@ -10,12 +10,12 @@ type RegionId = 'north-america' | 'south-america' | 'europe' | 'africa' | 'middl
 type SectorId = 'technology' | 'ai' | 'energy' | 'materials' | 'agribusiness' | 'mobility' | 'health' | 'finance' | 'industry' | 'aerospace';
 
 const regions: { id: RegionId; x: number; y: number; companies: number; sectors: SectorId[] }[] = [
-  { id: 'north-america', x: 27, y: 35, companies: 4, sectors: ['technology', 'ai', 'finance', 'energy'] },
-  { id: 'south-america', x: 38, y: 69, companies: 3, sectors: ['agribusiness', 'energy', 'materials'] },
-  { id: 'europe', x: 53, y: 31, companies: 3, sectors: ['industry', 'health', 'mobility'] },
-  { id: 'africa', x: 55, y: 60, companies: 1, sectors: ['energy', 'materials', 'agribusiness'] },
-  { id: 'middle-east', x: 63, y: 48, companies: 1, sectors: ['energy', 'materials'] },
-  { id: 'asia-pacific', x: 77, y: 40, companies: 4, sectors: ['technology', 'ai', 'mobility', 'industry'] },
+  { id: 'north-america', x: 29, y: 34, companies: 4, sectors: ['technology', 'ai', 'finance', 'energy'] },
+  { id: 'south-america', x: 37, y: 61, companies: 3, sectors: ['agribusiness', 'energy', 'materials'] },
+  { id: 'europe', x: 52, y: 32, companies: 3, sectors: ['industry', 'health', 'mobility'] },
+  { id: 'africa', x: 54, y: 51, companies: 1, sectors: ['energy', 'materials', 'agribusiness'] },
+  { id: 'middle-east', x: 62, y: 44, companies: 1, sectors: ['energy', 'materials'] },
+  { id: 'asia-pacific', x: 72, y: 38, companies: 4, sectors: ['technology', 'ai', 'mobility', 'industry'] },
 ];
 
 const companies = [
@@ -224,14 +224,25 @@ export function RadarView() {
                       <g stroke="#93c5fd" strokeOpacity=".17" fill="none">
                         <circle cx="200" cy="200" r="190" /><ellipse cx="200" cy="200" rx="130" ry="195" /><ellipse cx="200" cy="200" rx="65" ry="195" /><ellipse cx="200" cy="200" rx="195" ry="65" /><ellipse cx="200" cy="200" rx="195" ry="130" /><path d="M0 200H400M0 100H400M0 300H400" />
                       </g>
-                      <g fill="#38bdf8" fillOpacity=".30" stroke="#7dd3fc" strokeOpacity=".28" strokeWidth="1.2">
-                        <path d="M42 93l20-21 25-5 18 11 26-2 18 18-8 17-23 4-8 18-23 4-10 24-20 4-7-19-19-8-8-24z" />
-                        <path d="M118 177l19 8 12 25-7 29-14 23-8 35-14 24-12-18 3-31-12-26 8-29z" />
-                        <path d="M185 83l19-13 21 5 13 16-9 13-21 1-13-9z" />
-                        <path d="M204 124l24-15 33 5 18 18 25 7 20 22-12 18-22-3-11 18-24 3-11 29-18-9-10-25-20-13-7-27z" />
-                        <path d="M214 211l28-7 22 15 6 29-15 38-22 30-19-10-12-35 4-34z" />
-                        <path d="M294 260l21-8 24 13 8 18-21 12-25-9z" />
-                        <path d="M330 105l20-8 16 14-9 19-21-2z" />
+                      <g fill="#38bdf8" fillOpacity=".38" stroke="#7dd3fc" strokeOpacity=".48" strokeWidth="1.4" strokeLinejoin="round">
+                        {/* North America: Alaska, Canada, USA, Central America and Greenland */}
+                        <path d="M28 105L45 82 67 72 83 79 96 70 117 79 130 92 151 96 161 111 151 126 135 129 129 145 112 151 103 166 84 164 75 178 61 168 53 151 39 144 31 126Z" />
+                        <path d="M91 173L105 177 113 191 123 196 127 210 118 220 111 210 101 205 96 191Z" />
+                        <path d="M132 55L148 45 166 49 174 64 163 79 146 76Z" />
+                        {/* South America */}
+                        <path d="M126 218L144 211 158 219 165 237 159 254 153 271 149 292 140 315 132 342 122 329 119 306 111 286 114 265 105 247 111 231Z" />
+                        {/* Europe */}
+                        <path d="M190 112L202 101 218 103 226 112 240 108 250 118 244 130 231 132 223 143 208 139 198 130Z" />
+                        {/* Africa */}
+                        <path d="M190 151L209 143 230 148 246 163 244 183 254 202 246 225 236 249 222 274 210 286 201 268 196 246 184 225 179 202 183 179Z" />
+                        {/* Asia */}
+                        <path d="M239 105L258 91 281 89 299 97 319 93 340 105 360 112 374 129 365 143 344 145 330 158 311 155 298 169 278 161 261 169 248 153 232 144 226 127Z" />
+                        {/* India and Southeast Asia */}
+                        <path d="M270 169L286 173 294 191 287 209 278 224 270 207 263 190Z" />
+                        <path d="M313 177L329 180 339 194 333 207 321 201Z" />
+                        {/* Japan, Indonesia and Australia */}
+                        <path d="M356 165L362 174 358 185 352 178Z" />
+                        <path d="M302 237L323 229 346 235 360 251 352 269 330 276 311 267 298 251Z" />
                       </g>
                       <circle cx="200" cy="200" r="195" fill="url(#radar-earth-shade)" />
                     </g>
