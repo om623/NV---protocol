@@ -33,6 +33,7 @@ const ptBR: Dict = {
   'sol.cctpNote': 'Integração CCTP V2 Solana ↔ EVM disponível em breve.',
   'nav.settings': 'Configurações',
   'nav.help': 'Ajuda',
+  'nav.radar': 'Global Radar',
   'nav.menu': 'Menu',
   'nav.comingSoon': 'Em breve',
 
@@ -486,6 +487,7 @@ const en: Dict = {
   'sol.cctpNote': 'CCTP V2 Solana ↔ EVM integration coming soon.',
   'nav.settings': 'Settings',
   'nav.help': 'Help',
+  'nav.radar': 'Global Radar',
   'nav.menu': 'Menu',
   'nav.comingSoon': 'Coming Soon',
 
