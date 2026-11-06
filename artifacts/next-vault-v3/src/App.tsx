@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { lazyWithRetry } from './radar/lazyRetry';
+import { RadarBoundary, RadarLoading } from './radar/RadarBoundary';
 import { createPortal } from 'react-dom';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,7 +10,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
+import { Radar as RadarIcon, Settings, ArrowDown, ChevronDown, Activity, Shield, Zap, Loader as Loader2, Check, ArrowRight, Wallet, LogOut, CircleCheck as CheckCircle2, TrendingUp, Flame, ChartBar as BarChart2, Clock, Target, Cpu, RefreshCw, Download, TriangleAlert as AlertTriangle, Database, X, Factory as History, ChevronUp, Sparkles, TrendingDown, LayoutDashboard, FileText, Circle as HelpCircle, Menu, ChevronRight, Award, Newspaper, Search, Network } from 'lucide-react';
 import {
   type Eip1193Provider,
   getProvider, getAccounts, getChainId, ensureNetwork, ensureBaseNetwork, networkChainParams,
@@ -96,7 +98,10 @@ const INITIAL_TRANSACTIONS: { id: string; fromToken: string; toToken: string; fr
 
 // ─── Sidebar config ───────────────────────────────────────────────────────────
 
-type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence';
+// Global Radar is code-split: three.js and the geodata load only when the module is opened.
+const RadarView = lazyWithRetry(() => import('./radar/RadarView'));
+
+type SidebarView = 'dashboard' | 'swap' | 'historico' | 'relatorios' | 'consulte' | 'solana' | 'perfil' | 'configuracoes' | 'ajuda' | 'bridge' | 'intelligence' | 'radar';
 
 const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarView; comingSoon?: boolean }[] = [
   { key: 'nav.dashboard',     Icon: LayoutDashboard, view: 'dashboard'     },
@@ -110,6 +115,7 @@ const SIDEBAR_ITEMS: { key: string; Icon: typeof LayoutDashboard; view: SidebarV
   { key: 'nav.profile',      Icon: Award,           view: 'perfil'         },
   { key: 'nav.settings',     Icon: Settings,        view: 'configuracoes' },
   { key: 'nav.help',          Icon: HelpCircle,      view: 'ajuda' },
+  { key: 'nav.radar',         Icon: RadarIcon,       view: 'radar'         },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -433,14 +439,18 @@ function SidebarContent({ onClose, activeView, onNavigate }: { onClose?: () => v
             <button key={key}
               onClick={() => { onNavigate(view); onClose?.(); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group relative ${
-                active
+                view === 'radar'
+                  ? active
+                    ? 'bg-violet-500/15 text-violet-200 border border-violet-400/30 radar-nav-glow'
+                    : 'text-violet-300 border border-violet-500/15 hover:bg-violet-500/10 hover:text-violet-100 radar-nav-glow'
+                  : active
                   ? 'bg-primary/8 text-primary border border-primary/12 shadow-[0_0_12px_rgba(0,229,188,0.06)]'
                   : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
               }`}>
               {active && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
               )}
-              <Icon size={15} className={`shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
+              <Icon size={15} className={`shrink-0 transition-colors ${view === 'radar' ? 'text-violet-300' : active ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-foreground'}`} />
               <span className="flex-1 text-left">{t(key)}</span>
               {comingSoon && (
                 <span className="text-[8px] font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/20 shrink-0">{t('nav.comingSoon')}</span>
@@ -499,7 +509,7 @@ function Home() {
   // ── Subscribe to NV Agent navigation requests ───────────────────────────────
   useEffect(() => subscribeNavigation((view) => {
     // Only navigate to views that actually exist in the sidebar
-    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda'];
+    const valid: SidebarView[] = ['dashboard', 'swap', 'consulte', 'bridge', 'intelligence', 'solana', 'historico', 'relatorios', 'perfil', 'configuracoes', 'ajuda', 'radar'];
     if (valid.includes(view as SidebarView)) setActiveView(view as SidebarView);
   }), []);
 
@@ -1482,7 +1492,7 @@ function Home() {
 
           {/* ── Main scroll area ────────────────────────────────────────── */}
           <main className="flex-1 overflow-y-auto">
-            <div className="max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5">
+            <div className={activeView === 'radar' ? 'w-full px-3 sm:px-4 pt-4 pb-6 flex flex-col gap-5' : 'max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5'}>
 
               {activeView === 'historico' && <HistoryModule />}
               {activeView === 'relatorios' && <ReportsModule />}
@@ -1574,6 +1584,15 @@ function Home() {
                 />
               )}
               
+              {/* ── Global Radar ──────────────────────────────────────────── */}
+              {activeView === 'radar' && (
+                <RadarBoundary>
+                  <Suspense fallback={<RadarLoading />}>
+                    <RadarView />
+                  </Suspense>
+                </RadarBoundary>
+              )}
+
               {/* ── Dashboard View ────────────────────────────────────────── */}
               {activeView === 'dashboard' && (
                 <>
@@ -1825,11 +1844,13 @@ function Home() {
             </div>
           </main>
 
-          {/* ── Intelligence column ──────────────────────────────────── */}
-          <IntelligenceColumn
-            envMode={envMode}
-            activeNetwork={activeNetwork}
-          />
+          {/* ── Intelligence column (hidden in the Radar so the globe gets the full width) ── */}
+          {activeView !== 'radar' && (
+            <IntelligenceColumn
+              envMode={envMode}
+              activeNetwork={activeNetwork}
+            />
+          )}
         </div>
       </div>
 

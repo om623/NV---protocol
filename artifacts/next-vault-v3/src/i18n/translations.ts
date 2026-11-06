@@ -1,4 +1,5 @@
 import type { Locale } from './types';
+import { buildRadarDicts } from './radar';
 
 type Dict = Record<string, string>;
 
@@ -3010,6 +3011,18 @@ Object.assign(ar, {
   'dash.policyRateUnavailable': "غير متاح",
   'dash.policyRateNote': "سعر الفائدة الأساسي للبنك المركزي؛ دول منطقة اليورو تشترك في سعر البنك المركزي الأوروبي."
 });
+
+// Global Radar strings for all nine locales (maintained in ./radar).
+const radarDicts = buildRadarDicts();
+Object.assign(ptBR, radarDicts['pt-BR']);
+Object.assign(en, radarDicts.en);
+Object.assign(es, radarDicts.es);
+Object.assign(fr, radarDicts.fr);
+Object.assign(zh, radarDicts.zh);
+Object.assign(ja, radarDicts.ja);
+Object.assign(ko, radarDicts.ko);
+Object.assign(hi, radarDicts.hi);
+Object.assign(ar, radarDicts.ar);
 
 const DICTS: Record<Locale, Dict> = {
   'pt-BR': ptBR,
