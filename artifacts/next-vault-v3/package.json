@@ -8,12 +8,16 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:radar": "bun run scripts/radar-tests.ts",
     "agent:policy": "node cli/nv-agent-policy.mjs"
   },
   "dependencies": {
     "@solana/kit": "^8.4.0",
     "@wallet-standard/wallet": "^1.1.1",
-    "viem": "^2.55.19"
+    "three": "^0.187.0",
+    "topojson-client": "^3.1.0",
+    "viem": "^2.55.19",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -48,9 +52,12 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/three": "^0.187.0",
+    "@types/topojson-client": "^3.1.5",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
     "class-variance-authority": "catalog:",

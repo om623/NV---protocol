@@ -216,3 +216,38 @@ input:-webkit-autofill:active {
 .animate-live-ring {
   animation: live-ring 2s ease-out infinite;
 }
+
+/* ─── Global Radar: purple pulsing light ─────────────────────────────────── */
+
+@keyframes radar-nav-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(168, 85, 247, 0.18), inset 0 0 0 rgba(168, 85, 247, 0); }
+  50%      { box-shadow: 0 0 18px rgba(168, 85, 247, 0.5), inset 0 0 10px rgba(168, 85, 247, 0.12); }
+}
+.radar-nav-glow {
+  animation: radar-nav-glow 3.2s ease-in-out infinite;
+}
+
+/* The glow is a static shadow whose OPACITY pulses: opacity animates on the compositor,
+   whereas animating a large box-shadow repaints the whole card (and its WebGL canvas) every frame. */
+.radar-aura { position: relative; box-shadow: 0 0 46px rgba(124, 58, 237, 0.26); }
+.radar-aura::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow: inset 0 0 90px rgba(168, 85, 247, 0.2), inset 0 0 0 1px rgba(192, 132, 252, 0.35);
+  opacity: 0.45;
+  animation: radar-aura-pulse 5s ease-in-out infinite;
+  will-change: opacity;
+}
+@keyframes radar-aura-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-nav-glow { animation: none; }
+  .radar-aura::after { animation: none; opacity: 0.6; }
+}
