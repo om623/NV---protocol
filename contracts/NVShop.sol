@@ -74,10 +74,12 @@ contract NVShop {
         entered = 1;
     }
 
-    constructor(address payable treasuryAddress) {
-        if (treasuryAddress == address(0)) revert ZeroAddress();
+    /// @notice Official NV receiving wallet recovered from the original Profile/Shop configuration.
+    address payable private constant OFFICIAL_TREASURY = payable(0xAd397122941D03450c70d0076379e079334D434f);
+
+    constructor() {
         owner = msg.sender;
-        treasury = treasuryAddress;
+        treasury = OFFICIAL_TREASURY;
         emit OwnershipTransferred(address(0), msg.sender);
     }
 
