@@ -94,7 +94,7 @@ export async function syncServerTime(): Promise<void> {
 }
 export function getServerTime(): Date { return new Date(Date.now() + serverTimeOffset); }
 
-function assertShopConfigured(): asserts SHOP_ADDRESS {
+function assertShopConfigured(): void {
   if (!SHOP_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(SHOP_ADDRESS) || !TREASURY_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(TREASURY_ADDRESS) || DEPLOYMENT_BLOCK === 0n) {
     throw new Error("NV Shop ainda não está totalmente configurada (contrato, treasury e bloco de deploy). Nenhum pagamento foi enviado.");
   }
@@ -157,7 +157,7 @@ function recordsFromLogs(walletAddress: string, logs: Awaited<ReturnType<typeof 
     const timestamp = Number(args.timestamp);
     const date = new Date(timestamp * 1000).toISOString();
     const hash = String(log.transactionHash);
-    const type = Number(args.productType) === 0 ? "skin" : "xp";
+    const type: "skin" | "xp" = Number(args.productType) === 0 ? "skin" : "xp";
     return {
       purchase: { id: hash, wallet_address: walletAddress.toLowerCase(), product_id: productId, product_type: type,
         amount_usd: Number(formatUnits(args.amount, 18)), token_symbol: "USDC", chain_id: PAYMENT_CHAIN_ID,
