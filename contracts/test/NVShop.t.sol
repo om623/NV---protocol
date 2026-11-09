@@ -7,6 +7,7 @@ interface Vm {
     function deal(address account, uint256 newBalance) external;
     function prank(address sender) external;
     function expectRevert(bytes4 selector) external;
+    function expectRevert(bytes calldata revertData) external;
 }
 
 contract NVShopTest {
