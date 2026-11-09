@@ -1,12 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Script.sol";
 import "../contracts/NVShop.sol";
 
-/// @notice Deploys NVShop and configures the five catalog products in one broadcast.
-/// @dev Refuses to broadcast unless the RPC reports Arc Mainnet (chain ID 5042).
-contract DeployNVShop is Script {
+interface VmNVShopDeploy {
+    function envUint(string calldata name) external returns (uint256);
+    function startBroadcast(uint256 privateKey) external;
+    function stopBroadcast() external;
+}
+
+/// @notice Deploys NVShop and configures all five catalog products.
+/// @dev Refuses to run unless the connected RPC reports Arc Mainnet (chain ID 5042).
+contract DeployNVShop {
+    VmNVShopDeploy private constant vm =
+        VmNVShopDeploy(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    event NVShopDeployment(address indexed contractAddress, address indexed owner, address indexed treasury);
+
     function run() external {
         require(block.chainid == 5042, "Wrong network: expected Arc Mainnet (5042)");
         uint256 deployerKey = vm.envUint("NV_DEPLOYER_PRIVATE_KEY");
@@ -26,9 +36,6 @@ contract DeployNVShop is Script {
             shop.treasury() == 0xAd397122941D03450c70d0076379e079334D434f,
             "Unexpected treasury"
         );
-        console2.log("NVShop deployed and all five products configured.");
-        console2.log("Contract address:", address(shop));
-        console2.log("Owner:", shop.owner());
-        console2.log("Official treasury:", shop.treasury());
+        emit NVShopDeployment(address(shop), shop.owner(), shop.treasury());
     }
 }
