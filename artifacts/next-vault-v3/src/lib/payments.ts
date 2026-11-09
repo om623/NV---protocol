@@ -19,6 +19,7 @@ export const PAYMENT_TOKEN_ADDRESS = null;
 
 const SHOP_ABI = parseAbi([
   "function purchase(bytes32 productId) payable",
+  "function treasury() view returns (address)",
   "function products(bytes32 productId) view returns (uint256 price, uint32 xpAmount, uint32 maxPerDay, uint32 maxPerWeek, uint32 maxPer30Days, uint8 productType, bool active)",
   "function ownsSkin(address buyer, bytes32 productId) view returns (bool)",
   "function totalPurchases(address buyer, bytes32 productId) view returns (uint256)",
@@ -94,8 +95,8 @@ export async function syncServerTime(): Promise<void> {
 export function getServerTime(): Date { return new Date(Date.now() + serverTimeOffset); }
 
 function assertShopConfigured(): asserts SHOP_ADDRESS {
-  if (!SHOP_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(SHOP_ADDRESS)) {
-    throw new Error("NV Shop ainda não implantada/configurada. Nenhum pagamento foi enviado.");
+  if (!SHOP_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(SHOP_ADDRESS) || !TREASURY_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(TREASURY_ADDRESS) || DEPLOYMENT_BLOCK === 0n) {
+    throw new Error("NV Shop ainda não está totalmente configurada (contrato, treasury e bloco de deploy). Nenhum pagamento foi enviado.");
   }
 }
 function periodKeys(nowSeconds: number) {
@@ -205,6 +206,16 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
           }] });
         } else { throw switchError; }
       }
+    }
+    const [onChainPrice, onChainXp, onChainDay, onChainWeek, onChain30Days, onChainType, active] = await publicClient.readContract({
+      address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: "products", args: [productKey(productId)],
+    });
+    const configuredTreasury = await publicClient.readContract({ address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: "treasury" });
+    if (!active || Number(onChainType) !== (productType === "skin" ? 0 : 1) || onChainPrice !== parseUnits(String(product.price), 18) || Number(onChainXp) !== product.xp || Number(onChainDay) !== product.limits.maxPerDay || Number(onChainWeek) !== product.limits.maxPerWeek || Number(onChain30Days) !== product.limits.maxPerMonth) {
+      throw new Error("A configuração on-chain do produto não corresponde ao catálogo esperado. Compra bloqueada.");
+    }
+    if (configuredTreasury.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
+      throw new Error("A carteira treasury configurada não corresponde à carteira imutável do contrato.");
     }
     const walletClient = createWalletClient({ account: walletAddress as Address, chain: {
       id: 5042, name: "Arc", nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
