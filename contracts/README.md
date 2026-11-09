@@ -21,11 +21,10 @@ Set these Vite variables in the deployment environment for the app:
 
 ```dotenv
 VITE_NV_SHOP_ADDRESS=0x<deployed-contract-address>
-VITE_NV_SHOP_TREASURY=0xAd397122941D03450c70d0076379e079334D434f
 VITE_NV_SHOP_DEPLOYMENT_BLOCK=<contract-deployment-block>
 ```
 
-The deployment block is required for efficient event-history scanning. Do not set a placeholder contract address in production. If the contract address is missing, purchases fail closed and no transaction is sent.
+The official treasury is hardcoded in both the frontend and contract; no treasury environment override is accepted. The deployment block is required for efficient event-history scanning. Do not set a placeholder contract address in production. If the contract address is missing, purchases fail closed and no transaction is sent.
 
 ## Compile and test
 
