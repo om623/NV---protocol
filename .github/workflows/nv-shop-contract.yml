@@ -1,0 +1,24 @@
+name: NV Shop contract tests
+
+on:
+  push:
+    paths:
+      - "contracts/**"
+      - "foundry.toml"
+      - ".github/workflows/nv-shop-contract.yml"
+  pull_request:
+    paths:
+      - "contracts/**"
+      - "foundry.toml"
+      - ".github/workflows/nv-shop-contract.yml"
+
+jobs:
+  foundry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Build contracts
+        run: forge build
+      - name: Run NV Shop tests
+        run: forge test -vvv
