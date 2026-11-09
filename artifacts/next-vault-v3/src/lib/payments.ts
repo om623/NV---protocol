@@ -1,543 +1,268 @@
-// ── Real on-chain payment system for gamification purchases ──────────────
-// Sends real USDC/USDT to PAYMENT_WALLET via the connected wallet,
-// then verifies the transaction on-chain through the verify-purchase edge function.
-// No product is unlocked without server-verified on-chain confirmation.
-
-import { transferErc20, transferNative, getTokensForNetwork, ensureBaseNetwork, getChainId, type Eip1193Provider } from "./arc";
+// ── NV Shop: Arc-native, on-chain payments (no Supabase dependency) ──────────
+import {
+  createPublicClient, createWalletClient, custom, http, parseAbi, parseEventLogs,
+  parseUnits, formatUnits, keccak256, toBytes, type Address, type Hash,
+} from "viem";
+import type { Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
-import { createClient } from "@supabase/supabase-js";
 
-// ── Payment network: Base Mainnet (chainId 8453) ──────────────────────────
-// Payments run exclusively on Base Mainnet using official USDC.
-// The rest of the NV Protocol (swaps, pools, bridge, wallet) is unaffected.
-const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 8453)!;
+const ARC = NETWORKS_CONFIG.find((network) => network.chainId === 5042)!;
+const SHOP_ADDRESS = (import.meta.env.VITE_NV_SHOP_ADDRESS ?? "") as Address;
+const DEPLOYMENT_BLOCK = BigInt(import.meta.env.VITE_NV_SHOP_DEPLOYMENT_BLOCK ?? "0");
+// Official NV receiving wallet, recovered from the original Profile/Shop payment configuration.
+// Keep the on-chain immutable treasury and deployment environment aligned with this address.
+const OFFICIAL_TREASURY_ADDRESS = "0xAd397122941D03450c70d0076379e079334D434f" as Address;
+const TREASURY_ADDRESS = OFFICIAL_TREASURY_ADDRESS;
 
-// ── Payment configuration (display-only, from server) ────────────────────
-// The frontend fetches these from the server on init. They are used ONLY
-// for display and for constructing the on-chain transaction. The server
-// re-derives all of these from its own database during verification —
-// it never trusts the frontend's copy.
-export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 8453
-export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Base"
+export const PAYMENT_CHAIN_ID = 5042;
+export const PAYMENT_CHAIN_NAME = "Arc";
 export const PAYMENT_TOKEN_SYMBOL = "USDC";
-export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.decimals ?? 6;
-export const PAYMENT_TOKEN_ADDRESS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.address ?? null;
+export const PAYMENT_TOKEN_DECIMALS = 18;
+export const PAYMENT_TOKEN_ADDRESS = null;
 
-// ── Supabase client (anon key, no auth) ──────────────────────────────────
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SHOP_ABI = parseAbi([
+  "function purchase(bytes32 productId) payable",
+  "function treasury() view returns (address)",
+  "function products(bytes32 productId) view returns (uint256 price, uint32 xpAmount, uint32 maxPerDay, uint32 maxPerWeek, uint32 maxPer30Days, uint8 productType, bool active)",
+  "function ownsSkin(address buyer, bytes32 productId) view returns (bool)",
+  "function totalPurchases(address buyer, bytes32 productId) view returns (uint256)",
+  "function getPurchaseWindow(address buyer, bytes32 productId) view returns (uint32 dayCount, uint32 weekCount, uint32 thirtyDayCount)",
+  "event PurchaseCompleted(address indexed buyer, bytes32 indexed productId, uint8 productType, uint256 amount, uint32 xpAmount, uint256 timestamp)",
+]);
 
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+const publicClient = createPublicClient({ chain: {
+  id: 5042, name: "Arc", nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: [ARC.rpcUrl] } },
+}, transport: http(ARC.rpcUrl) });
 
-// ── Server-fetched payment config ────────────────────────────────────────
-// The payment wallet address is fetched from the edge function's config
-// endpoint. The frontend needs it to construct the on-chain transfer,
-// but the server uses its OWN copy from the database for verification.
-let serverPaymentWallet: string | null = null;
-let serverConfigLoaded = false;
+const PRODUCT_CONFIG: Record<string, { type: "skin" | "xp"; price: number; xp: number; limits: PurchaseLimitConfig }> = {
+  "xp-daily": { type: "xp", price: 0.2, xp: 30, limits: { maxPerDay: 1, maxPerWeek: 5, maxPerMonth: 20 } },
+  "xp-weekly": { type: "xp", price: 0.5, xp: 60, limits: { maxPerDay: 1, maxPerWeek: 3, maxPerMonth: 12 } },
+  "xp-quarterly": { type: "xp", price: 1, xp: 300, limits: { maxPerDay: 1, maxPerWeek: 1, maxPerMonth: 4 } },
+  "premium-500": { type: "skin", price: 10, xp: 0, limits: { maxPerDay: 1, maxPerWeek: 2, maxPerMonth: 4 } },
+  "premium-1000": { type: "skin", price: 20, xp: 0, limits: { maxPerDay: 1, maxPerWeek: 1, maxPerMonth: 2 } },
+};
+
+function productKey(id: string): `0x${string}` { return keccak256(toBytes(id)); }
 
 export function getServerPaymentWallet(): string | null {
-  return serverPaymentWallet;
+  return TREASURY_ADDRESS && /^0x[a-fA-F0-9]{40}$/.test(TREASURY_ADDRESS) ? TREASURY_ADDRESS : null;
 }
-
 export function isServerConfigLoaded(): boolean {
-  return serverConfigLoaded;
+  return Boolean(
+    /^0x[a-fA-F0-9]{40}$/.test(SHOP_ADDRESS) &&
+    getServerPaymentWallet() &&
+    DEPLOYMENT_BLOCK > 0n
+  );
 }
 
-export interface ServerProductInfo {
-  id: string;
-  productType: "skin" | "xp";
-  priceUsd: number;
-  xpAmount: number;
-}
-
-// Fetch the payment wallet address from the edge function config endpoint.
-// The edge function reads it from the payment_config table (service-role).
-// This is not a secret — the wallet address is public on-chain — but the
-// server's copy is authoritative for verification.
+export interface ServerProductInfo { id: string; productType: "skin" | "xp"; priceUsd: number; xpAmount: number; }
 export async function fetchServerPaymentConfig(): Promise<void> {
-  if (!supabaseUrl) {
-    console.warn("[payments] VITE_SUPABASE_URL not set — cannot fetch payment config");
-    return;
-  }
-  try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/verify-purchase?config=1`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${supabaseAnonKey}`,
-      },
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.warn(`[payments] Config endpoint returned HTTP ${res.status}: ${text}`);
-      return;
-    }
-    const data = await res.json() as { paymentWallet?: string; chainId?: number; tokenSymbol?: string };
-    if (data.paymentWallet) {
-      serverPaymentWallet = data.paymentWallet;
-      serverConfigLoaded = true;
-    } else {
-      console.warn("[payments] Config endpoint returned no paymentWallet field", data);
-    }
-  } catch (err) {
-    console.warn("[payments] Failed to fetch payment config:", err instanceof Error ? err.message : err);
-  }
+  if (!isServerConfigLoaded()) console.warn("[NV Shop] Configure VITE_NV_SHOP_ADDRESS before enabling purchases; the official treasury is fixed in the application and contract.");
 }
-
-// Auto-fetch on module load so config is available before wallet connects.
-// This is a fire-and-forget — if it fails, executePayment will retry.
-if (supabaseUrl) {
-  fetchServerPaymentConfig().catch(() => {});
-}
-
-// Fetch product catalog from the database (for display only).
-// The server re-reads these prices during verification.
 export async function fetchServerProducts(): Promise<ServerProductInfo[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("gamification_products")
-    .select("id, product_type, price_usd, xp_amount, is_active")
-    .eq("is_active", true);
-  if (error) {
-    console.warn("[payments] Failed to fetch server products:", error.message);
-    return [];
-  }
-  return (data ?? []).map((p: { id: string; product_type: string; price_usd: string; xp_amount: string; is_active: boolean }) => ({
-    id: p.id,
-    productType: p.product_type as "skin" | "xp",
-    priceUsd: parseFloat(p.price_usd),
-    xpAmount: parseFloat(p.xp_amount),
-  }));
+  return Object.entries(PRODUCT_CONFIG).map(([id, p]) => ({ id, productType: p.type, priceUsd: p.price, xpAmount: p.xp }));
 }
 
-// ── Types ────────────────────────────────────────────────────────────────
 export type PurchaseStatus = "idle" | "sending_tx" | "verifying" | "confirmed" | "failed" | "limit_reached";
-
-export interface PurchaseState {
-  status: PurchaseStatus;
-  txHash: string | null;
-  error: string | null;
-  productId: string | null;
-}
-
-// ── Module-level payment state observable ────────────────────────────────
-// Allows the NV Agent context to read the current payment state without
-// prop-drilling. Components that own payment state call notifyPaymentState()
-// whenever the state changes (e.g. after each step of executePayment).
-
-let _currentPaymentState: PurchaseState = {
-  status: "idle",
-  txHash: null,
-  error: null,
-  productId: null,
-};
+export interface PurchaseState { status: PurchaseStatus; txHash: string | null; error: string | null; productId: string | null; }
+let _currentPaymentState: PurchaseState = { status: "idle", txHash: null, error: null, productId: null };
 const _paymentListeners: Array<(s: PurchaseState) => void> = [];
-
-/** Read the current payment state snapshot (for the agent context). */
-export function getPaymentState(): PurchaseState {
-  return _currentPaymentState;
-}
-
-/** Notify the module that payment state has changed (call from UI components). */
+export function getPaymentState(): PurchaseState { return _currentPaymentState; }
 export function notifyPaymentState(state: PurchaseState): void {
   _currentPaymentState = state;
-  for (const fn of _paymentListeners) {
-    try { fn(state); } catch { /* ignore listener errors */ }
-  }
+  for (const listener of _paymentListeners) { try { listener(state); } catch { /* isolated listener */ } }
 }
-
-/** Subscribe to payment state changes. Returns an unsubscribe function. */
 export function subscribePaymentState(fn: (s: PurchaseState) => void): () => void {
   _paymentListeners.push(fn);
-  return () => {
-    const idx = _paymentListeners.indexOf(fn);
-    if (idx !== -1) _paymentListeners.splice(idx, 1);
-  };
+  return () => { const index = _paymentListeners.indexOf(fn); if (index >= 0) _paymentListeners.splice(index, 1); };
 }
 
 export interface PurchaseRecord {
-  id: string;
-  wallet_address: string;
-  product_id: string;
-  product_type: "skin" | "xp";
-  amount_usd: number;
-  token_symbol: string;
-  chain_id: number;
-  tx_hash: string;
-  status: "pending" | "confirmed" | "failed";
-  xp_granted: boolean;
-  skin_unlocked: boolean;
-  created_at: string;
-  confirmed_at: string | null;
+  id: string; wallet_address: string; product_id: string; product_type: "skin" | "xp";
+  amount_usd: number; token_symbol: string; chain_id: number; tx_hash: string;
+  status: "pending" | "confirmed" | "failed"; xp_granted: boolean; skin_unlocked: boolean;
+  created_at: string; confirmed_at: string | null;
 }
-
 export interface EntitlementRecord {
-  id: string;
-  wallet_address: string;
-  product_id: string;
-  product_type: "skin" | "xp";
-  tx_hash: string;
-  xp_amount: number;
-  created_at: string;
+  id: string; wallet_address: string; product_id: string; product_type: "skin" | "xp";
+  tx_hash: string; xp_amount: number; created_at: string;
 }
-
-// ── Purchase limit definitions ───────────────────────────────────────────
-export interface PurchaseLimitConfig {
-  maxPerDay: number;
-  maxPerWeek: number;
-  maxPerMonth: number;
-}
-
-export const PURCHASE_LIMITS: Record<string, PurchaseLimitConfig> = {
-  "xp-daily": { maxPerDay: 1, maxPerWeek: 5, maxPerMonth: 20 },
-  "xp-weekly": { maxPerDay: 1, maxPerWeek: 3, maxPerMonth: 12 },
-  "xp-quarterly": { maxPerDay: 1, maxPerWeek: 1, maxPerMonth: 4 },
-  "premium-500": { maxPerDay: 1, maxPerWeek: 2, maxPerMonth: 4 },
-  "premium-1000": { maxPerDay: 1, maxPerWeek: 1, maxPerMonth: 2 },
-};
-
+export interface PurchaseLimitConfig { maxPerDay: number; maxPerWeek: number; maxPerMonth: number; }
+export const PURCHASE_LIMITS: Record<string, PurchaseLimitConfig> = Object.fromEntries(
+  Object.entries(PRODUCT_CONFIG).map(([id, product]) => [id, product.limits]),
+);
 export interface LimitStatus {
-  usedToday: number;
-  usedThisWeek: number;
-  usedThisMonth: number;
-  maxPerDay: number;
-  maxPerWeek: number;
-  maxPerMonth: number;
-  canBuyNow: boolean;
-  nextResetDaily: Date;
-  nextResetWeekly: Date;
-  nextResetMonthly: Date;
+  usedToday: number; usedThisWeek: number; usedThisMonth: number;
+  maxPerDay: number; maxPerWeek: number; maxPerMonth: number; canBuyNow: boolean;
+  nextResetDaily: Date; nextResetWeekly: Date; nextResetMonthly: Date;
 }
-
-// ── Time window helpers ──────────────────────────────────────────────────
-function startOfDay(d: Date): Date {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
-function startOfWeek(d: Date): Date {
-  const r = startOfDay(d);
-  const day = r.getDay();
-  r.setDate(r.getDate() - day);
-  return r;
-}
-
-function startOfMonth(d: Date): Date {
-  const r = new Date(d.getFullYear(), d.getMonth(), 1);
-  return r;
-}
-
-function addDays(d: Date, days: number): Date {
-  const r = new Date(d);
-  r.setDate(r.getDate() + days);
-  return r;
-}
-
-// ── Server time (authoritative) ──────────────────────────────────────────
 let serverTimeOffset = 0;
-
 export async function syncServerTime(): Promise<void> {
-  try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/verify-purchase`, {
-      method: "OPTIONS",
-    });
-    const serverDate = res.headers.get("date");
-    if (serverDate) {
-      serverTimeOffset = new Date(serverDate).getTime() - Date.now();
-    }
-  } catch {
-    // Fall back to local time — server time is only for precision
+  try { const block = await publicClient.getBlock(); serverTimeOffset = Number(block.timestamp) * 1000 - Date.now(); } catch { serverTimeOffset = 0; }
+}
+export function getServerTime(): Date { return new Date(Date.now() + serverTimeOffset); }
+
+function assertShopConfigured(): void {
+  if (!SHOP_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(SHOP_ADDRESS) || !TREASURY_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(TREASURY_ADDRESS) || DEPLOYMENT_BLOCK === 0n) {
+    throw new Error("NV Shop ainda não está totalmente configurada (contrato, treasury e bloco de deploy). Nenhum pagamento foi enviado.");
   }
 }
-
-export function getServerTime(): Date {
-  return new Date(Date.now() + serverTimeOffset);
+function periodKeys(nowSeconds: number) {
+  const day = Math.floor(nowSeconds / 86400);
+  const week = Math.floor(nowSeconds / 604800);
+  const thirtyDay = Math.floor(nowSeconds / 2592000);
+  return { day, week, thirtyDay };
 }
-
-// ── Purchase limits computation ──────────────────────────────────────────
-export async function getLimitStatus(
-  walletAddress: string,
-  productId: string,
-): Promise<LimitStatus> {
+export async function getLimitStatus(walletAddress: string, productId: string): Promise<LimitStatus> {
   const config = PURCHASE_LIMITS[productId] ?? { maxPerDay: 1, maxPerWeek: 5, maxPerMonth: 20 };
-  if (!supabase) {
-    return {
-      usedToday: 0, usedThisWeek: 0, usedThisMonth: 0,
-      maxPerDay: config.maxPerDay, maxPerWeek: config.maxPerWeek, maxPerMonth: config.maxPerMonth,
-      canBuyNow: true,
-      nextResetDaily: addDays(startOfDay(getServerTime()), 1),
-      nextResetWeekly: addDays(startOfWeek(getServerTime()), 7),
-      nextResetMonthly: new Date(getServerTime().getFullYear(), getServerTime().getMonth() + 1, 1),
-    };
-  }
-
   const now = getServerTime();
-  const dayStart = startOfDay(now).toISOString();
-  const weekStart = startOfWeek(now).toISOString();
-  const monthStart = startOfMonth(now).toISOString();
-
-  const wallet = walletAddress.toLowerCase();
-
-  const [dayRes, weekRes, monthRes] = await Promise.all([
-    supabase
-      .from("gamification_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("wallet_address", wallet)
-      .eq("product_id", productId)
-      .eq("status", "confirmed")
-      .gte("created_at", dayStart),
-    supabase
-      .from("gamification_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("wallet_address", wallet)
-      .eq("product_id", productId)
-      .eq("status", "confirmed")
-      .gte("created_at", weekStart),
-    supabase
-      .from("gamification_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("wallet_address", wallet)
-      .eq("product_id", productId)
-      .eq("status", "confirmed")
-      .gte("created_at", monthStart),
-  ]);
-
-  const usedToday = dayRes.count ?? 0;
-  const usedThisWeek = weekRes.count ?? 0;
-  const usedThisMonth = monthRes.count ?? 0;
-
+  const nowSeconds = Math.floor(now.getTime() / 1000);
+  let usedToday = 0, usedThisWeek = 0, usedThisMonth = 0;
+  if (SHOP_ADDRESS) {
+    const [day, week, thirty] = await publicClient.readContract({
+      address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: "getPurchaseWindow",
+      args: [walletAddress as Address, productKey(productId)],
+    });
+    usedToday = Number(day); usedThisWeek = Number(week); usedThisMonth = Number(thirty);
+  }
+  const keys = periodKeys(nowSeconds);
   return {
-    usedToday,
-    usedThisWeek,
-    usedThisMonth,
-    maxPerDay: config.maxPerDay,
-    maxPerWeek: config.maxPerWeek,
-    maxPerMonth: config.maxPerMonth,
+    usedToday, usedThisWeek, usedThisMonth,
+    maxPerDay: config.maxPerDay, maxPerWeek: config.maxPerWeek, maxPerMonth: config.maxPerMonth,
     canBuyNow: usedToday < config.maxPerDay && usedThisWeek < config.maxPerWeek && usedThisMonth < config.maxPerMonth,
-    nextResetDaily: addDays(startOfDay(now), 1),
-    nextResetWeekly: addDays(startOfWeek(now), 7),
-    nextResetMonthly: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    nextResetDaily: new Date((keys.day + 1) * 86400 * 1000),
+    nextResetWeekly: new Date((keys.week + 1) * 604800 * 1000),
+    nextResetMonthly: new Date((keys.thirtyDay + 1) * 2592000 * 1000),
   };
 }
 
-// ── Fetch confirmed entitlements for a wallet ────────────────────────────
+let cachedLogs: { wallet: string; block: bigint; logs: any[] } | null = null;
+async function readPurchaseLogs(walletAddress: string) {
+  if (!SHOP_ADDRESS || DEPLOYMENT_BLOCK === 0n) return [];
+  const latest = await publicClient.getBlockNumber();
+  if (cachedLogs && cachedLogs.wallet === walletAddress.toLowerCase() && cachedLogs.block === latest) return cachedLogs.logs;
+  const logs: any[] = [];
+  // Public RPC providers impose block-range limits; scan in conservative chunks.
+  for (let from = DEPLOYMENT_BLOCK; from <= latest; from += 2000n) {
+    const to = from + 1999n > latest ? latest : from + 1999n;
+    const batch = await publicClient.getLogs({
+      address: SHOP_ADDRESS,
+      event: parseAbi(["event PurchaseCompleted(address indexed buyer, bytes32 indexed productId, uint8 productType, uint256 amount, uint32 xpAmount, uint256 timestamp)"])[0],
+      args: { buyer: walletAddress as Address },
+      fromBlock: from,
+      toBlock: to,
+    });
+    logs.push(...batch);
+  }
+  cachedLogs = { wallet: walletAddress.toLowerCase(), block: latest, logs };
+  return logs;
+}
+function recordsFromLogs(walletAddress: string, logs: Awaited<ReturnType<typeof readPurchaseLogs>>) {
+  return logs.map((log) => {
+    const args = (log as any).args;
+    const productId = Object.keys(PRODUCT_CONFIG).find((id) => productKey(id).toLowerCase() === String(args.productId).toLowerCase()) ?? "unknown";
+    const config = PRODUCT_CONFIG[productId];
+    const timestamp = Number(args.timestamp);
+    const date = new Date(timestamp * 1000).toISOString();
+    const hash = String(log.transactionHash);
+    const type: "skin" | "xp" = Number(args.productType) === 0 ? "skin" : "xp";
+    return {
+      purchase: { id: hash, wallet_address: walletAddress.toLowerCase(), product_id: productId, product_type: type,
+        amount_usd: Number(formatUnits(args.amount, 18)), token_symbol: "USDC", chain_id: PAYMENT_CHAIN_ID,
+        tx_hash: hash, status: "confirmed" as const, xp_granted: type === "xp", skin_unlocked: type === "skin",
+        created_at: date, confirmed_at: date },
+      entitlement: { id: hash, wallet_address: walletAddress.toLowerCase(), product_id: productId,
+        product_type: type, tx_hash: hash, xp_amount: Number(args.xpAmount), created_at: date },
+    };
+  }).filter((item) => item.purchase.product_id !== "unknown" && Boolean(item.purchase.tx_hash));
+}
 export async function fetchEntitlements(walletAddress: string): Promise<EntitlementRecord[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("gamification_entitlements")
-    .select("*")
-    .eq("wallet_address", walletAddress.toLowerCase());
-  if (error) {
-    console.warn("[payments] Failed to fetch entitlements:", error.message);
-    return [];
-  }
-  return (data ?? []) as EntitlementRecord[];
+  const logs = await readPurchaseLogs(walletAddress);
+  return recordsFromLogs(walletAddress, logs).map((item) => item.entitlement);
 }
-
-// ── Fetch purchase records for a wallet ──────────────────────────────────
 export async function fetchPurchases(walletAddress: string): Promise<PurchaseRecord[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("gamification_purchases")
-    .select("*")
-    .eq("wallet_address", walletAddress.toLowerCase())
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.warn("[payments] Failed to fetch purchases:", error.message);
-    return [];
-  }
-  return (data ?? []) as PurchaseRecord[];
+  const logs = await readPurchaseLogs(walletAddress);
+  return recordsFromLogs(walletAddress, logs).map((item) => item.purchase).sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
-// ── Core: execute a real on-chain payment + server verification ──────────
 export interface ExecutePaymentParams {
-  provider: Eip1193Provider;
-  walletAddress: string;
-  productId: string;
-  productType: "skin" | "xp";
-  amountUsd: number;
-  xpAmount?: number;
+  provider: Eip1193Provider; walletAddress: string; productId: string;
+  productType: "skin" | "xp"; amountUsd: number; xpAmount?: number;
 }
-
-export interface ExecutePaymentResult {
-  success: boolean;
-  txHash: string | null;
-  verified: boolean;
-  error: string | null;
-  productId: string;
-}
+export interface ExecutePaymentResult { success: boolean; txHash: string | null; verified: boolean; error: string | null; productId: string; }
 
 export async function executePayment(params: ExecutePaymentParams): Promise<ExecutePaymentResult> {
   const { provider, walletAddress, productId, productType, amountUsd, xpAmount } = params;
-
-  // Resolve the payment wallet: must come from server-side payment_config.
-  // If not loaded yet, try one more fetch before aborting.
-  if (!serverPaymentWallet) {
-    await fetchServerPaymentConfig();
-  }
-  const paymentWallet = serverPaymentWallet;
-  if (!paymentWallet) {
-    return {
-      success: false, txHash: null, verified: false,
-      error: "Payment wallet not configured — unable to fetch from server",
-      productId,
-    };
-  }
-
-  // Step 1: Switch wallet to Base Mainnet (chainId 8453) and verify
   try {
-    await ensureBaseNetwork(provider);
-    const actualChainId = await getChainId(provider);
-    if (actualChainId !== PAYMENT_CHAIN_ID) {
-      return {
-        success: false, txHash: null, verified: false,
-        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Base Mainnet), got ${actualChainId}`,
-        productId,
-      };
+    assertShopConfigured();
+    const product = PRODUCT_CONFIG[productId];
+    if (!product) throw new Error("Produto não reconhecido pelo catálogo NV.");
+    if (product.type !== productType || product.price !== amountUsd || (productType === "xp" && product.xp !== xpAmount)) {
+      throw new Error("Os dados do produto não correspondem ao catálogo oficial da loja.");
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      success: false, txHash: null, verified: false,
-      error: msg.includes("4001") || msg.includes("User rejected")
-        ? "Network switch rejected by wallet"
-        : `Failed to switch to Base Mainnet: ${msg}`,
-      productId,
-    };
-  }
-
-  // Step 2: Send the real on-chain transaction
-  let txHash: string;
-  try {
-    const tokenMap = getTokensForNetwork(PAYMENT_NETWORK);
-    const tokenCfg = tokenMap[PAYMENT_TOKEN_SYMBOL];
-
-    if (tokenCfg?.isNative || !tokenCfg?.address) {
-      txHash = await transferNative(provider, walletAddress, paymentWallet, amountUsd);
-    } else {
-      txHash = await transferErc20(
-        provider,
-        walletAddress,
-        tokenCfg.address,
-        paymentWallet,
-        amountUsd,
-        tokenCfg.decimals,
-      );
+    const chainId = await provider.request({ method: "eth_chainId" });
+    const currentChain = typeof chainId === "string" ? Number.parseInt(chainId, 16) : Number(chainId);
+    if (currentChain !== PAYMENT_CHAIN_ID) {
+      try {
+        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x13b2" }] });
+      } catch (switchError) {
+        if ((switchError as { code?: number })?.code === 4902) {
+          await provider.request({ method: "wallet_addEthereumChain", params: [{
+            chainId: "0x13b2", chainName: "Arc",
+            nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+            rpcUrls: [ARC.rpcUrl], blockExplorerUrls: [ARC.explorerUrl],
+          }] });
+        } else { throw switchError; }
+      }
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      success: false,
-      txHash: null,
-      verified: false,
-      error: msg.includes("4001") || msg.includes("User rejected")
-        ? "Transaction rejected by wallet"
-        : `Failed to send transaction: ${msg}`,
-      productId,
-    };
-  }
-
-  // Step 3: Insert pending purchase record
-  if (supabase) {
-    await supabase.from("gamification_purchases").insert({
-      wallet_address: walletAddress.toLowerCase(),
-      product_id: productId,
-      product_type: productType,
-      amount_usd: amountUsd,
-      token_symbol: PAYMENT_TOKEN_SYMBOL,
-      chain_id: PAYMENT_CHAIN_ID,
-      tx_hash: txHash,
-      status: "pending",
+    const [onChainPrice, onChainXp, onChainDay, onChainWeek, onChain30Days, onChainType, active] = await publicClient.readContract({
+      address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: "products", args: [productKey(productId)],
     });
+    const configuredTreasury = await publicClient.readContract({ address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: "treasury" });
+    if (!active || Number(onChainType) !== (productType === "skin" ? 0 : 1) || onChainPrice !== parseUnits(String(product.price), 18) || Number(onChainXp) !== product.xp || Number(onChainDay) !== product.limits.maxPerDay || Number(onChainWeek) !== product.limits.maxPerWeek || Number(onChain30Days) !== product.limits.maxPerMonth) {
+      throw new Error("A configuração on-chain do produto não corresponde ao catálogo esperado. Compra bloqueada.");
+    }
+    if (configuredTreasury.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
+      throw new Error("A carteira treasury configurada não corresponde à carteira imutável do contrato.");
+    }
+    const walletClient = createWalletClient({ account: walletAddress as Address, chain: {
+      id: 5042, name: "Arc", nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+      rpcUrls: { default: { http: [ARC.rpcUrl] } },
+    }, transport: custom(provider as any) });
+    const hash = await walletClient.writeContract({
+      address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: "purchase",
+      args: [productKey(productId)], value: parseUnits(String(product.price), 18),
+      account: walletAddress as Address,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+    if (receipt.status !== "success") throw new Error("A transação foi revertida na Arc.");
+    const decoded = parseEventLogs({ abi: SHOP_ABI, logs: receipt.logs, eventName: "PurchaseCompleted", strict: true });
+    const event = decoded.find((entry) =>
+      entry.args.buyer.toLowerCase() === walletAddress.toLowerCase() &&
+      entry.args.productId.toLowerCase() === productKey(productId).toLowerCase() &&
+      entry.args.amount === parseUnits(String(product.price), 18)
+    );
+    if (!event) throw new Error("A transação foi confirmada, mas não contém o evento de compra esperado. Contate o suporte com o hash.");
+    return { success: true, txHash: hash, verified: true, error: null, productId };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, txHash: null, verified: false, error: message, productId };
   }
-
-  // Step 4: Verify on-chain through the edge function
-  // Only txHash, walletAddress, and productId are sent — the server derives
-  // price, token, chain, and XP from its own authoritative product catalog.
-  const verifyResult = await verifyTransaction({
-    txHash,
-    walletAddress,
-    productId,
-  });
-
-  return {
-    success: verifyResult.verified,
-    txHash,
-    verified: verifyResult.verified,
-    error: verifyResult.error,
-    productId,
-  };
 }
-
-// ── Verify a transaction through the edge function ───────────────────────
-export interface VerifyParams {
-  txHash: string;
-  walletAddress: string;
-  productId: string;
-  // productType, amountUsd, xpAmount are NOT sent to the server.
-  // The server derives price, token, chain, and XP from its own product catalog.
-}
-
-export interface VerifyResult {
-  verified: boolean;
-  error: string | null;
-  status: string;
-}
-
+export interface VerifyParams { txHash: string; walletAddress: string; productId: string; }
+export interface VerifyResult { verified: boolean; error: string | null; status: string; }
 export async function verifyTransaction(params: VerifyParams): Promise<VerifyResult> {
-  if (!supabaseUrl) {
-    return { verified: false, error: "Server URL not configured", status: "error" };
-  }
-
-  const url = `${supabaseUrl}/functions/v1/verify-purchase`;
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({
-        txHash: params.txHash,
-        walletAddress: params.walletAddress,
-        productId: params.productId,
-      }),
-    });
-
-    const data = await res.json() as { verified?: boolean; error?: string; status?: string };
-
-    if (!res.ok && res.status !== 202) {
-      return { verified: false, error: data.error ?? `Verification failed (${res.status})`, status: data.status ?? "failed" };
-    }
-
-    if (data.verified === true) {
-      return { verified: true, error: null, status: "confirmed" };
-    }
-
-    // 202 = tx not yet mined, retry pending
-    if (res.status === 202) {
-      return { verified: false, error: "Transaction pending on-chain", status: "pending" };
-    }
-
-    return { verified: false, error: data.error ?? "Verification failed", status: data.status ?? "failed" };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { verified: false, error: `Network error: ${msg}`, status: "error" };
-  }
+    assertShopConfigured();
+    const receipt = await publicClient.getTransactionReceipt({ hash: params.txHash as Hash });
+    if (receipt.status !== "success") return { verified: false, error: "Transaction reverted", status: "failed" };
+    const events = parseEventLogs({ abi: SHOP_ABI, logs: receipt.logs, eventName: "PurchaseCompleted", strict: true });
+    const valid = events.some((event) => event.args.buyer.toLowerCase() === params.walletAddress.toLowerCase()
+      && event.args.productId.toLowerCase() === productKey(params.productId).toLowerCase());
+    return valid ? { verified: true, error: null, status: "confirmed" } : { verified: false, error: "Purchase event not found", status: "failed" };
+  } catch (err) { return { verified: false, error: err instanceof Error ? err.message : String(err), status: "error" }; }
 }
-
-// ── Retry verification for a pending transaction (e.g. after a refresh) ──
 export async function retryVerification(record: PurchaseRecord): Promise<VerifyResult> {
-  return verifyTransaction({
-    txHash: record.tx_hash,
-    walletAddress: record.wallet_address,
-    productId: record.product_id,
-  });
+  return verifyTransaction({ txHash: record.tx_hash, walletAddress: record.wallet_address, productId: record.product_id });
 }
