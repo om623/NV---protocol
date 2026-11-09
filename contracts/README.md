@@ -67,7 +67,7 @@ The script deploys `NVShop`, sets the deploying wallet as owner, verifies the im
 | premium-500 | 0 | 10000000000000000000 | 0 | 1 | 2 | 4 |
 | premium-1000 | 0 | 20000000000000000000 | 0 | 1 | 1 | 2 |
 
-Keep the deployment output and transaction hashes. The script prints the contract address. Find the deployment transaction in `broadcast/DeployNVShop.s.sol/5042/run-latest.json`; query its receipt to obtain the exact deployment block:
+Keep the deployment output and transaction hashes. The script emits an `NVShopDeployment` event containing the contract address, owner and treasury. Find the deployment transaction in `broadcast/DeployNVShop.s.sol/5042/run-latest.json`; query its receipt to obtain the exact deployment block:
 
 ```sh
 cast receipt <deployment-transaction-hash> \
