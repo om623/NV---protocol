@@ -1492,7 +1492,7 @@ function Home() {
 
           {/* ── Main scroll area ────────────────────────────────────────── */}
           <main className="flex-1 overflow-y-auto">
-            <div className={activeView === 'radar' ? 'w-full px-3 sm:px-4 pt-4 pb-6 flex flex-col gap-5' : 'max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5'}>
+            <div className={activeView === 'radar' ? 'w-full px-3 sm:px-4 pt-4 pb-6 flex flex-col gap-5' : activeView === 'perfil' ? 'max-w-[920px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5' : 'max-w-[520px] mx-auto px-4 pt-5 pb-10 flex flex-col gap-5'}>
 
               {activeView === 'historico' && <HistoryModule />}
               {activeView === 'relatorios' && <ReportsModule />}

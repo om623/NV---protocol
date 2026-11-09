@@ -9,6 +9,7 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:radar": "bun run scripts/radar-tests.ts",
+    "test:profile": "bun run scripts/profile-tests.ts && bun run scripts/profile-shop-tests.ts && bun run scripts/profile-3d-tests.ts",
     "agent:policy": "node cli/nv-agent-policy.mjs"
   },
   "dependencies": {

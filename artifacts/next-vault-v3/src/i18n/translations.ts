@@ -1,5 +1,6 @@
 import type { Locale } from './types';
 import { buildRadarDicts } from './radar';
+import { buildProfileDicts } from './profile';
 
 type Dict = Record<string, string>;
 
@@ -3023,6 +3024,18 @@ Object.assign(ja, radarDicts.ja);
 Object.assign(ko, radarDicts.ko);
 Object.assign(hi, radarDicts.hi);
 Object.assign(ar, radarDicts.ar);
+
+// Profile / Nvult strings for all nine locales (maintained in ./profile).
+const profileDicts = buildProfileDicts();
+Object.assign(ptBR, profileDicts['pt-BR']);
+Object.assign(en, profileDicts.en);
+Object.assign(es, profileDicts.es);
+Object.assign(fr, profileDicts.fr);
+Object.assign(zh, profileDicts.zh);
+Object.assign(ja, profileDicts.ja);
+Object.assign(ko, profileDicts.ko);
+Object.assign(hi, profileDicts.hi);
+Object.assign(ar, profileDicts.ar);
 
 const DICTS: Record<Locale, Dict> = {
   'pt-BR': ptBR,
