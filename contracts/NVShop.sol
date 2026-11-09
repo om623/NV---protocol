@@ -2,27 +2,20 @@
 pragma solidity ^0.8.24;
 
 /// @title NVShop
-/// @notice Non-custodial purchase registry for the NV shop on Arc.
-/// @dev Arc native USDC is sent as msg.value (18 decimal native precision).
-///      Product configuration is written on-chain by the owner; every purchase
-///      is verified and recorded atomically by this contract.
+/// @notice On-chain purchase registry for the NV shop on Arc.
+/// @dev Arc native USDC is paid as msg.value (18 decimal native precision).
+///      Prices, XP amounts and purchase limits are authoritative on-chain.
 contract NVShop {
-    enum ProductType {
-        Skin,
-        XP
-    }
+    enum ProductType { Skin, XP }
 
     struct Product {
-        uint256 price; // Native USDC units (18 decimals on Arc)
+        uint256 price;
         uint32 xpAmount;
-        uint8 productType; // 0 = skin, 1 = XP
+        uint32 maxPerDay;
+        uint32 maxPerWeek;
+        uint32 maxPer30Days;
+        uint8 productType;
         bool active;
-    }
-
-    struct PurchaseWindow {
-        uint32 day;
-        uint32 week;
-        uint32 month;
     }
 
     address public owner;
@@ -30,9 +23,9 @@ contract NVShop {
 
     mapping(bytes32 => Product) public products;
     mapping(address => mapping(bytes32 => bool)) public ownsSkin;
-    mapping(address => mapping(bytes32 => PurchaseWindow)) private purchaseWindows;
     mapping(address => mapping(bytes32 => uint256)) public totalPurchases;
     mapping(bytes32 => bool) public configuredProducts;
+    mapping(bytes32 => uint32) private periodCounts;
 
     uint256 private entered = 1;
 
@@ -45,7 +38,7 @@ contract NVShop {
     error SkinAlreadyOwned();
     error DailyLimitReached();
     error WeeklyLimitReached();
-    error MonthlyLimitReached();
+    error ThirtyDayLimitReached();
     error TreasuryTransferFailed();
     error ReentrantCall();
 
@@ -54,6 +47,9 @@ contract NVShop {
         uint8 productType,
         uint256 price,
         uint32 xpAmount,
+        uint32 maxPerDay,
+        uint32 maxPerWeek,
+        uint32 maxPer30Days,
         bool active
     );
     event PurchaseCompleted(
@@ -92,64 +88,53 @@ contract NVShop {
         emit OwnershipTransferred(previous, newOwner);
     }
 
-    /// @notice Configure a product. Limits are enforced for XP products;
-    ///         skin products are limited to one purchase per wallet.
+    /// @notice Configure an authoritative product and its limits.
+    /// @dev Zero limit means unlimited. Skin products are always one-time per wallet.
     function configureProduct(
         bytes32 productId,
         uint8 productType,
         uint256 price,
         uint32 xpAmount,
+        uint32 maxPerDay,
+        uint32 maxPerWeek,
+        uint32 maxPer30Days,
         bool active
     ) external onlyOwner {
         if (productId == bytes32(0)) revert InvalidProduct();
         if (productType > uint8(ProductType.XP)) revert InvalidProductType();
         if (price == 0) revert InvalidPrice();
-        if (productType == uint8(ProductType.Skin) && xpAmount != 0) {
-            revert InvalidProduct();
-        }
-        if (productType == uint8(ProductType.XP) && xpAmount == 0) {
-            revert InvalidProduct();
-        }
+        if (productType == uint8(ProductType.Skin) && xpAmount != 0) revert InvalidProduct();
+        if (productType == uint8(ProductType.XP) && xpAmount == 0) revert InvalidProduct();
 
         products[productId] = Product({
             price: price,
             xpAmount: xpAmount,
+            maxPerDay: maxPerDay,
+            maxPerWeek: maxPerWeek,
+            maxPer30Days: maxPer30Days,
             productType: productType,
             active: active
         });
         configuredProducts[productId] = true;
 
-        emit ProductConfigured(productId, productType, price, xpAmount, active);
+        emit ProductConfigured(
+            productId, productType, price, xpAmount,
+            maxPerDay, maxPerWeek, maxPer30Days, active
+        );
     }
 
-    /// @notice Purchase a configured shop product using Arc's native USDC.
+    /// @notice Purchase a product using Arc native USDC.
     /// @param productId keccak256(bytes(product ID string)), e.g. keccak256("xp-daily").
-    /// @param maxPerDay Maximum purchases in the current UTC day (0 disables the cap).
-    /// @param maxPerWeek Maximum purchases in the current UTC week (0 disables the cap).
-    /// @param maxPerMonth Maximum purchases in the current UTC month (0 disables the cap).
-    function purchase(
-        bytes32 productId,
-        uint32 maxPerDay,
-        uint32 maxPerWeek,
-        uint32 maxPerMonth
-    ) external payable nonReentrant {
+    function purchase(bytes32 productId) external payable nonReentrant {
         Product memory product = products[productId];
         if (!configuredProducts[productId] || !product.active) revert InvalidProduct();
-        if (msg.value != product.price) {
-            revert IncorrectPayment(product.price, msg.value);
-        }
+        if (msg.value != product.price) revert IncorrectPayment(product.price, msg.value);
 
         if (product.productType == uint8(ProductType.Skin)) {
             if (ownsSkin[msg.sender][productId]) revert SkinAlreadyOwned();
             ownsSkin[msg.sender][productId] = true;
         } else {
-            _enforceAndUpdateLimits(
-                msg.sender,
-                productId,
-                maxPerDay,
-                maxPerWeek,
-                maxPerMonth
-            );
+            _enforceAndUpdateLimits(msg.sender, productId, product);
         }
 
         totalPurchases[msg.sender][productId] += 1;
@@ -158,48 +143,35 @@ contract NVShop {
         if (!sent) revert TreasuryTransferFailed();
 
         emit PurchaseCompleted(
-            msg.sender,
-            productId,
-            product.productType,
-            msg.value,
-            product.xpAmount,
-            block.timestamp
+            msg.sender, productId, product.productType,
+            msg.value, product.xpAmount, block.timestamp
         );
     }
 
     function _enforceAndUpdateLimits(
         address buyer,
         bytes32 productId,
-        uint32 maxPerDay,
-        uint32 maxPerWeek,
-        uint32 maxPerMonth
+        Product memory product
     ) private {
         uint32 dayKey = uint32(block.timestamp / 1 days);
         uint32 weekKey = uint32(block.timestamp / 1 weeks);
-        uint32 monthKey = uint32(block.timestamp / 30 days);
+        // The 30-day window is fixed-length and UTC-aligned to the Unix epoch.
+        uint32 thirtyDayKey = uint32(block.timestamp / 30 days);
 
-        PurchaseWindow storage window = purchaseWindows[buyer][productId];
-
-        if (window.day != dayKey) window.day = dayKey;
-        if (window.week != weekKey) window.week = weekKey;
-        if (window.month != monthKey) window.month = monthKey;
-
-        // Counters are stored separately per period to avoid reset ambiguity.
-        // The packed values below are the current-period counts.
         uint32 dayCount = _periodCount(buyer, productId, 0, dayKey);
         uint32 weekCount = _periodCount(buyer, productId, 1, weekKey);
-        uint32 monthCount = _periodCount(buyer, productId, 2, monthKey);
+        uint32 thirtyDayCount = _periodCount(buyer, productId, 2, thirtyDayKey);
 
-        if (maxPerDay != 0 && dayCount >= maxPerDay) revert DailyLimitReached();
-        if (maxPerWeek != 0 && weekCount >= maxPerWeek) revert WeeklyLimitReached();
-        if (maxPerMonth != 0 && monthCount >= maxPerMonth) revert MonthlyLimitReached();
+        if (product.maxPerDay != 0 && dayCount >= product.maxPerDay) revert DailyLimitReached();
+        if (product.maxPerWeek != 0 && weekCount >= product.maxPerWeek) revert WeeklyLimitReached();
+        if (product.maxPer30Days != 0 && thirtyDayCount >= product.maxPer30Days) {
+            revert ThirtyDayLimitReached();
+        }
 
         _setPeriodCount(buyer, productId, 0, dayKey, dayCount + 1);
         _setPeriodCount(buyer, productId, 1, weekKey, weekCount + 1);
-        _setPeriodCount(buyer, productId, 2, monthKey, monthCount + 1);
+        _setPeriodCount(buyer, productId, 2, thirtyDayKey, thirtyDayCount + 1);
     }
-
-    mapping(bytes32 => uint32) private periodCounts;
 
     function _periodSlot(
         address buyer,
@@ -229,22 +201,17 @@ contract NVShop {
         periodCounts[_periodSlot(buyer, productId, period, key)] = count;
     }
 
-    function getProduct(bytes32 productId) external view returns (Product memory) {
-        return products[productId];
-    }
-
     function getPurchaseWindow(
         address buyer,
         bytes32 productId
-    ) external view returns (uint32 dayCount, uint32 weekCount, uint32 monthCount) {
+    ) external view returns (uint32 dayCount, uint32 weekCount, uint32 thirtyDayCount) {
         uint32 dayKey = uint32(block.timestamp / 1 days);
         uint32 weekKey = uint32(block.timestamp / 1 weeks);
-        uint32 monthKey = uint32(block.timestamp / 30 days);
-
+        uint32 thirtyDayKey = uint32(block.timestamp / 30 days);
         return (
             _periodCount(buyer, productId, 0, dayKey),
             _periodCount(buyer, productId, 1, weekKey),
-            _periodCount(buyer, productId, 2, monthKey)
+            _periodCount(buyer, productId, 2, thirtyDayKey)
         );
     }
 }
