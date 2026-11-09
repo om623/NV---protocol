@@ -35,7 +35,7 @@ contract NVShopTest {
     }
 
     function testRejectsIncorrectPayment() public {
-        vm.expectRevert(NVShop.IncorrectPayment.selector);
+        vm.expectRevert(abi.encodeWithSelector(NVShop.IncorrectPayment.selector, 0.2 ether, 0.1 ether));
         shop.purchase{value: 0.1 ether}(XP_DAILY);
     }
 
