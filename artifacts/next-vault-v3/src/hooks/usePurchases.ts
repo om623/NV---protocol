@@ -61,6 +61,8 @@ export function usePurchases({ walletAddress, onSkinUnlocked, onXpGranted }: Use
       for (const entitlement of ents) {
         if (entitlement.product_type === "xp" && entitlement.xp_amount > 0) {
           onXpGranted(entitlement.xp_amount, entitlement.tx_hash);
+        } else if (entitlement.product_type === "skin") {
+          onSkinUnlocked(entitlement.product_id);
         }
       }
 
@@ -78,7 +80,7 @@ export function usePurchases({ walletAddress, onSkinUnlocked, onXpGranted }: Use
     } finally {
       setSyncing(false);
     }
-  }, [onXpGranted]);
+  }, [onXpGranted, onSkinUnlocked]);
 
   useEffect(() => {
     if (walletAddress) {
