@@ -12,16 +12,20 @@ interface Vm {
 
 contract NVShopTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    address payable private constant TREASURY = payable(address(0xBEEF));
+    address payable private constant TREASURY = payable(0xAd397122941D03450c70d0076379e079334D434f);
     NVShop private shop;
     bytes32 private constant XP_DAILY = keccak256("xp-daily");
     bytes32 private constant SKIN_ONE = keccak256("skin-one");
 
     function setUp() public {
-        shop = new NVShop(TREASURY);
+        shop = new NVShop();
         shop.configureProduct(XP_DAILY, 1, 0.2 ether, 30, 1, 5, 20, true);
         shop.configureProduct(SKIN_ONE, 0, 10 ether, 0, 0, 0, 0, true);
         vm.deal(address(this), 100 ether);
+    }
+
+    function testTreasuryIsTheOfficialNVReceivingWallet() public {
+        require(shop.treasury() == TREASURY, "official treasury mismatch");
     }
 
     function testPurchaseForwardsNativeUsdcAndEmitsEntitlementData() public {
