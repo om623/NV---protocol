@@ -9,7 +9,10 @@ import { NETWORKS_CONFIG } from "../networks";
 const ARC = NETWORKS_CONFIG.find((network) => network.chainId === 5042)!;
 const SHOP_ADDRESS = (import.meta.env.VITE_NV_SHOP_ADDRESS ?? "") as Address;
 const DEPLOYMENT_BLOCK = BigInt(import.meta.env.VITE_NV_SHOP_DEPLOYMENT_BLOCK ?? "0");
-const TREASURY_ADDRESS = (import.meta.env.VITE_NV_SHOP_TREASURY ?? "") as Address;
+// Official NV receiving wallet, recovered from the original Profile/Shop payment configuration.
+// Keep the on-chain immutable treasury and deployment environment aligned with this address.
+const OFFICIAL_TREASURY_ADDRESS = "0xAd397122941D03450c70d0076379e079334D434f" as Address;
+const TREASURY_ADDRESS = (import.meta.env.VITE_NV_SHOP_TREASURY || OFFICIAL_TREASURY_ADDRESS) as Address;
 
 export const PAYMENT_CHAIN_ID = 5042;
 export const PAYMENT_CHAIN_NAME = "Arc";
