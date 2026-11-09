@@ -1,7 +1,7 @@
 // ── NV Shop: Arc-native, on-chain payments (no Supabase dependency) ──────────
 import {
   createPublicClient, createWalletClient, custom, http, parseAbi, parseEventLogs,
-  parseUnits, formatUnits, type Address, type Hash,
+  parseUnits, formatUnits, keccak256, toBytes, type Address, type Hash,
 } from "viem";
 import type { Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
@@ -39,12 +39,6 @@ const PRODUCT_CONFIG: Record<string, { type: "skin" | "xp"; price: number; xp: n
   "premium-1000": { type: "skin", price: 20, xp: 0, limits: { maxPerDay: 1, maxPerWeek: 1, maxPerMonth: 2 } },
 };
 
-function productHash(id: string): `0x${string}` {
-  const bytes = new TextEncoder().encode(id);
-  // keccak256 is supplied by viem; import kept local to avoid any hand-built selector.
-  return keccak256(bytesToHex(bytes));
-}
-import { keccak256, toBytes, toHex as bytesToHex } from "viem";
 function productKey(id: string): `0x${string}` { return keccak256(toBytes(id)); }
 
 export function getServerPaymentWallet(): string | null {
@@ -198,7 +192,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     const currentChain = typeof chainId === "string" ? Number.parseInt(chainId, 16) : Number(chainId);
     if (currentChain !== PAYMENT_CHAIN_ID) {
       try {
-        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x13b4" }] });
+        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x13b2" }] });
       } catch (switchError) {
         if ((switchError as { code?: number })?.code === 4902) {
           await provider.request({ method: "wallet_addEthereumChain", params: [{
