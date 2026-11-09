@@ -12,7 +12,8 @@ The NV shop payment and entitlement flow is being migrated away from Supabase. T
 - Product key: `keccak256(bytes(productId))`; existing IDs are preserved.
 - Purchase events are the source for history and entitlements.
 - Contract mappings enforce skin ownership and XP purchase limits.
-- The treasury is immutable after deployment. Confirm its address before deploying.
+- Official immutable treasury: `0xAd397122941D03450c70d0076379e079334D434f` (recovered from the original Profile/Shop payment configuration).
+- The contract hardcodes this receiving wallet; it cannot be changed through deployment arguments or owner actions.
 
 ## Configure the frontend
 
@@ -20,7 +21,7 @@ Set these Vite variables in the deployment environment for the app:
 
 ```dotenv
 VITE_NV_SHOP_ADDRESS=0x<deployed-contract-address>
-VITE_NV_SHOP_TREASURY=0x<treasury-address>
+VITE_NV_SHOP_TREASURY=0xAd397122941D03450c70d0076379e079334D434f
 VITE_NV_SHOP_DEPLOYMENT_BLOCK=<contract-deployment-block>
 ```
 
@@ -39,7 +40,7 @@ The GitHub Actions workflow `.github/workflows/nv-shop-contract.yml` runs the co
 
 ## Deploy and configure
 
-Do not deploy until the treasury address has been confirmed and the contract/test review is complete. Use a dedicated deployment wallet; never commit its private key.
+The receiving wallet is fixed in the contract source. Review the contract and test suite before deploying. Use a dedicated deployment wallet; never commit its private key.
 
 Compile first:
 
@@ -52,8 +53,7 @@ Deploy to Arc Mainnet using the deployer's local environment and the confirmed t
 ```sh
 forge create contracts/NVShop.sol:NVShop \
   --rpc-url https://rpc.mainnet.arc.io \
-  --private-key "$NV_DEPLOYER_PRIVATE_KEY" \
-  --constructor-args "$NV_SHOP_TREASURY"
+  --private-key "$NV_DEPLOYER_PRIVATE_KEY"
 ```
 
 Save the deployed contract address and deployment block, then configure each product from the owner wallet. Values below use 18-decimal native USDC units. The owner must submit each transaction:
@@ -81,7 +81,7 @@ Replace the example arguments with each row's values and product ID. Keep privat
 ## Rollout safeguards
 
 1. This contract is source code only until deployed and configured. No production purchase is enabled yet.
-2. Validate the same contract on Arc Testnet first using a testnet deployment and test treasury.
+2. Validate the same contract on Arc Testnet first using a testnet deployment. The receiving wallet remains the official NV treasury.
 3. Verify every product's on-chain configuration against the table before enabling the frontend.
 4. Set the three Vite variables only after confirming deployment address and block.
 5. Test a small purchase with explicit wallet approval, then verify receipt, XP credit, skin ownership, limits and history.
