@@ -57,6 +57,12 @@ export function usePurchases({ walletAddress, onSkinUnlocked, onXpGranted }: Use
       ]);
       setEntitlements(ents);
       setPurchases(purs);
+      // Reconcile XP entitlements after reload/device change. grantXp is tx-hash idempotent.
+      for (const entitlement of ents) {
+        if (entitlement.product_type === "xp" && entitlement.xp_amount > 0) {
+          onXpGranted(entitlement.xp_amount, entitlement.tx_hash);
+        }
+      }
 
       // Retry verification for any pending purchases
       const pending = purs.filter((p) => p.status === "pending");
@@ -72,7 +78,7 @@ export function usePurchases({ walletAddress, onSkinUnlocked, onXpGranted }: Use
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [onXpGranted]);
 
   useEffect(() => {
     if (walletAddress) {
