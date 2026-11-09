@@ -39,25 +39,25 @@ The GitHub Actions workflow `.github/workflows/nv-shop-contract.yml` runs the co
 
 ## Deploy and configure
 
-The receiving wallet is fixed in the contract source. Review the contract and test suite before deploying. Use a dedicated deployment wallet; never commit its private key.
+The repository includes a single guarded Foundry script that deploys the contract and configures all five catalog products. It refuses to run unless the connected RPC reports Arc Mainnet chain ID `5042`. This is a production deployment; do not run it until you have independently reviewed the contract and intentionally chosen to deploy to mainnet.
 
-Compile first:
+Use a dedicated deployment wallet. Its private key must remain in your local shell environment and must never be pasted into chat, committed, or added to GitHub/Vercel.
+
+From the repository root:
 
 ```sh
 forge build
-```
-
-Deploy to Arc Mainnet using the deployer's local environment and the confirmed treasury:
-
-```sh
-forge create contracts/NVShop.sol:NVShop \
+forge test
+export NV_DEPLOYER_PRIVATE_KEY=<your-local-deployer-private-key>
+forge script script/DeployNVShop.s.sol:DeployNVShop \
   --rpc-url https://rpc.mainnet.arc.io \
-  --private-key "$NV_DEPLOYER_PRIVATE_KEY"
+  --broadcast
+unset NV_DEPLOYER_PRIVATE_KEY
 ```
 
-Save the deployed contract address and deployment block, then configure each product from the owner wallet. Values below use 18-decimal native USDC units. The owner must submit each transaction:
+The script deploys `NVShop`, sets the deploying wallet as owner, verifies the immutable official treasury, and submits configuration transactions for all five products:
 
-| Product ID | Type | Price | XP | Daily | Weekly | 30-day |
+| Product ID | Type | Price (18 decimals) | XP | Daily | Weekly | 30-day |
 |---|---:|---:|---:|---:|---:|---:|
 | xp-daily | 1 | 200000000000000000 | 30 | 1 | 5 | 20 |
 | xp-weekly | 1 | 500000000000000000 | 60 | 1 | 3 | 12 |
@@ -65,17 +65,14 @@ Save the deployed contract address and deployment block, then configure each pro
 | premium-500 | 0 | 10000000000000000000 | 0 | 1 | 2 | 4 |
 | premium-1000 | 0 | 20000000000000000000 | 0 | 1 | 1 | 2 |
 
-For each row, call:
+Keep the deployment output and transaction hashes. The script prints the contract address. Find the deployment transaction in `broadcast/DeployNVShop.s.sol/5042/run-latest.json`; query its receipt to obtain the exact deployment block:
 
 ```sh
-cast send "$NV_SHOP_ADDRESS" \
-  "configureProduct(bytes32,uint8,uint256,uint32,uint32,uint32,uint32,bool)" \
-  "$(cast keccak "xp-daily")" 1 200000000000000000 30 1 5 20 true \
-  --rpc-url https://rpc.mainnet.arc.io \
-  --private-key "$NV_SHOP_OWNER_PRIVATE_KEY"
+cast receipt <deployment-transaction-hash> \
+  --rpc-url https://rpc.mainnet.arc.io --json
 ```
 
-Replace the example arguments with each row's values and product ID. Keep private keys local; do not paste them into chat, GitHub, or the repository.
+Use the receipt's `blockNumber` (hex value) converted to a decimal integer as `VITE_NV_SHOP_DEPLOYMENT_BLOCK`. Set the verified contract address as `VITE_NV_SHOP_ADDRESS`. Do not configure Vercel with placeholders, and do not enable the frontend until the deployed treasury and all five product records have been independently read back and verified.
 
 ## Rollout safeguards
 
