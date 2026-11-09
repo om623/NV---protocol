@@ -48,7 +48,9 @@ From the repository root:
 ```sh
 forge build
 forge test
-export NV_DEPLOYER_PRIVATE_KEY=<your-local-deployer-private-key>
+read -s -p "Deployment private key: " NV_DEPLOYER_PRIVATE_KEY
+export NV_DEPLOYER_PRIVATE_KEY
+echo
 forge script script/DeployNVShop.s.sol:DeployNVShop \
   --rpc-url https://rpc.mainnet.arc.io \
   --broadcast
@@ -77,9 +79,9 @@ Use the receipt's `blockNumber` (hex value) converted to a decimal integer as `V
 ## Rollout safeguards
 
 1. This contract is source code only until deployed and configured. No production purchase is enabled yet.
-2. Validate the same contract on Arc Testnet first using a testnet deployment. The receiving wallet remains the official NV treasury.
-3. Verify every product's on-chain configuration against the table before enabling the frontend.
-4. Set the three Vite variables only after confirming deployment address and block.
-5. Test a small purchase with explicit wallet approval, then verify receipt, XP credit, skin ownership, limits and history.
+2. The current frontend and deployment script target Arc Mainnet (5042); this branch does not provide an end-to-end Arc Testnet mode. Do not assume testnet validation is available through the NV interface.
+3. Verify the deployed treasury and every product's on-chain configuration against the table before enabling the frontend.
+4. Set the two Vite variables only after confirming the deployment address and exact deployment block.
+5. Only after independent review, test with explicit wallet approval and a deliberately small purchase; verify receipt, XP credit, skin ownership, limits and history.
 6. Do not remove Supabase from unrelated NV modules. This migration removes it from the shop payment flow only.
-7. The contract is not audited. It must receive independent security review before handling production funds.
+7. The contract is not audited. It requires independent security review before handling production funds.
