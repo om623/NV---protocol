@@ -12,7 +12,7 @@ const DEPLOYMENT_BLOCK = BigInt(import.meta.env.VITE_NV_SHOP_DEPLOYMENT_BLOCK ??
 // Official NV receiving wallet, recovered from the original Profile/Shop payment configuration.
 // Keep the on-chain immutable treasury and deployment environment aligned with this address.
 const OFFICIAL_TREASURY_ADDRESS = "0xAd397122941D03450c70d0076379e079334D434f" as Address;
-const TREASURY_ADDRESS = (import.meta.env.VITE_NV_SHOP_TREASURY || OFFICIAL_TREASURY_ADDRESS) as Address;
+const TREASURY_ADDRESS = OFFICIAL_TREASURY_ADDRESS;
 
 export const PAYMENT_CHAIN_ID = 5042;
 export const PAYMENT_CHAIN_NAME = "Arc";
@@ -52,7 +52,7 @@ export function isServerConfigLoaded(): boolean { return Boolean(SHOP_ADDRESS &&
 
 export interface ServerProductInfo { id: string; productType: "skin" | "xp"; priceUsd: number; xpAmount: number; }
 export async function fetchServerPaymentConfig(): Promise<void> {
-  if (!isServerConfigLoaded()) console.warn("[NV Shop] Configure VITE_NV_SHOP_ADDRESS and VITE_NV_SHOP_TREASURY before enabling purchases.");
+  if (!isServerConfigLoaded()) console.warn("[NV Shop] Configure VITE_NV_SHOP_ADDRESS before enabling purchases; the official treasury is fixed in the application and contract.");
 }
 export async function fetchServerProducts(): Promise<ServerProductInfo[]> {
   return Object.entries(PRODUCT_CONFIG).map(([id, p]) => ({ id, productType: p.type, priceUsd: p.price, xpAmount: p.xp }));
