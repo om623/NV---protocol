@@ -1,34 +1,89 @@
 # NV Shop — Arc-native purchase contract
 
-The NV shop is being migrated away from Supabase as its payment and entitlement authority.
+The NV shop payment and entitlement flow is being migrated away from Supabase. The application reads purchase receipts and entitlements directly from Arc Mainnet.
 
-## Contract
+## Contract and network
 
-- Source: `contracts/NVShop.sol`
-- Target chain: Arc Mainnet (chain ID `5042`)
-- Payment asset: Arc native USDC, transferred as `msg.value` using 18-decimal native precision.
-- Product IDs: `keccak256(bytes(productId))`, preserving the existing shop IDs (for example, `xp-daily`).
-- The contract stores authoritative product price, XP amount, active state and purchase limits.
-- Purchases forward the exact payment directly to the immutable treasury address and emit `PurchaseCompleted`.
-- Skin ownership and XP purchase counters are recorded on-chain. Skin purchases are one-time per wallet.
-- XP limits are enforced by the contract: per UTC day, per UTC week and per fixed 30-day epoch window. The 30-day window is intentionally fixed-length; the frontend must display the same reset rule.
+- Contract: `contracts/NVShop.sol`
+- Chain: Arc Mainnet, chain ID `5042`
+- RPC: `https://rpc.mainnet.arc.io`
+- Explorer: `https://explorer.arc.io`
+- Payment: Arc native USDC, 18 decimal places, sent as `msg.value`.
+- Product key: `keccak256(bytes(productId))`; existing IDs are preserved.
+- Purchase events are the source for history and entitlements.
+- Contract mappings enforce skin ownership and XP purchase limits.
+- The treasury is immutable after deployment. Confirm its address before deploying.
 
-## Security and rollout constraints
+## Configure the frontend
 
-1. The contract has not been deployed. No live payment should be sent to it yet.
-2. The treasury address must be confirmed before deployment; it is immutable after deployment.
-3. Product configuration must be loaded from the existing shop catalogue and independently reconciled before enabling purchases.
-4. Frontend purchase, entitlement, history and limit reads must be migrated to the contract before removing Supabase from this flow.
-5. Do not remove Supabase dependencies used by unrelated NV modules.
-6. Deploy and validate on Arc Testnet first, then review the bytecode/source and configuration before any Arc Mainnet deployment.
-7. This contract is a first implementation, not an audited financial contract. It requires compilation, automated tests, review and testnet validation before production use.
+Set these Vite variables in the deployment environment for the app:
 
-## Local contract checks
+```dotenv
+VITE_NV_SHOP_ADDRESS=0x<deployed-contract-address>
+VITE_NV_SHOP_TREASURY=0x<treasury-address>
+VITE_NV_SHOP_DEPLOYMENT_BLOCK=<contract-deployment-block>
+```
 
-This repository uses Foundry configuration in `foundry.toml`. Run:
+The deployment block is required for efficient event-history scanning. Do not set a placeholder contract address in production. If the contract address is missing, purchases fail closed and no transaction is sent.
+
+## Compile and test
+
+Install Foundry, then run from the repository root:
 
 ```sh
 forge test
+forge build
 ```
 
-The test suite covers payment forwarding, exact-price enforcement, on-chain purchase limits, one-time skin ownership, inactive products and owner-only product configuration.
+The GitHub Actions workflow `.github/workflows/nv-shop-contract.yml` runs the contract test suite on pushes and pull requests affecting the contract.
+
+## Deploy and configure
+
+Do not deploy until the treasury address has been confirmed and the contract/test review is complete. Use a dedicated deployment wallet; never commit its private key.
+
+Compile first:
+
+```sh
+forge build
+```
+
+Deploy to Arc Mainnet using the deployer's local environment and the confirmed treasury:
+
+```sh
+forge create contracts/NVShop.sol:NVShop \
+  --rpc-url https://rpc.mainnet.arc.io \
+  --private-key "$NV_DEPLOYER_PRIVATE_KEY" \
+  --constructor-args "$NV_SHOP_TREASURY"
+```
+
+Save the deployed contract address and deployment block, then configure each product from the owner wallet. Values below use 18-decimal native USDC units. The owner must submit each transaction:
+
+| Product ID | Type | Price | XP | Daily | Weekly | 30-day |
+|---|---:|---:|---:|---:|---:|---:|
+| xp-daily | 1 | 200000000000000000 | 30 | 1 | 5 | 20 |
+| xp-weekly | 1 | 500000000000000000 | 60 | 1 | 3 | 12 |
+| xp-quarterly | 1 | 1000000000000000000 | 300 | 1 | 1 | 4 |
+| premium-500 | 0 | 10000000000000000000 | 0 | 1 | 2 | 4 |
+| premium-1000 | 0 | 20000000000000000000 | 0 | 1 | 1 | 2 |
+
+For each row, call:
+
+```sh
+cast send "$NV_SHOP_ADDRESS" \
+  "configureProduct(bytes32,uint8,uint256,uint32,uint32,uint32,uint32,bool)" \
+  "$(cast keccak "xp-daily")" 1 200000000000000000 30 1 5 20 true \
+  --rpc-url https://rpc.mainnet.arc.io \
+  --private-key "$NV_SHOP_OWNER_PRIVATE_KEY"
+```
+
+Replace the example arguments with each row's values and product ID. Keep private keys local; do not paste them into chat, GitHub, or the repository.
+
+## Rollout safeguards
+
+1. This contract is source code only until deployed and configured. No production purchase is enabled yet.
+2. Validate the same contract on Arc Testnet first using a testnet deployment and test treasury.
+3. Verify every product's on-chain configuration against the table before enabling the frontend.
+4. Set the three Vite variables only after confirming deployment address and block.
+5. Test a small purchase with explicit wallet approval, then verify receipt, XP credit, skin ownership, limits and history.
+6. Do not remove Supabase from unrelated NV modules. This migration removes it from the shop payment flow only.
+7. The contract is not audited. It must receive independent security review before handling production funds.
