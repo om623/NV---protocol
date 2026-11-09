@@ -127,10 +127,12 @@ export async function getLimitStatus(walletAddress: string, productId: string): 
   };
 }
 
+let cachedLogs: { wallet: string; block: bigint; logs: any[] } | null = null;
 async function readPurchaseLogs(walletAddress: string) {
-  if (!SHOP_ADDRESS) return [];
+  if (!SHOP_ADDRESS || DEPLOYMENT_BLOCK === 0n) return [];
   const latest = await publicClient.getBlockNumber();
-  const logs = [];
+  if (cachedLogs && cachedLogs.wallet === walletAddress.toLowerCase() && cachedLogs.block === latest) return cachedLogs.logs;
+  const logs: any[] = [];
   // Public RPC providers impose block-range limits; scan in conservative chunks.
   for (let from = DEPLOYMENT_BLOCK; from <= latest; from += 2000n) {
     const to = from + 1999n > latest ? latest : from + 1999n;
@@ -143,6 +145,7 @@ async function readPurchaseLogs(walletAddress: string) {
     });
     logs.push(...batch);
   }
+  cachedLogs = { wallet: walletAddress.toLowerCase(), block: latest, logs };
   return logs;
 }
 function recordsFromLogs(walletAddress: string, logs: Awaited<ReturnType<typeof readPurchaseLogs>>) {
