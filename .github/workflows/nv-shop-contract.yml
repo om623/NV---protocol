@@ -3,7 +3,7 @@ name: NV Shop contract tests
 on:
   push:
     paths:
-      - "contracts/**"
+      - "contracts/**"\n      - "script/**"
       - "foundry.toml"
       - ".github/workflows/nv-shop-contract.yml"
   pull_request:
