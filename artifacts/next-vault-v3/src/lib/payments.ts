@@ -48,7 +48,13 @@ function productKey(id: string): `0x${string}` { return keccak256(toBytes(id)); 
 export function getServerPaymentWallet(): string | null {
   return TREASURY_ADDRESS && /^0x[a-fA-F0-9]{40}$/.test(TREASURY_ADDRESS) ? TREASURY_ADDRESS : null;
 }
-export function isServerConfigLoaded(): boolean { return Boolean(SHOP_ADDRESS && getServerPaymentWallet()); }
+export function isServerConfigLoaded(): boolean {
+  return Boolean(
+    /^0x[a-fA-F0-9]{40}$/.test(SHOP_ADDRESS) &&
+    getServerPaymentWallet() &&
+    DEPLOYMENT_BLOCK > 0n
+  );
+}
 
 export interface ServerProductInfo { id: string; productType: "skin" | "xp"; priceUsd: number; xpAmount: number; }
 export async function fetchServerPaymentConfig(): Promise<void> {
@@ -203,7 +209,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
       } catch (switchError) {
         if ((switchError as { code?: number })?.code === 4902) {
           await provider.request({ method: "wallet_addEthereumChain", params: [{
-            chainId: "0x13b4", chainName: "Arc",
+            chainId: "0x13b2", chainName: "Arc",
             nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
             rpcUrls: [ARC.rpcUrl], blockExplorerUrls: [ARC.explorerUrl],
           }] });
