@@ -14,3 +14,10 @@ VALUES
 ON CONFLICT (key) DO UPDATE
 SET value = EXCLUDED.value,
     updated_at = now();
+
+-- Purchase and entitlement writes must be performed only by the Edge Function
+-- using the Supabase service/secret key. The public client retains read access.
+DROP POLICY IF EXISTS "anon_insert_purchases" ON public.gamification_purchases;
+DROP POLICY IF EXISTS "anon_update_purchases" ON public.gamification_purchases;
+DROP POLICY IF EXISTS "anon_insert_entitlements" ON public.gamification_entitlements;
+DROP POLICY IF EXISTS "anon_delete_entitlements" ON public.gamification_entitlements;
