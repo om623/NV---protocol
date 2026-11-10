@@ -3,7 +3,7 @@
 // then verifies the transaction on-chain through the verify-purchase edge function.
 // No product is unlocked without server-verified on-chain confirmation.
 
-import { transferErc20, transferNative, getTokensForNetwork, ensureArcMainnetNetwork, getChainId, type Eip1193Provider } from "./arc";
+import { transferErc20, transferNativeExact, getTokensForNetwork, ensureArcMainnetNetwork, getChainId, type Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
 import { createClient } from "@supabase/supabase-js";
 
@@ -416,7 +416,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     const tokenCfg = tokenMap[PAYMENT_TOKEN_SYMBOL];
 
     if (tokenCfg?.isNative || !tokenCfg?.address) {
-      txHash = await transferNative(provider, walletAddress, paymentWallet, amountUsd);
+      txHash = await transferNativeExact(provider, walletAddress, paymentWallet, amountUsd, 18);
     } else {
       txHash = await transferErc20(
         provider,
