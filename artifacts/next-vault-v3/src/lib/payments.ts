@@ -16,15 +16,12 @@ const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 5042)!;
 // for display and for constructing the on-chain transaction. The server
 // re-derives all of these from its own database during verification —
 // it never trusts the frontend's copy.
-export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 8453
-export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Base"
+export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 5042
+export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Arc"
 export const PAYMENT_TOKEN_SYMBOL = "USDC";
-export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.decimals ?? 6;
-export const PAYMENT_TOKEN_ADDRESS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.address ?? null;
+// Shop transfers native USDC on Arc (18 decimals), not the ERC-20 interface (6).
+export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.nativeCurrency.decimals;
+export const PAYMENT_TOKEN_ADDRESS: string | null = null;
 
 // ── Supabase client (anon key, no auth) ──────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
