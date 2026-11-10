@@ -121,6 +121,50 @@ export async function transferNative(
   })) as string;
 }
 
+/** Convert a JS decimal number's shortest decimal representation to exact base units. */
+function decimalToUnits(amount: number, decimals: number): bigint {
+  if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(decimals) || decimals < 0) {
+    throw new Error('Invalid native transfer amount');
+  }
+
+  const [mantissa, exponentText] = amount.toString().toLowerCase().split('e');
+  const exponent = exponentText ? Number(exponentText) : 0;
+  const [whole = '0', fraction = ''] = mantissa.split('.');
+  let digits = (whole + fraction).replace(/^0+(?=\\d)/, '');
+  let scale = fraction.length - exponent;
+
+  if (scale < 0) {
+    digits += '0'.repeat(-scale);
+    scale = 0;
+  }
+  if (scale > decimals) {
+    const excess = scale - decimals;
+    const discarded = digits.slice(-excess);
+    if (/[1-9]/.test(discarded)) {
+      throw new Error(`Amount exceeds ${decimals} decimal places`);
+    }
+    digits = digits.slice(0, -excess) || '0';
+    scale = decimals;
+  }
+
+  return BigInt(digits || '0') * (10n ** BigInt(decimals - scale));
+}
+
+/** Send native currency using exact decimal-to-wei conversion (for Arc USDC payments). */
+export async function transferNativeExact(
+  prov: Eip1193Provider,
+  from: string,
+  to: string,
+  amount: number,
+  decimals = 18,
+): Promise<string> {
+  const value = '0x' + decimalToUnits(amount, decimals).toString(16);
+  return (await prov.request({
+    method: 'eth_sendTransaction',
+    params: [{ from, to, value }],
+  })) as string;
+}
+
 export async function transferErc20(
   prov: Eip1193Provider,
   from: string,
