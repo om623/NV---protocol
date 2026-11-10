@@ -1,4 +1,4 @@
-import { ARC_TESTNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
+import { ARC_TESTNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, NETWORKS_CONFIG, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
 
 /** Build EIP-3085 chain params from any registered network config. */
 export function networkChainParams(net: NetworkConfig) {
@@ -65,7 +65,14 @@ export async function ensureArcNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, ARC_TESTNET_CHAIN_PARAMS);
 }
 
-/** Switch the injected wallet to Base Mainnet (chainId 8453) for real payments. */
+/** Switch the injected wallet to Arc Mainnet (chainId 5042) for NV Shop payments. */
+export async function ensureArcMainnetNetwork(prov: Eip1193Provider): Promise<void> {
+  const network = NETWORKS_CONFIG.find((net) => net.chainId === 5042);
+  if (!network) throw new Error('Arc Mainnet is not configured');
+  await ensureNetwork(prov, networkChainParams(network));
+}
+
+/** Legacy helper retained for existing Base Mainnet integrations. */
 export async function ensureBaseNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, BASE_MAINNET_CHAIN_PARAMS);
 }
