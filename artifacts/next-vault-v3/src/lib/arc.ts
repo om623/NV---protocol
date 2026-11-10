@@ -130,7 +130,7 @@ function decimalToUnits(amount: number, decimals: number): bigint {
   const [mantissa, exponentText] = amount.toString().toLowerCase().split('e');
   const exponent = exponentText ? Number(exponentText) : 0;
   const [whole = '0', fraction = ''] = mantissa.split('.');
-  let digits = (whole + fraction).replace(/^0+(?=\\d)/, '');
+  let digits = (whole + fraction).replace(/^0+(?=\d)/, '');
   let scale = fraction.length - exponent;
 
   if (scale < 0) {
