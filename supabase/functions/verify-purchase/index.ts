@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // ─── RPC endpoints by chain ID ───────────────────────────────────────────
 const CHAIN_RPCS: Record<number, string> = {
-  8453: "https://mainnet.base.org",
+  5042: "https://rpc.mainnet.arc.io",
 };
 
 // ─── Request interface ───────────────────────────────────────────────────
@@ -134,7 +134,7 @@ async function loadPaymentConfig(
   const tokenSymbol = cfg.get("token_symbol") ?? "USDC";
 
   const tokenDecimals = parseInt(
-    cfg.get("token_decimals") ?? "6",
+    cfg.get("token_decimals") ?? "18",
     10,
   );
 
@@ -146,7 +146,7 @@ async function loadPaymentConfig(
       : tokenAddressRaw.trim();
 
   const chainId = parseInt(
-    cfg.get("chain_id") ?? "8453",
+    cfg.get("chain_id") ?? "5042",
     10,
   );
 
@@ -420,11 +420,13 @@ Deno.serve(async (req: Request) => {
 
     if (
       !txHash ||
+      !/^0x[a-fA-F0-9]{64}$/.test(txHash) ||
       !walletAddress ||
+      !/^0x[a-fA-F0-9]{40}$/.test(walletAddress) ||
       !productId
     ) {
       return failResponse(
-        "Missing required fields: txHash, walletAddress, productId",
+        "Invalid or missing txHash, walletAddress, or productId",
       );
     }
 
@@ -448,9 +450,17 @@ Deno.serve(async (req: Request) => {
     const { data: existing } =
       await supabase
         .from("gamification_purchases")
-        .select("id, status")
+        .select("id, status, wallet_address, product_id")
         .eq("tx_hash", txHash)
         .maybeSingle();
+
+    if (
+      existing &&
+      (existing.wallet_address?.toLowerCase() !== walletAddress.toLowerCase() ||
+       existing.product_id !== productId)
+    ) {
+      return failResponse("Transaction hash is already associated with a different wallet or product");
+    }
 
     if (
       existing?.status === "confirmed"
@@ -480,19 +490,38 @@ Deno.serve(async (req: Request) => {
       ) as TxReceipt | null;
 
     if (!receipt) {
+      // Persist pending state server-side so the wallet can retry verification
+      // after the transaction is mined, without public INSERT permissions.
+      if (!existing) {
+        const { error: pendingError } = await supabase
+          .from("gamification_purchases")
+          .upsert({
+            wallet_address: walletAddress.toLowerCase(),
+            product_id: productId,
+            product_type: expectedProductType,
+            amount_usd: expectedPriceUsd,
+            token_symbol: config.tokenSymbol,
+            chain_id: config.chainId,
+            tx_hash: txHash,
+            status: "pending",
+          }, { onConflict: "tx_hash", ignoreDuplicates: true });
+
+        if (pendingError) {
+          throw new Error(`Failed to record pending purchase: ${pendingError.message}`);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           verified: false,
-          error:
-            "Transaction not found on-chain",
+          error: "Transaction not found on-chain",
           status: "pending",
         }),
         {
           status: 202,
           headers: {
             ...corsHeaders,
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
         },
       );
@@ -540,8 +569,9 @@ Deno.serve(async (req: Request) => {
         );
 
       const confirmations =
-        currentBlock -
-        txBlockNumber;
+        currentBlock >= txBlockNumber
+          ? currentBlock - txBlockNumber + 1n
+          : 0n;
 
       if (
         confirmations <
