@@ -3,14 +3,13 @@
 // then verifies the transaction on-chain through the verify-purchase edge function.
 // No product is unlocked without server-verified on-chain confirmation.
 
-import { transferErc20, transferNative, getTokensForNetwork, ensureBaseNetwork, getChainId, type Eip1193Provider } from "./arc";
+import { transferErc20, transferNative, getTokensForNetwork, ensureArcMainnetNetwork, getChainId, type Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
 import { createClient } from "@supabase/supabase-js";
 
-// ── Payment network: Base Mainnet (chainId 8453) ──────────────────────────
-// Payments run exclusively on Base Mainnet using official USDC.
-// The rest of the NV Protocol (swaps, pools, bridge, wallet) is unaffected.
-const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 8453)!;
+// ── Payment network: Arc Mainnet (chainId 5042) ──────────────────────────
+// Shop payments use Arc native USDC. Other NV modules and networks are untouched.
+const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 5042)!;
 
 // ── Payment configuration (display-only, from server) ────────────────────
 // The frontend fetches these from the server on init. They are used ONLY
@@ -391,14 +390,14 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     };
   }
 
-  // Step 1: Switch wallet to Base Mainnet (chainId 8453) and verify
+  // Step 1: Switch wallet to Arc Mainnet (chainId 5042) and verify
   try {
-    await ensureBaseNetwork(provider);
+    await ensureArcMainnetNetwork(provider);
     const actualChainId = await getChainId(provider);
     if (actualChainId !== PAYMENT_CHAIN_ID) {
       return {
         success: false, txHash: null, verified: false,
-        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Base Mainnet), got ${actualChainId}`,
+        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Arc Mainnet), got ${actualChainId}`,
         productId,
       };
     }
@@ -408,7 +407,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
       success: false, txHash: null, verified: false,
       error: msg.includes("4001") || msg.includes("User rejected")
         ? "Network switch rejected by wallet"
-        : `Failed to switch to Base Mainnet: ${msg}`,
+        : `Failed to switch to Arc Mainnet: ${msg}`,
       productId,
     };
   }
