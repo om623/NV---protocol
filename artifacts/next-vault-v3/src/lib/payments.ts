@@ -440,19 +440,9 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     };
   }
 
-  // Step 3: Insert pending purchase record
-  if (supabase) {
-    await supabase.from("gamification_purchases").insert({
-      wallet_address: walletAddress.toLowerCase(),
-      product_id: productId,
-      product_type: productType,
-      amount_usd: amountUsd,
-      token_symbol: PAYMENT_TOKEN_SYMBOL,
-      chain_id: PAYMENT_CHAIN_ID,
-      tx_hash: txHash,
-      status: "pending",
-    });
-  }
+  // Step 3: Ask the Edge Function to verify and persist the transaction.
+  // The server records pending/confirmed purchases with its privileged key;
+  // the public client is read-only for purchase and entitlement tables.
 
   // Step 4: Verify on-chain through the edge function
   // Only txHash, walletAddress, and productId are sent — the server derives
