@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // ─── RPC endpoints by chain ID ───────────────────────────────────────────
 const CHAIN_RPCS: Record<number, string> = {
-  8453: "https://mainnet.base.org",
+  5042: "https://rpc.mainnet.arc.io",
 };
 
 // ─── Request interface ───────────────────────────────────────────────────
@@ -134,7 +134,7 @@ async function loadPaymentConfig(
   const tokenSymbol = cfg.get("token_symbol") ?? "USDC";
 
   const tokenDecimals = parseInt(
-    cfg.get("token_decimals") ?? "6",
+    cfg.get("token_decimals") ?? "18",
     10,
   );
 
@@ -146,7 +146,7 @@ async function loadPaymentConfig(
       : tokenAddressRaw.trim();
 
   const chainId = parseInt(
-    cfg.get("chain_id") ?? "8453",
+    cfg.get("chain_id") ?? "5042",
     10,
   );
 
@@ -540,8 +540,9 @@ Deno.serve(async (req: Request) => {
         );
 
       const confirmations =
-        currentBlock -
-        txBlockNumber;
+        currentBlock >= txBlockNumber
+          ? currentBlock - txBlockNumber + 1n
+          : 0n;
 
       if (
         confirmations <
