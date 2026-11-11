@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Wallet as WalletIcon, ChevronRight, Loader as Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { onWalletsDiscovered, type WalletInfo } from '../lib/walletDiscovery';
+import { connectWalletConnect } from '../lib/walletConnect';
 
 interface WalletPickerModalProps {
   open: boolean;
@@ -14,6 +15,7 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
   const { t } = useI18n();
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -26,13 +28,28 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
     // Keeping a full-screen backdrop mounted while MetaMask/Phantom is active
     // can leave the NV interface visually dark or apparently frozen.
     setConnecting(wallet.id);
+    setConnectionError(null);
     onClose();
     onSelect(wallet);
   }, [onClose, onSelect]);
 
   useEffect(() => {
-    if (!open) setConnecting(null);
+    if (!open) { setConnecting(null); setConnectionError(null); }
   }, [open]);
+
+  const handleWalletConnect = useCallback(async () => {
+    setConnecting('walletconnect');
+    setConnectionError(null);
+    try {
+      const wallet = await connectWalletConnect();
+      onClose();
+      onSelect(wallet);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'WalletConnect connection failed.';
+      setConnectionError(message);
+      setConnecting(null);
+    }
+  }, [onClose, onSelect]);
 
   return (
     <AnimatePresence>
@@ -102,6 +119,29 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
                   </div>
                 )}
               </div>
+
+                <div className="px-3 pb-3">
+                  <button
+                    type="button"
+                    onClick={handleWalletConnect}
+                    disabled={connecting !== null}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      {connecting === 'walletconnect' ? <Loader2 size={17} className="animate-spin text-primary" /> : <span className="text-primary font-bold text-lg">W</span>}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <span className="text-sm font-semibold text-foreground block">WalletConnect</span>
+                      <span className="text-[10px] text-muted-foreground block">Conectar carteira móvel por QR code</span>
+                    </div>
+                    {connecting === 'walletconnect' ? <Loader2 size={15} className="animate-spin text-primary" /> : <ChevronRight size={15} className="text-primary" />}
+                  </button>
+                  {connectionError && (
+                    <p role="alert" className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs break-words">
+                      {connectionError}
+                    </p>
+                  )}
+                </div>
 
               {/* Footer */}
               <div className="px-4 py-2.5 border-t border-border/30">
