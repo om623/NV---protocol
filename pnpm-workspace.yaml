@@ -119,3 +119,6 @@ overrides:
 
 allowBuilds:
   esbuild: true
+  # Install script of a transitive WalletConnect dependency (QR modal), intentionally
+  # not run: NV renders its own QR panel and never loads that modal.
+  '@reown/appkit': false

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Wallet as WalletIcon, ChevronRight, Loader as Loader2 } from 'lucide-react';
+import { X, Wallet as WalletIcon, ChevronRight, Loader as Loader2, QrCode } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { onWalletsDiscovered, type WalletInfo } from '../lib/walletDiscovery';
 
@@ -8,9 +8,11 @@ interface WalletPickerModalProps {
   open: boolean;
   onClose: () => void;
   onSelect: (wallet: WalletInfo) => void;
+  /** When provided, a WalletConnect (QR Code / mobile) option is listed. */
+  onSelectWalletConnect?: () => void;
 }
 
-export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModalProps) {
+export function WalletPickerModal({ open, onClose, onSelect, onSelectWalletConnect }: WalletPickerModalProps) {
   const { t } = useI18n();
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -93,6 +95,24 @@ export function WalletPickerModal({ open, onClose, onSelect }: WalletPickerModal
                     )}
                   </button>
                 ))}
+
+                {onSelectWalletConnect && (
+                  <button
+                    onClick={onSelectWalletConnect}
+                    disabled={connecting !== null}
+                    data-testid="wallet-option-walletconnect"
+                    className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/35 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <QrCode size={16} className="text-primary" />
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <span className="text-sm font-medium text-foreground block truncate">{t('wc.title')}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground/50">{t('wc.optionDesc')}</span>
+                    </div>
+                    <ChevronRight size={15} className="text-muted-foreground/30 group-hover:text-primary transition-colors shrink-0" />
+                  </button>
+                )}
 
                 {wallets.length === 0 && !connecting && (
                   <div className="mt-2 px-3 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/15">
