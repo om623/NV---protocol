@@ -566,7 +566,7 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-primary">
-              {route && fromToken === 'USDC' && toToken === 'USDC' ? 'Circle CCTP V2' : 'LI.FI (roteamento multi-protocolo')}
+              {route && fromToken === 'USDC' && toToken === 'USDC' ? 'Circle CCTP V2' : 'LI.FI (roteamento multi-protocolo'}
             </span>
 
           </div>
