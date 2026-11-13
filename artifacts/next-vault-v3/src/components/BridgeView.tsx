@@ -220,7 +220,7 @@ export function BridgeView({
     ) {
       setStatus('error');
       setMessage(
-        'Informe uma quantidade válida de USDC.',
+        'Informe uma quantidade válida do token de origem.',
       );
       return;
     }
@@ -412,6 +412,9 @@ export function BridgeView({
               ),
             )}
           </select>
+          <select value={fromToken} onChange={event => { setFromToken(event.target.value); setRouteQuote(null); setStatus('idle'); setMessage(''); }} disabled={status === 'processing'} className="w-full mt-2 bg-background border border-border/50 rounded-xl px-4 py-2.5 text-sm text-foreground">
+            {fromTokens.map(token => <option key={`${token.symbol}-${token.address}`} value={token.symbol}>{token.symbol} — {token.name}</option>)}
+          </select>
 
         </div>
 
@@ -474,6 +477,9 @@ export function BridgeView({
               ),
             )}
           </select>
+          <select value={toToken} onChange={event => { setToToken(event.target.value); setRouteQuote(null); setStatus('idle'); setMessage(''); }} disabled={status === 'processing'} className="w-full mt-2 bg-background border border-border/50 rounded-xl px-4 py-2.5 text-sm text-foreground">
+            {toTokens.map(token => <option key={`${token.symbol}-${token.address}`} value={token.symbol}>{token.symbol} — {token.name}</option>)}
+          </select>
 
         </div>
 
@@ -491,7 +497,7 @@ export function BridgeView({
 
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Wallet size={13} />
-              USDC
+              {fromToken}
             </div>
 
           </div>
@@ -514,7 +520,7 @@ export function BridgeView({
             />
 
             <span className="text-sm font-semibold text-primary">
-              USDC
+              {fromToken}
             </span>
 
           </div>
@@ -548,7 +554,7 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-foreground">
-              USDC
+              {fromToken}
             </span>
 
           </div>
