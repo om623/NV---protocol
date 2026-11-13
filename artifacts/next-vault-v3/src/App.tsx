@@ -321,7 +321,6 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
   }, []);
 
   const networks = envMode === 'testnet' ? TESTNET_NETWORKS : MAINNET_NETWORKS;
-  const envEmoji = envMode === 'testnet' ? '🧪' : '🌐';
   const envLabel = envMode === 'testnet' ? 'Testnet' : 'Mainnet';
 
   return (
@@ -330,7 +329,6 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 bg-secondary/50 border border-border px-2.5 py-1.5 rounded-full text-xs font-mono backdrop-blur-md cursor-pointer hover:bg-secondary transition-colors"
       >
-        <span className="text-sm leading-none">{envEmoji}</span>
         <span className={envMode === 'testnet' ? 'text-amber-400 font-semibold hidden sm:inline' : 'text-foreground hidden sm:inline'}>
           {envLabel}
         </span>
@@ -360,7 +358,6 @@ function EnvNetworkSelector({ envMode, activeNetwork, onEnvChange, onNetworkChan
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
-                  <span>{mode === 'testnet' ? '🧪' : '🌐'}</span>
                   <span className="capitalize">{mode}</span>
                 </button>
               ))}
