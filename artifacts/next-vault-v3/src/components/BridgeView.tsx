@@ -256,7 +256,7 @@ export function BridgeView({
         const result = await executeBridgeRoute({ provider, walletAddress: connectedAddress, fromNetwork, toNetwork, fromChainId: fromConfig!.chainId, toChainId: toConfig!.chainId,
           fromToken: { address: fromTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: fromTokenConfig.symbol, decimals: fromTokenConfig.decimals, isNative: fromTokenConfig.isNative },
           toToken: { address: toTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: toTokenConfig.symbol, decimals: toTokenConfig.decimals, isNative: toTokenConfig.isNative }, amount }, routed, setMessage);
-        setStatus(result.success ? 'success' : result.status === 'PENDING' ? 'processing' : 'error');
+        setStatus(result.success ? 'success' : ('status' in result && result.status === 'PENDING') ? 'processing' : 'error');
         setMessage(result.success ? `LI.FI concluído. Origem: ${result.sourceTxHash} | Destino: ${result.destinationTxHash ?? 'aguardando'}` : `LI.FI: ${result.status}. TX: ${result.sourceTxHash}`); if(result.success) setAmount(''); return;
       }
       const result = await executeBridgeRoute({ provider, walletAddress: connectedAddress, fromNetwork, toNetwork, fromChainId: fromConfig!.chainId, toChainId: toConfig!.chainId,
