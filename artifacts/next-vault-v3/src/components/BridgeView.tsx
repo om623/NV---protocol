@@ -10,6 +10,8 @@ import type { Eip1193Provider } from '../lib/arc';
 import { getBridgeRoutes } from '../lib/cctpBridge';
 import { executeBridge } from '../lib/cctpBridgeExecutor';
 import { SolanaBridgePanel } from './SolanaBridgePanel';
+import { NETWORKS_CONFIG } from '../networks';
+import { quoteBridgeRoute, executeBridgeRoute, type BridgeRouteQuote } from '../lib/bridgeRouter';
 
 interface BridgeViewProps {
   provider: Eip1193Provider | null;
@@ -118,6 +120,9 @@ export function BridgeView({
     useState<NetworkId>(DEFAULT_TO[envMode]);
 
   const [amount, setAmount] = useState('');
+  const [fromToken, setFromToken] = useState('USDC');
+  const [toToken, setToToken] = useState('USDC');
+  const [routeQuote, setRouteQuote] = useState<BridgeRouteQuote | null>(null);
 
   const [status, setStatus] = useState<
     'idle' | 'processing' | 'success' | 'error'
@@ -130,10 +135,14 @@ export function BridgeView({
   // ─────────────────────────────────────────────────────────────
 
   const route = availableRoutes.find(
-    item =>
-      item.fromNetwork === fromNetwork &&
-      item.toNetwork === toNetwork,
+    item => item.fromNetwork === fromNetwork && item.toNetwork === toNetwork && item.token === fromToken && fromToken === toToken,
   );
+  const fromConfig = NETWORKS_CONFIG.find(network => network.id === fromNetwork);
+  const toConfig = NETWORKS_CONFIG.find(network => network.id === toNetwork);
+  const fromTokens = fromConfig?.tokens ?? [];
+  const toTokens = toConfig?.tokens ?? [];
+  const fromTokenConfig = fromTokens.find(token => token.symbol === fromToken);
+  const toTokenConfig = toTokens.find(token => token.symbol === toToken);
 
   // ─────────────────────────────────────────────────────────────
   // VALIDAÇÃO DO BOTÃO
@@ -142,7 +151,7 @@ export function BridgeView({
   const canBridge =
     Boolean(provider) &&
     Boolean(connectedAddress) &&
-    Boolean(route) &&
+    (Boolean(route) || (isMainnet && Boolean(fromTokenConfig) && Boolean(toTokenConfig))) &&
     Number(amount) > 0 &&
     status !== 'processing';
 
@@ -153,6 +162,7 @@ export function BridgeView({
     setStatus('idle');
     setMessage('');
     setAmount('');
+    setFromToken('USDC'); setToToken('USDC'); setRouteQuote(null);
   }, [envMode]);
 
   // ─────────────────────────────────────────────────────────────
@@ -166,7 +176,7 @@ export function BridgeView({
     setToNetwork(oldFrom);
 
     setStatus('idle');
-    setMessage('');
+    setMessage(''); setRouteQuote(null);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -229,17 +239,31 @@ export function BridgeView({
         walletAddress: connectedAddress,
       });
 
-      // ─────────────────────────────────────────────
-      // EXECUTOR CCTP V2
-      // ─────────────────────────────────────────────
-
-      const result = await executeBridge({
-        provider,
-        fromNetwork,
-        toNetwork,
-        walletAddress: connectedAddress,
-        amount: numericAmount,
-      });
+      // Keep the original Circle CCTP executor for its configured USDC routes.
+      if (route && fromToken === 'USDC' && toToken === 'USDC') {
+        const result = await executeBridge({ provider, fromNetwork, toNetwork, walletAddress: connectedAddress, amount: numericAmount });
+        if (!result.success) { setStatus('error'); setMessage(result.error ?? 'A transferência CCTP V2 falhou.'); return; }
+        setStatus('success'); setMessage(`Bridge CCTP concluída. Burn: ${result.burnTxHash ?? '—'} | Mint: ${result.mintTxHash ?? '—'}`); setAmount(''); return;
+      }
+      if (!fromTokenConfig || !toTokenConfig) throw new Error('Token não disponível nesta rede.');
+      const routed = await quoteBridgeRoute({ provider, walletAddress: connectedAddress, fromNetwork, toNetwork,
+        fromChainId: fromConfig!.chainId, toChainId: toConfig!.chainId,
+        fromToken: { address: fromTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: fromTokenConfig.symbol, decimals: fromTokenConfig.decimals, isNative: fromTokenConfig.isNative },
+        toToken: { address: toTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: toTokenConfig.symbol, decimals: toTokenConfig.decimals, isNative: toTokenConfig.isNative }, amount });
+      setRouteQuote(routed);
+      if (routed.provider === 'LI.FI') {
+        setMessage(`Cotação LI.FI pronta: estimativa ${routed.quote.toAmountMin}. Confirme a próxima assinatura na carteira.`);
+        const result = await executeBridgeRoute({ provider, walletAddress: connectedAddress, fromNetwork, toNetwork, fromChainId: fromConfig!.chainId, toChainId: toConfig!.chainId,
+          fromToken: { address: fromTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: fromTokenConfig.symbol, decimals: fromTokenConfig.decimals, isNative: fromTokenConfig.isNative },
+          toToken: { address: toTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: toTokenConfig.symbol, decimals: toTokenConfig.decimals, isNative: toTokenConfig.isNative }, amount }, routed, setMessage);
+        setStatus(result.success ? 'success' : result.status === 'PENDING' ? 'processing' : 'error');
+        setMessage(result.success ? `LI.FI concluído. Origem: ${result.sourceTxHash} | Destino: ${result.destinationTxHash ?? 'aguardando'}` : `LI.FI: ${result.status}. TX: ${result.sourceTxHash}`); if(result.success) setAmount(''); return;
+      }
+      const result = await executeBridgeRoute({ provider, walletAddress: connectedAddress, fromNetwork, toNetwork, fromChainId: fromConfig!.chainId, toChainId: toConfig!.chainId,
+        fromToken: { address: fromTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: fromTokenConfig.symbol, decimals: fromTokenConfig.decimals, isNative: fromTokenConfig.isNative },
+        toToken: { address: toTokenConfig.address ?? '0x0000000000000000000000000000000000000000', symbol: toTokenConfig.symbol, decimals: toTokenConfig.decimals, isNative: toTokenConfig.isNative }, amount }, routed);
+      if (!result.success) { setStatus('error'); setMessage(result.error ?? 'Bridge CCTP falhou.'); return; }
+      setStatus('success'); setMessage('Bridge CCTP concluída.'); setAmount('');
 
       console.log(
         'NV Bridge: resultado do executor',
