@@ -1,0 +1,76 @@
+ artifacts/next-vault-v3/package.json                             |   1 [32m+[m
+ artifacts/next-vault-v3/scripts/profile-3d-tests.ts              | 185 [32m++++++++[m
+ artifacts/next-vault-v3/scripts/profile-shop-tests.ts            | 114 [32m+++++[m
+ artifacts/next-vault-v3/scripts/profile-tests.ts                 | 170 [32m++++++++[m
+ artifacts/next-vault-v3/src/App.tsx                              |   2 [32m+[m[31m-[m
+ artifacts/next-vault-v3/src/components/ProfileView.tsx           | 662 [32m++++[m[31m-------------------------[m
+ artifacts/next-vault-v3/src/i18n/profile/index.ts                |  19 [32m+[m
+ artifacts/next-vault-v3/src/i18n/profile/rows1.ts                |  51 [32m+++[m
+ artifacts/next-vault-v3/src/i18n/profile/rows2.ts                |  51 [32m+++[m
+ artifacts/next-vault-v3/src/i18n/profile/rows3.ts                |  55 [32m+++[m
+ artifacts/next-vault-v3/src/i18n/translations.ts                 |  13 [32m+[m
+ artifacts/next-vault-v3/src/profile/nvult/NvultFigure.tsx        | 224 [32m++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult/NvultStage.tsx         | 135 [32m++++++[m
+ artifacts/next-vault-v3/src/profile/nvult/catalog.ts             | 102 [32m+++++[m
+ artifacts/next-vault-v3/src/profile/nvult/loadout.ts             | 102 [32m+++++[m
+ artifacts/next-vault-v3/src/profile/nvult/parts.tsx              | 306 [32m+++++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/Nvult3D.tsx          | 179 [32m++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/body.ts              | 246 [32m+++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/framing.ts           |  23 [32m+[m
+ artifacts/next-vault-v3/src/profile/nvult3d/materials.ts         | 168 [32m++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/parts.ts             | 131 [32m++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/partsGear.ts         | 238 [32m+++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/partsGearB.ts        | 233 [32m++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/primitives.ts        | 241 [32m+++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/quality.ts           |  26 [32m++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/scene.ts             | 469 [32m++++++++++++++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/stage3d.ts           | 193 [32m+++++++++[m
+ artifacts/next-vault-v3/src/profile/nvult3d/support.ts           | 118 [32m+++++[m
+ artifacts/next-vault-v3/src/profile/progress.ts                  |  54 [32m+++[m
+ artifacts/next-vault-v3/src/profile/purchase.tsx                 |  59 [32m+++[m
+ artifacts/next-vault-v3/src/profile/sections/Achievements.tsx    | 129 [32m++++++[m
+ artifacts/next-vault-v3/src/profile/sections/Collection.tsx      | 155 [32m+++++++[m
+ artifacts/next-vault-v3/src/profile/sections/Identity.tsx        | 156 [32m+++++++[m
+ artifacts/next-vault-v3/src/profile/sections/NvultLab.tsx        | 200 [32m+++++++++[m
+ artifacts/next-vault-v3/src/profile/sections/Ranking.tsx         |  84 [32m++++[m
+ artifacts/next-vault-v3/src/profile/sections/Shop.tsx            | 129 [32m++++++[m
+ artifacts/next-vault-v3/src/profile/types.ts                     |  29 [32m++[m
+ artifacts/next-vault-v3/src/profile/ui.tsx                       | 195 [32m+++++++++[m
+ docs/profile-redesign/3d/01-body.png                             | Bin [31m0[m -> [32m3004[m bytes
+ docs/profile-redesign/3d/02-full-gold.png                        | Bin [31m0[m -> [32m244430[m bytes
+ docs/profile-redesign/3d/03-vanguard-staff.png                   | Bin [31m0[m -> [32m295437[m bytes
+ docs/profile-redesign/3d/04-v2-steel.png                         | Bin [31m0[m -> [32m203202[m bytes
+ docs/profile-redesign/3d/05-v2-gold.png                          | Bin [31m0[m -> [32m273147[m bytes
+ docs/profile-redesign/3d/final/a1-identity-1360.png              | Bin [31m0[m -> [32m88268[m bytes
+ docs/profile-redesign/3d/final/a1-nvult-1360.png                 | Bin [31m0[m -> [32m98501[m bytes
+ docs/profile-redesign/3d/final/a3-identity-personalised.png      | Bin [31m0[m -> [32m497251[m bytes
+ docs/profile-redesign/3d/final/b1-fallback-no-webgl.png          | Bin [31m0[m -> [32m556453[m bytes
+ docs/profile-redesign/3d/final/b3-1360-identity.png              | Bin [31m0[m -> [32m480716[m bytes
+ docs/profile-redesign/3d/final/b3-1360-lab-lance.png             | Bin [31m0[m -> [32m100969[m bytes
+ docs/profile-redesign/3d/final/b3-390-identity.png               | Bin [31m0[m -> [32m607155[m bytes
+ docs/profile-redesign/3d/final/b3-390-lab-lance.png              | Bin [31m0[m -> [32m338312[m bytes
+ docs/profile-redesign/3d/final/b3-768-identity.png               | Bin [31m0[m -> [32m327163[m bytes
+ docs/profile-redesign/3d/final/b3-768-lab-lance.png              | Bin [31m0[m -> [32m101413[m bytes
+ docs/profile-redesign/3d/weapons/blade_0.png                     | Bin [31m0[m -> [32m117967[m bytes
+ docs/profile-redesign/3d/weapons/lance_0.9.png                   | Bin [31m0[m -> [32m111200[m bytes
+ docs/profile-redesign/3d/weapons/lance_0.png                     | Bin [31m0[m -> [32m115073[m bytes
+ docs/profile-redesign/3d/weapons/lance_1.57.png                  | Bin [31m0[m -> [32m98904[m bytes
+ docs/profile-redesign/3d/weapons/staff_0.9.png                   | Bin [31m0[m -> [32m110652[m bytes
+ docs/profile-redesign/3d/weapons/staff_0.png                     | Bin [31m0[m -> [32m115666[m bytes
+ docs/profile-redesign/3d/weapons/staff_1.57.png                  | Bin [31m0[m -> [32m97711[m bytes
+ docs/profile-redesign/3d/weapons/weapons-final-sheet.png         | Bin [31m0[m -> [32m553255[m bytes
+ docs/profile-redesign/STRATEGY.md                                |  23 [32m+[m
+ .../profile-redesign/screenshots/00-nvult-parts-and-finishes.png | Bin [31m0[m -> [32m429064[m bytes
+ docs/profile-redesign/screenshots/01-finishes-sheet.png          | Bin [31m0[m -> [32m437467[m bytes
+ docs/profile-redesign/screenshots/02-figure-v2-sheet.png         | Bin [31m0[m -> [32m1018111[m bytes
+ docs/profile-redesign/screenshots/v3-rich-1360-identity.png      | Bin [31m0[m -> [32m397671[m bytes
+ docs/profile-redesign/screenshots/v3-rich-1360-nvult.png         | Bin [31m0[m -> [32m504767[m bytes
+ docs/profile-redesign/screenshots/v4-rich-1360-identity.png      | Bin [31m0[m -> [32m493649[m bytes
+ docs/profile-redesign/screenshots/v4-rich-1360-nvult.png         | Bin [31m0[m -> [32m531266[m bytes
+ docs/profile-redesign/screenshots/v5-rich-1360-achievements.png  | Bin [31m0[m -> [32m515911[m bytes
+ docs/profile-redesign/screenshots/v5-rich-1360-collection.png    | Bin [31m0[m -> [32m560334[m bytes
+ docs/profile-redesign/screenshots/v5-rich-1360-identity.png      | Bin [31m0[m -> [32m493587[m bytes
+ docs/profile-redesign/screenshots/v5-rich-1360-nvult.png         | Bin [31m0[m -> [32m552586[m bytes
+ docs/profile-redesign/screenshots/v5-rich-1360-ranking.png       | Bin [31m0[m -> [32m416035[m bytes
+ docs/profile-redesign/screenshots/v5-rich-1360-shop.png          | Bin [31m0[m -> [32m473310[m bytes
+ 75 files changed, 5083 insertions(+), 587 deletions(-)

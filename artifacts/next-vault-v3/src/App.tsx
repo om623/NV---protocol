@@ -30,6 +30,17 @@ import { useGamification } from './hooks/useGamification';
 import { usePurchases } from './hooks/usePurchases';
 import { SKINS, XP_PACKAGES } from './lib/gamification';
 import { WalletPickerModal } from './components/WalletPickerModal';
+import { WalletConnectPanel } from './components/WalletConnectPanel';
+import {
+  isWalletConnectProvider,
+  hasPersistedWalletConnectSession,
+  restoreWalletConnect,
+  disconnectWalletConnect,
+  onWalletConnectSessionEnded,
+  isChainApprovedInWalletConnectSession,
+  restoreWalletConnectChain,
+  isWalletConnectSessionAlive,
+} from './lib/walletConnect';
 import { ProfileView } from './components/ProfileView';
 import { SplashScreen } from './components/SplashScreen';
 import { ComingSoonModal } from './components/ComingSoonModal';
@@ -487,6 +498,7 @@ function Home() {
   const [isConnected, setIsConnected] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
   const [showWalletPicker, setShowWalletPicker] = useState(false);
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [activeWalletName, setActiveWalletName] = useState<string | null>(null);
 
   // Real wallet state
@@ -705,15 +717,45 @@ function Home() {
       setRealBalances(null);
     }
   };
+  // WalletConnect only: a network the wallet "added" later (or announces by itself) is not part of the approved session, so
+  // requests could not be sent on it. Keep NV, and the SDK, on the real approved network and explain why. Returns true when it acted.
+  const walletChainIdRef = useRef<number | null>(null);
+  walletChainIdRef.current = walletChainId;
+  const restoringWcChainRef = useRef(false);
+  const rejectUnapprovedWcChain = async (prov: Eip1193Provider, newChainId: number): Promise<boolean> => {
+    if (!isWalletConnectProvider(prov) || isChainApprovedInWalletConnectSession(newChainId)) return false;
+    const keep = walletChainIdRef.current;
+    if (keep !== null) {
+      restoringWcChainRef.current = true;
+      try {
+        await restoreWalletConnectChain(keep);
+        setWalletChainId(keep);
+      } finally {
+        window.setTimeout(() => { restoringWcChainRef.current = false; }, 400); // our own restore also emits chainChanged; do not announce it
+      }
+    }
+    toast({ title: t('wc.networkNotApproved'), variant: 'destructive' });
+    return true;
+  };
+
   const handleSwitchNetwork = async () => {
     if (!provider) { setWalletChainId(activeNetwork.chainId); return; }
+    // WalletConnect: a network outside the approved session cannot be used, and pointing the SDK at it would leave it with no
+    // accounts (NV would then read that as a disconnect). Explain instead of trying.
+    if (isWalletConnectProvider(provider) && !isChainApprovedInWalletConnectSession(activeNetwork.chainId)) {
+      toast({ title: t('wc.networkNotApproved'), variant: 'destructive' });
+      return;
+    }
     try {
       // Always use networkChainParams which correctly picks up each network's
       // native currency from the NetworkConfig (ETH, MATIC, USDC, etc.)
       await ensureNetwork(provider, networkChainParams(activeNetwork));
       const chainId = await getChainId(provider);
+      if (await rejectUnapprovedWcChain(provider, chainId)) return;
       setWalletChainId(chainId);
     } catch {
+      // WalletConnect: never pretend the switch happened (injected wallets keep the previous behaviour below)
+      if (isWalletConnectProvider(provider)) return;
       // user refused or network unavailable — update local state only
       setWalletChainId(activeNetwork.chainId);
     }
@@ -783,7 +825,7 @@ function Home() {
     };
   }, [isConnected, provider, connectedAddress, activeNetwork, refreshBalances]);
 
-  const connectWithWallet = async (wallet: WalletInfo) => {
+  const connectWithWallet = async (wallet: WalletInfo, opts?: { silent?: boolean }): Promise<boolean> => {
     const prov = wallet.provider;
     const session = ++walletSessionRef.current;
     // Never keep NV's modal/backdrop mounted while a wallet extension handles
@@ -797,7 +839,7 @@ function Home() {
       const addr = accounts?.[0];
       if (!addr) {
         toast({ title: t('wallet.accountNotAuth'), variant: 'destructive' });
-        return;
+        return false;
       }
 
       // Show the connected state immediately after wallet authorization.
@@ -806,7 +848,7 @@ function Home() {
       setIsConnected(true);
       setActiveWalletName(wallet.name);
       setShowWalletPicker(false);
-      toast({ title: t('wallet.connected'), description: `${wallet.name} · ${shortAddress(addr)}` });
+      if (!opts?.silent) toast({ title: t('wallet.connected'), description: `${wallet.name} · ${shortAddress(addr)}` });
 
       // Load chain and balances in the background. Network switching remains user-initiated.
       void (async () => {
@@ -821,12 +863,22 @@ function Home() {
           setRealBalances(balancesResult.value);
         }
       })();
+      return true;
     } catch (err) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) toast({ title: t('wallet.connectionRefused'), variant: 'destructive' });
       else toast({ title: t('wallet.connectError'), description: (err as Error)?.message, variant: 'destructive' });
       setShowWalletPicker(false);
+      return false;
     }
+  };
+
+  // WalletConnect: run the standard NV connection flow with the approved provider.
+  // If NV cannot complete the connection, the WalletConnect session is closed so no hidden session is left behind.
+  const handleWalletConnectConnected = async (wallet: WalletInfo) => {
+    const ok = await connectWithWallet(wallet);
+    if (!ok) await disconnectWalletConnect();
+    setShowWalletConnect(false);
   };
 
   const handleConnect = () => {
@@ -836,6 +888,7 @@ function Home() {
   };
 
   const handleDisconnect = () => {
+    if (provider && isWalletConnectProvider(provider)) void disconnectWalletConnect();
     walletSessionRef.current += 1;
     setIsConnected(false);
     setProvider(null);
@@ -1302,6 +1355,13 @@ function Home() {
     const handleAccountsChanged = (...args: unknown[]) => {
       const accounts = args[0] as string[];
       if (!accounts || accounts.length === 0) {
+        // WalletConnect: the SDK also reports no accounts when it is pointed at a network outside the session while the
+        // session itself is alive. That is not a disconnect: put it back on the real network and keep the connection.
+        if (isWalletConnectProvider(provider) && isWalletConnectSessionAlive()) {
+          const keep = walletChainIdRef.current;
+          if (keep !== null) void restoreWalletConnectChain(keep);
+          return;
+        }
         handleDisconnect();
         return;
       }
@@ -1313,6 +1373,10 @@ function Home() {
     const handleChainChanged = (...args: unknown[]) => {
       const raw = args[0] as string;
       const newChainId = typeof raw === 'string' ? parseInt(raw, 16) : (raw as number);
+      if (isWalletConnectProvider(provider)) {
+        if (restoringWcChainRef.current) return;
+        if (!isChainApprovedInWalletConnectSession(newChainId)) { void rejectUnapprovedWcChain(provider, newChainId); return; }
+      }
       setWalletChainId(newChainId);
       toast({ title: t('wallet.networkChanged') });
       if (connectedAddress) refreshBalances(provider, connectedAddress);
@@ -1324,6 +1388,37 @@ function Home() {
       provider.removeListener?.('chainChanged', handleChainChanged);
     };
   }, [provider, isConnected, connectedAddress, t]);
+
+  // ── WalletConnect: restore a previously authorised session on load ─────────
+  // Does not prompt the wallet and does not switch networks (network changes stay user-initiated):
+  // if the wallet is on a different network than NV, the existing network-mismatch banner handles it.
+  const isConnectedRef = useRef(false);
+  isConnectedRef.current = isConnected;
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!(await hasPersistedWalletConnectSession())) return;
+      const wallet = await restoreWalletConnect();
+      if (!wallet || cancelled || isConnectedRef.current) return;
+      const ok = await connectWithWallet(wallet, { silent: true });
+      if (cancelled) return;
+      if (ok) toast({ title: t('wc.restored'), description: wallet.name });
+      else await disconnectWalletConnect();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── WalletConnect: the wallet ended the session (interrupted connection) ───
+  // The library reports it once per provider (a React-scoped listener would be removed before the SDK emits it).
+  // A session closed by NV's own Disconnect is not reported, so injected wallets and manual disconnects are unaffected.
+  const handleDisconnectRef = useRef(handleDisconnect);
+  handleDisconnectRef.current = handleDisconnect;
+  useEffect(() => onWalletConnectSessionEnded(() => {
+    if (isConnectedRef.current) handleDisconnectRef.current();
+    // Shown last on purpose: the toast queue holds one message, so the specific notice must replace the generic "Wallet disconnected".
+    toast({ title: t('wc.sessionLost'), variant: 'destructive' });
+  }), [t]);
 
   // shared NV card wrapper style
   const nvCard = "w-full rounded-2xl border border-white/[0.06] bg-card/90 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-primary/15 hover:shadow-[0_4px_32px_rgba(0,0,0,0.4),0_0_18px_rgba(0,229,188,0.04)] transition-all duration-300";
@@ -1864,6 +1959,13 @@ function Home() {
         open={showWalletPicker}
         onClose={() => setShowWalletPicker(false)}
         onSelect={connectWithWallet}
+        onSelectWalletConnect={() => { setShowWalletPicker(false); setShowWalletConnect(true); }}
+      />
+
+      <WalletConnectPanel
+        open={showWalletConnect}
+        onClose={() => setShowWalletConnect(false)}
+        onConnected={handleWalletConnectConnected}
       />
     </div>
   );

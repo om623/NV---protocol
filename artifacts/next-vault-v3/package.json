@@ -9,12 +9,15 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:radar": "bun run scripts/radar-tests.ts",
+    "test:walletconnect": "bun run scripts/walletconnect-tests.ts",
     "test:profile": "bun run scripts/profile-tests.ts && bun run scripts/profile-shop-tests.ts && bun run scripts/profile-3d-tests.ts",
     "agent:policy": "node cli/nv-agent-policy.mjs"
   },
   "dependencies": {
     "@solana/kit": "^8.4.0",
     "@wallet-standard/wallet": "^1.1.1",
+    "@walletconnect/ethereum-provider": "^2.26.0",
+    "qrcode": "^1.5.4",
     "three": "^0.187.0",
     "topojson-client": "^3.1.0",
     "viem": "^2.55.19",
@@ -55,6 +58,7 @@
     "@tanstack/react-query": "catalog:",
     "@types/geojson": "^7946.0.16",
     "@types/node": "catalog:",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "^0.187.0",
