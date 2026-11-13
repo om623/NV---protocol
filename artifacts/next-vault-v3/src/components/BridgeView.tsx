@@ -396,8 +396,8 @@ export function BridgeView({
                 event.target.value as NetworkId,
               );
 
-              setStatus('idle');
-              setMessage('');
+              setStatus('idle'); setMessage(''); setRouteQuote(null);
+              const next = NETWORKS_CONFIG.find(network => network.id === event.target.value)?.tokens[0]?.symbol ?? 'USDC'; setFromToken(next);
             }}
             className="w-full bg-background border border-border/50 rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary/50"
           >
@@ -461,8 +461,8 @@ export function BridgeView({
                 event.target.value as NetworkId,
               );
 
-              setStatus('idle');
-              setMessage('');
+              setStatus('idle'); setMessage(''); setRouteQuote(null);
+              const next = NETWORKS_CONFIG.find(network => network.id === event.target.value)?.tokens[0]?.symbol ?? 'USDC'; setToToken(next);
             }}
             className="w-full bg-background border border-border/50 rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary/50"
           >
@@ -566,7 +566,7 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-primary">
-              Circle CCTP V2
+              {route && fromToken === 'USDC' && toToken === 'USDC' ? 'Circle CCTP V2' : 'LI.FI (roteamento multi-protocolo')}
             </span>
 
           </div>
@@ -578,9 +578,7 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-foreground">
-              {route
-                ? `${route.fee} USDC`
-                : '—'}
+              {route && fromToken === 'USDC' && toToken === 'USDC' ? `${route.fee} USDC` : 'Cotação dinâmica'}
             </span>
 
           </div>
@@ -592,7 +590,7 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-foreground">
-              {route?.estimatedTime ?? '—'}
+              {route?.estimatedTime ?? (isMainnet ? 'Variável por rota' : '—')}
             </span>
 
           </div>
@@ -666,8 +664,7 @@ export function BridgeView({
 
       {connectedAddress && !route && (
         <div className="text-center text-xs text-amber-400/70">
-          Esta combinação de redes ainda não está
-          disponível no CCTP configurado.
+          CCTP não cobre este par. Em Mainnet, a Bridge consultará rotas LI.FI para os tokens selecionados.
         </div>
       )}
       </>)}
