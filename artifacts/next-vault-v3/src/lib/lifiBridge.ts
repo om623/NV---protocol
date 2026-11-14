@@ -87,8 +87,8 @@ function withTimeoutSignal(timeoutMs = REQUEST_TIMEOUT_MS): { signal: AbortSigna
   return { signal: controller.signal, clear: () => clearTimeout(timer) };
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const timeout = withTimeoutSignal();
+async function fetchJson<T>(url: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  const timeout = withTimeoutSignal(timeoutMs);
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -113,10 +113,12 @@ export async function discoverLifiBridgeNetworks(
     supportedChainsRequest = fetchJson<LifiChain[] | { chains?: LifiChain[] }>(`${LIFI_API}/chains?chainTypes=EVM`)
       .then(data => {
         const chains = Array.isArray(data) ? data : (data.chains ?? []);
-        return new Set(chains
-        .filter(chain => !chain.chainType || chain.chainType.toUpperCase() === 'EVM')
-        .map(chain => Number(chain.id ?? chain.chainId))
-        .filter(id => Number.isSafeInteger(id) && id > 0));
+        return new Set(
+          chains
+            .filter(chain => !chain.chainType || chain.chainType.toUpperCase() === 'EVM')
+            .map(chain => Number(chain.id ?? chain.chainId))
+            .filter(id => Number.isSafeInteger(id) && id > 0),
+        );
       })
       .then(ids => {
         supportedChainIds = ids;
@@ -386,7 +388,7 @@ export async function executeLifiBridge(
     order: 'RECOMMENDED',
     integrator: 'nvprotocol',
   });
-  const quote = await fetchJson<LifiQuote>(`${LIFI_API}/quote?${query.toString()}`);
+  const quote = await fetchJson<LifiQuote>(`${LIFI_API}/quote?${query.toString()}`, 30_000);
   const tx = quote.transactionRequest;
   if (!tx?.to || !isAddress(tx.to) || typeof tx.data !== 'string' || !tx.data.startsWith('0x')) {
     throw new Error('A LI.FI não retornou uma transação executável. Nenhuma transação foi enviada.');
