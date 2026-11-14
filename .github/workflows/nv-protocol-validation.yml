@@ -28,6 +28,14 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: LI.FI Bridge regression tests
+        run: pnpm --filter @workspace/next-vault-v3 test:bridge-lifi
+      - name: WalletConnect regression tests
+        run: pnpm --filter @workspace/next-vault-v3 test:walletconnect
       - name: Typecheck and build
         run: pnpm run build
 
