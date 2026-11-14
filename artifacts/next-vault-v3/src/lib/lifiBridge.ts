@@ -104,11 +104,14 @@ export async function discoverLifiBridgeNetworks(
   configuredNetworks: NetworkConfig[],
 ): Promise<NetworkConfig[]> {
   if (!supportedChainsRequest) {
-    supportedChainsRequest = fetchJson<{ chains?: LifiChain[] }>(`${LIFI_API}/chains?chainTypes=EVM`)
-      .then(data => new Set((data.chains ?? [])
+    supportedChainsRequest = fetchJson<LifiChain[] | { chains?: LifiChain[] }>(`${LIFI_API}/chains?chainTypes=EVM`)
+      .then(data => {
+        const chains = Array.isArray(data) ? data : (data.chains ?? []);
+        return new Set(chains
         .filter(chain => !chain.chainType || chain.chainType.toUpperCase() === 'EVM')
         .map(chain => Number(chain.id ?? chain.chainId))
-        .filter(id => Number.isSafeInteger(id) && id > 0)))
+        .filter(id => Number.isSafeInteger(id) && id > 0));
+      })
       .then(ids => {
         supportedChainIds = ids;
         return ids;
@@ -205,6 +208,14 @@ export function parseLifiUnits(value: string, decimals: number): bigint {
   }
   return BigInt(whole) * (10n ** BigInt(decimals))
     + BigInt((fraction + '0'.repeat(decimals)).slice(0, decimals) || '0');
+}
+
+export function formatLifiUnits(value: string, decimals: number): string {
+  const amount = BigInt(value);
+  const scale = 10n ** BigInt(decimals);
+  const whole = amount / scale;
+  const fraction = (amount % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction ? `${whole.toString()}.${fraction}` : whole.toString();
 }
 
 function toHex(value: unknown): string | undefined {
@@ -420,7 +431,9 @@ export async function executeLifiBridge(
     destinationTxHash: settled.destinationTxHash,
     tool: quote.tool || 'LI.FI',
     bridge: quote.bridge || 'Rota agregada LI.FI',
-    estimatedOutput: quote.estimate?.toAmountMin || quote.estimate?.toAmount || '',
+    estimatedOutput: (quote.estimate?.toAmountMin || quote.estimate?.toAmount)
+      ? formatLifiUnits(quote.estimate.toAmountMin || quote.estimate.toAmount!, destinationToken.decimals)
+      : '',
     statusMessage: settled.message,
   };
 }
