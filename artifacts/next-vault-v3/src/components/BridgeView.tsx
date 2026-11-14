@@ -761,7 +761,7 @@ export function BridgeView({
             </span>
 
             <span className="font-mono text-foreground">
-              {routeProvider === 'lifi' ? 'Incluída na cotação' : route ? `${route.fee} USDC` : '—'}
+              {routeProvider === 'lifi' ? 'Calculada pela LI.FI' : route ? `${route.fee} USDC` : '—'}
             </span>
 
           </div>
