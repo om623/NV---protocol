@@ -419,6 +419,12 @@ export async function executeLifiBridge(
   }
 
   onProgress?.('Aguardando sua confirmação da transação de origem na carteira...');
+  const eip1559Fees = tx.maxFeePerGas || tx.maxPriorityFeePerGas
+    ? {
+        ...(toHex(tx.maxFeePerGas) ? { maxFeePerGas: toHex(tx.maxFeePerGas) } : {}),
+        ...(toHex(tx.maxPriorityFeePerGas) ? { maxPriorityFeePerGas: toHex(tx.maxPriorityFeePerGas) } : {}),
+      }
+    : (toHex(tx.gasPrice) ? { gasPrice: toHex(tx.gasPrice) } : {});
   const txHash = await provider.request({
     method: 'eth_sendTransaction',
     params: [{
@@ -427,9 +433,7 @@ export async function executeLifiBridge(
       data: tx.data,
       value: toHex(tx.value) ?? '0x0',
       ...(toHex(tx.gasLimit) ? { gas: toHex(tx.gasLimit) } : {}),
-      ...(toHex(tx.gasPrice) ? { gasPrice: toHex(tx.gasPrice) } : {}),
-      ...(toHex(tx.maxFeePerGas) ? { maxFeePerGas: toHex(tx.maxFeePerGas) } : {}),
-      ...(toHex(tx.maxPriorityFeePerGas) ? { maxPriorityFeePerGas: toHex(tx.maxPriorityFeePerGas) } : {}),
+      ...eip1559Fees,
     }],
   }) as string;
 
