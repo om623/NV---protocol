@@ -243,6 +243,8 @@ export function BridgeView({
     (routeProvider === 'lifi'
       ? isMainnet && !lifiNetworksLoading && !lifiTokensLoading &&
         Boolean(selectedSourceToken) && Boolean(selectedDestinationToken) &&
+        lifiNetworks.some(network => network.id === fromNetwork) &&
+        lifiNetworks.some(network => network.id === toNetwork) &&
         fromNetwork !== toNetwork
       : Boolean(route)) &&
     Number(amount) > 0 &&
@@ -321,7 +323,10 @@ export function BridgeView({
     if (routeProvider === 'lifi') {
       const sourceNetwork = NETWORKS_CONFIG.find(network => network.id === fromNetwork && network.type === 'mainnet');
       const destinationNetwork = NETWORKS_CONFIG.find(network => network.id === toNetwork && network.type === 'mainnet');
-      if (!sourceNetwork || !destinationNetwork || !selectedSourceToken || !selectedDestinationToken) {
+      if (!sourceNetwork || !destinationNetwork ||
+          !lifiNetworks.some(network => network.id === fromNetwork) ||
+          !lifiNetworks.some(network => network.id === toNetwork) ||
+          !selectedSourceToken || !selectedDestinationToken) {
         setStatus('error');
         setMessage('Selecione redes e tokens disponíveis na rota LI.FI.');
         return;
