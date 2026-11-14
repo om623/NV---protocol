@@ -160,14 +160,8 @@ export async function discoverLifiBridgeTokens(network: NetworkConfig): Promise<
       tokens.push(token);
     };
 
-    // Preserve NV's configured native asset and USDC as stable fallbacks.
-    for (const token of network.tokens) {
-      add({
-        ...token,
-        address: token.isNative ? null : token.address,
-      });
-    }
-
+    // Use LI.FI's catalog as the source of truth so unsupported NV tokens
+    // are never presented as executable LI.FI options.
     for (const token of listed) {
       const symbol = typeof token.symbol === 'string' ? token.symbol.trim() : '';
       const name = typeof token.name === 'string' ? token.name.trim() : '';
@@ -192,6 +186,9 @@ export async function discoverLifiBridgeTokens(network: NetworkConfig): Promise<
       });
     }
 
+    if (!tokens.length) {
+      throw new Error(`A LI.FI não listou ativos disponíveis para ${network.name}.`);
+    }
     tokenCache.set(network.chainId, {
       expiresAt: Date.now() + 10 * 60 * 1000,
       tokens,
