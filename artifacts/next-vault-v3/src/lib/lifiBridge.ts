@@ -233,12 +233,12 @@ async function waitForReceipt(provider: Eip1193Provider, hash: string): Promise<
       params: [hash],
     }) as { status?: string } | null;
     if (receipt) {
-      if (receipt.status === '0x0') throw new Error('A transação foi revertida na rede de origem.');
+      if (receipt.status === '0x0') throw new Error(`A transação ${hash} foi revertida na rede de origem.`);
       return;
     }
     await new Promise(resolve => setTimeout(resolve, 2500));
   }
-  throw new Error('Tempo limite aguardando confirmação da transação de origem.');
+  throw new Error(`Tempo limite aguardando confirmação da transação ${hash}. Consulte o explorador da rede de origem.`);
 }
 
 async function sendTransaction(
@@ -303,7 +303,7 @@ async function waitForLifiStatus(
     onProgress?.(status.substatusMessage || 'Aguardando liquidação na rede de destino pela LI.FI...');
     await new Promise(resolve => setTimeout(resolve, STATUS_POLL_MS));
   }
-  throw new Error('A transação de origem foi enviada, mas a LI.FI ainda não confirmou a liquidação. Consulte o hash e tente novamente mais tarde.');
+  throw new Error(`A transação de origem ${txHash} foi confirmada, mas a LI.FI ainda não confirmou a liquidação. Consulte esse hash no explorador e tente novamente mais tarde.`);
 }
 
 export interface LifiBridgeExecutionParams {
@@ -383,6 +383,9 @@ export async function executeLifiBridge(
   if (!tx?.to || !isAddress(tx.to) || typeof tx.data !== 'string' || !tx.data.startsWith('0x')) {
     throw new Error('A LI.FI não retornou uma transação executável. Nenhuma transação foi enviada.');
   }
+  if (tx.from && tx.from.toLowerCase() !== walletAddress.toLowerCase()) {
+    throw new Error('A cotação LI.FI retornou um remetente diferente da carteira conectada. Nenhuma transação foi enviada.');
+  }
   if (tx.chainId !== undefined && Number(tx.chainId) !== fromNetwork.chainId
       && Number.parseInt(String(tx.chainId), 16) !== fromNetwork.chainId) {
     throw new Error('A cotação LI.FI retornou uma rede de origem inesperada. Nenhuma transação foi enviada.');
@@ -424,7 +427,13 @@ export async function executeLifiBridge(
   onProgress?.('Transação enviada. Aguardando confirmação na rede de origem...');
   await waitForReceipt(provider, txHash);
   onProgress?.('Origem confirmada. Aguardando a liquidação cross-chain...');
-  const settled = await waitForLifiStatus(quote, txHash, fromNetwork.chainId, toNetwork.chainId, onProgress);
+  let settled: { destinationTxHash?: string; message: string };
+  try {
+    settled = await waitForLifiStatus(quote, txHash, fromNetwork.chainId, toNetwork.chainId, onProgress);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'A liquidação cross-chain não foi confirmada.';
+    throw new Error(`${reason} Hash da transação de origem: ${txHash}`);
+  }
 
   return {
     transactionHash: txHash,
