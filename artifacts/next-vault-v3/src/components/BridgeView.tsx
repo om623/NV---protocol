@@ -198,6 +198,7 @@ export function BridgeView({
     if (!sourceNetwork || !destinationNetwork) return;
     let cancelled = false;
     setLifiTokensLoading(true);
+    if (lifiNetworks.length) setLifiError('');
     setLifiTokensFrom([]);
     setLifiTokensTo([]);
     Promise.all([
