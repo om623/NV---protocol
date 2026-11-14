@@ -115,7 +115,9 @@ export async function discoverLifiBridgeNetworks(
       })
       .finally(() => { supportedChainsRequest = null; });
   }
-  const ids = supportedChainIds ?? await supportedChainsRequest;
+  const pending = supportedChainsRequest;
+  if (!supportedChainIds && !pending) throw new Error('Não foi possível carregar as redes compatíveis com LI.FI.');
+  const ids = supportedChainIds ?? await pending!;
   return configuredNetworks.filter(network =>
     network.type === 'mainnet' && !network.comingSoon && ids.has(network.chainId),
   );
@@ -257,35 +259,37 @@ async function waitForLifiStatus(
   if (quote.bridge) params.set('bridge', quote.bridge);
 
   while (Date.now() - started < STATUS_TIMEOUT_MS) {
+    let status: LifiStatus;
     try {
-      const status = await fetchJson<LifiStatus>(`${LIFI_API}/status?${params.toString()}`);
-      const state = (status.status ?? '').toUpperCase();
-      const substatus = (status.substatus ?? '').toUpperCase();
-
-      if (state === 'DONE') {
-        if (substatus === 'REFUNDED') {
-          throw new Error('A rota LI.FI foi reembolsada: os fundos retornaram à carteira de origem.');
-        }
-        if (substatus === 'PARTIAL') {
-          return {
-            destinationTxHash: status.receiving?.txHash,
-            message: 'Transferência concluída com liquidação parcial. Confira o ativo efetivamente recebido.',
-          };
-        }
-        return {
-          destinationTxHash: status.receiving?.txHash,
-          message: 'Transferência cross-chain concluída.',
-        };
-      }
-      if (state === 'FAILED') {
-        throw new Error(status.substatusMessage || 'A LI.FI informou falha na transferência cross-chain.');
-      }
-      onProgress?.(status.substatusMessage || 'Aguardando liquidação na rede de destino pela LI.FI...');
-    } catch (error) {
-      if (error instanceof Error && /reembolsada|informou falha/.test(error.message)) throw error;
+      status = await fetchJson<LifiStatus>(`${LIFI_API}/status?${params.toString()}`);
+    } catch {
       // Temporary API/network errors are retried; the source transaction is already confirmed.
       onProgress?.('A transação de origem foi confirmada; tentando atualizar o status da LI.FI...');
+      await new Promise(resolve => setTimeout(resolve, STATUS_POLL_MS));
+      continue;
     }
+
+    const state = (status.status ?? '').toUpperCase();
+    const substatus = (status.substatus ?? '').toUpperCase();
+    if (state === 'DONE') {
+      if (substatus === 'REFUNDED') {
+        throw new Error('A rota LI.FI foi reembolsada: os fundos retornaram à carteira de origem.');
+      }
+      if (substatus === 'PARTIAL') {
+        return {
+          destinationTxHash: status.receiving?.txHash,
+          message: 'Transferência concluída com liquidação parcial. Confira o ativo efetivamente recebido.',
+        };
+      }
+      return {
+        destinationTxHash: status.receiving?.txHash,
+        message: 'Transferência cross-chain concluída.',
+      };
+    }
+    if (state === 'FAILED') {
+      throw new Error(status.substatusMessage || 'A LI.FI informou falha na transferência cross-chain.');
+    }
+    onProgress?.(status.substatusMessage || 'Aguardando liquidação na rede de destino pela LI.FI...');
     await new Promise(resolve => setTimeout(resolve, STATUS_POLL_MS));
   }
   throw new Error('A transação de origem foi enviada, mas a LI.FI ainda não confirmou a liquidação. Consulte o hash e tente novamente mais tarde.');
