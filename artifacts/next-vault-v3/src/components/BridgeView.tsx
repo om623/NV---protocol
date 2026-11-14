@@ -341,7 +341,7 @@ export function BridgeView({
         });
         setStatus('success');
         setMessage(
-          `${result.statusMessage} Protocolo: ${result.tool} · Bridge: ${result.bridge}. Hash origem: ${result.transactionHash}${result.destinationTxHash ? ` · Hash destino: ${result.destinationTxHash}` : ''}`,
+          `${result.statusMessage} Protocolo: ${result.tool} · Bridge: ${result.bridge}.${result.estimatedOutput ? ` Saída mínima estimada: ${result.estimatedOutput} ${selectedDestinationToken.symbol}.` : ''} Hash origem: ${result.transactionHash}${result.destinationTxHash ? ` · Hash destino: ${result.destinationTxHash}` : ''}`,
         );
         setAmount('');
       } catch (error) {
@@ -456,7 +456,7 @@ export function BridgeView({
             </h1>
 
             <p className="text-sm text-muted-foreground">
-              Transferência cross-chain de USDC
+              CCTP para USDC · LI.FI para múltiplos ativos
             </p>
           </div>
 
