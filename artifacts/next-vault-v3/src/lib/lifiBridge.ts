@@ -36,7 +36,13 @@ interface LifiTokenResponse {
 
 interface LifiQuote {
   tool?: string;
+  toolDetails?: { name?: string };
   bridge?: string;
+  includedSteps?: Array<{
+    type?: string;
+    tool?: string;
+    toolDetails?: { name?: string };
+  }>;
   estimate?: {
     fromAmount?: string;
     toAmount?: string;
@@ -267,7 +273,9 @@ async function waitForLifiStatus(
     fromChain: String(fromChain),
     toChain: String(toChain),
   });
-  if (quote.bridge) params.set('bridge', quote.bridge);
+  const bridgeTool = quote.bridge
+    ?? quote.includedSteps?.find(step => step.type?.toLowerCase().includes('cross'))?.tool;
+  if (bridgeTool) params.set('bridge', bridgeTool);
 
   while (Date.now() - started < STATUS_TIMEOUT_MS) {
     let status: LifiStatus;
@@ -297,7 +305,7 @@ async function waitForLifiStatus(
         message: 'Transferência cross-chain concluída.',
       };
     }
-    if (state === 'FAILED') {
+    if (state === 'FAILED' || state === 'INVALID') {
       throw new Error(status.substatusMessage || 'A LI.FI informou falha na transferência cross-chain.');
     }
     onProgress?.(status.substatusMessage || 'Aguardando liquidação na rede de destino pela LI.FI...');
@@ -438,8 +446,11 @@ export async function executeLifiBridge(
   return {
     transactionHash: txHash,
     destinationTxHash: settled.destinationTxHash,
-    tool: quote.tool || 'LI.FI',
-    bridge: quote.bridge || 'Rota agregada LI.FI',
+    tool: quote.toolDetails?.name || quote.tool || 'LI.FI',
+    bridge: quote.bridge
+      || quote.includedSteps?.find(step => step.type?.toLowerCase().includes('cross'))?.toolDetails?.name
+      || quote.includedSteps?.find(step => step.type?.toLowerCase().includes('cross'))?.tool
+      || 'Rota agregada LI.FI',
     estimatedOutput: (quote.estimate?.toAmountMin || quote.estimate?.toAmount)
       ? formatLifiUnits(quote.estimate.toAmountMin || quote.estimate.toAmount!, destinationToken.decimals)
       : '',
