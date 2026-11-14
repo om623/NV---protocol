@@ -103,7 +103,7 @@ connectBehaviour = 'approve';
 const uris: string[] = [];
 const ac = new AbortController();
 const w1 = await wc.connectWalletConnect((u: string) => uris.push(u), ac.signal);
-const o = initCalls[0] as { projectId: string; chains: number[]; optionalChains: number[]; showQrModal: boolean; metadata: { name: string; url: string; icons: string[] }; rpcMap: Record<string, string> };
+const o = initCalls[0] as { projectId: string; optionalChains: number[]; showQrModal: boolean; metadata: { name: string; url: string; icons: string[] }; rpcMap: Record<string, string> };
 ok('the SDK is initialised with the configured Project ID', o.projectId === TEST_ID);
 ok('NV renders its own QR panel (the SDK modal is off)', o.showQrModal === false);
 ok('the SDK keeps its default relay address (a custom relayUrl makes the relay answer HTTP 401)', !('relayUrl' in (o as object)));
@@ -111,7 +111,8 @@ ok('app metadata identifies NV and its origin', o.metadata.name === 'NV Protocol
 const { NETWORKS_CONFIG } = await import(join(root, 'src/networks.ts'));
 const live = NETWORKS_CONFIG.filter((n: { comingSoon?: boolean; rpcUrl?: string }) => !n.comingSoon && n.rpcUrl);
 const ids = new Set(o.optionalChains);
-ok(`every live NV network is requested (${live.length}), Ethereum mainnet included`, live.every((n: { chainId: number }) => ids.has(n.chainId)) && ids.has(1));
+ok(`every live NV network is requested as optional (${live.length}), Ethereum mainnet included`, live.every((n: { chainId: number }) => ids.has(n.chainId)) && ids.has(1));
+ok('no chain is mandatory: the deprecated chains option is omitted', !Object.prototype.hasOwnProperty.call(o, 'chains'));
 ok('Arc (5042) and Arc Testnet (5042002) are requested', ids.has(5042) && ids.has(5042002));
 ok('networks marked "coming soon" are not requested', NETWORKS_CONFIG.filter((n: { comingSoon?: boolean }) => n.comingSoon).every((n: { chainId: number }) => !ids.has(n.chainId)));
 ok('every requested network has an RPC URL', [...ids].every((id) => typeof o.rpcMap[String(id)] === 'string'));
