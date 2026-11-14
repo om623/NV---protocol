@@ -11,7 +11,8 @@
     "test:radar": "bun run scripts/radar-tests.ts",
     "test:walletconnect": "bun run scripts/walletconnect-tests.ts",
     "test:profile": "bun run scripts/profile-tests.ts && bun run scripts/profile-shop-tests.ts && bun run scripts/profile-3d-tests.ts",
-    "agent:policy": "node cli/nv-agent-policy.mjs"
+    "agent:policy": "node cli/nv-agent-policy.mjs",
+    "test:bridge-lifi": "bun run scripts/bridge-lifi-tests.ts"
   },
   "dependencies": {
     "@solana/kit": "^8.4.0",
