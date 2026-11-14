@@ -44,14 +44,11 @@ export function isWalletConnectConfigured(): boolean {
   return PROJECT_ID.length > 0;
 }
 
-/** Chain required in every session: Ethereum mainnet is supported by virtually every wallet. */
-const REQUIRED_CHAIN_ID = 1;
-
 /** Read-only view of the networks NV already supports (nothing is changed here). */
 function buildChainConfig() {
   const live = NETWORKS_CONFIG.filter((n) => !n.comingSoon && n.rpcUrl);
-  // Every live NV network is requested, Ethereum mainnet included. The SDK (2.2x) sends no required namespace, so a chain
-  // left out of `optionalChains` is simply never offered to the wallet, even when it also appears in `chains`.
+  // Every live NV network is optional. No chain is mandatory: wallets that support only a subset can still pair.
+  // Reown's current CAIP-25 guidance is to leave the deprecated `chains` option unset.
   const optionalChains = Array.from(new Set(live.map((n) => n.chainId)));
   const rpcMap: Record<string, string> = {};
   for (const n of live) rpcMap[String(n.chainId)] = n.rpcUrl;
@@ -214,8 +211,7 @@ function startInit(): Promise<EthereumProviderType> {
     const origin = window.location.origin;
     const provider = await EthereumProvider.init({
       projectId: PROJECT_ID,
-      chains: [REQUIRED_CHAIN_ID],
-      optionalChains: optionalChains.length > 0 ? (optionalChains as [number, ...number[]]) : undefined,
+      optionalChains: optionalChains as [number, ...number[]],
       rpcMap,
       // NV renders its own non-blocking QR panel instead of the SDK's full-screen modal.
       showQrModal: false,
