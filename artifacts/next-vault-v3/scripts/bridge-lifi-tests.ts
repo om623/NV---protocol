@@ -60,7 +60,7 @@ try {
   assert.equal(networks[0].id, 'ethereum');
 
   const tokens = await discoverLifiBridgeTokens(ethereum);
-  assert.equal(tokens.length, 3, 'configured assets are retained and distinct same-symbol contracts remain selectable');
+  assert.equal(tokens.length, 3, 'LI.FI-listed assets and distinct same-symbol contracts remain selectable');
   assert.equal(tokens.filter(token => token.symbol === 'USDC').length, 2);
   assert.equal(getLifiTokenAddress(tokens.find(token => token.isNative)!), NATIVE);
   assert.equal(getLifiTokenAddress(tokens.find(token => token.address?.toLowerCase() === BRIDGED_USDC.toLowerCase())!), BRIDGED_USDC);
