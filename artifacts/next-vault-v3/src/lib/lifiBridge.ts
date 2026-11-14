@@ -403,18 +403,20 @@ export async function executeLifiBridge(
 
   // Request ERC-20 approval only after a valid quote and only when allowance is insufficient.
   if (!sourceToken.isNative) {
-    if (!isAddress(sourceToken.address) || !isAddress(quote.estimate?.approvalAddress)) {
+    const tokenAddress = sourceToken.address;
+    const approvalAddress = quote.estimate?.approvalAddress;
+    if (!isAddress(tokenAddress) || !isAddress(approvalAddress)) {
       throw new Error('A cotação LI.FI não informou um contrato de aprovação válido. Nenhuma transação foi enviada.');
     }
-    const allowanceData = `0xdd62ed3e${walletAddress.slice(2).toLowerCase().padStart(64, '0')}${quote.estimate.approvalAddress.slice(2).toLowerCase().padStart(64, '0')}`;
+    const allowanceData = `0xdd62ed3e${walletAddress.slice(2).toLowerCase().padStart(64, '0')}${approvalAddress.slice(2).toLowerCase().padStart(64, '0')}`;
     const allowanceRaw = await provider.request({
       method: 'eth_call',
-      params: [{ to: sourceToken.address, data: allowanceData }, 'latest'],
+      params: [{ to: tokenAddress, data: allowanceData }, 'latest'],
     }) as string;
     if (BigInt(allowanceRaw || '0x0') < fromAmount) {
       onProgress?.(`Aguardando aprovação de ${sourceToken.symbol} na carteira...`);
-      const approveData = `0x095ea7b3${quote.estimate.approvalAddress.slice(2).toLowerCase().padStart(64, '0')}${MAX_UINT256.slice(2)}`;
-      const approvalHash = await sendTransaction(provider, walletAddress, sourceToken.address, approveData);
+      const approveData = `0x095ea7b3${approvalAddress.slice(2).toLowerCase().padStart(64, '0')}${MAX_UINT256.slice(2)}`;
+      const approvalHash = await sendTransaction(provider, walletAddress, tokenAddress, approveData);
       await waitForReceipt(provider, approvalHash);
     }
   }
@@ -445,6 +447,7 @@ export async function executeLifiBridge(
     throw new Error(`${reason} Hash da transação de origem: ${txHash}`);
   }
 
+  const estimatedOutputRaw = quote.estimate?.toAmountMin || quote.estimate?.toAmount;
   return {
     transactionHash: txHash,
     destinationTxHash: settled.destinationTxHash,
@@ -453,8 +456,8 @@ export async function executeLifiBridge(
       || quote.includedSteps?.find(step => step.type?.toLowerCase().includes('cross'))?.toolDetails?.name
       || quote.includedSteps?.find(step => step.type?.toLowerCase().includes('cross'))?.tool
       || 'Rota agregada LI.FI',
-    estimatedOutput: (quote.estimate?.toAmountMin || quote.estimate?.toAmount)
-      ? formatLifiUnits(quote.estimate.toAmountMin || quote.estimate.toAmount!, destinationToken.decimals)
+    estimatedOutput: estimatedOutputRaw
+      ? formatLifiUnits(estimatedOutputRaw, destinationToken.decimals)
       : '',
     statusMessage: settled.message,
   };
