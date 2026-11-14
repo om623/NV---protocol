@@ -497,7 +497,7 @@ export function BridgeView({
 
       {routeProvider === 'lifi' && (
         <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs text-muted-foreground">
-          LI.FI agrega provedores de bridge e exchanges para encontrar rotas cross-chain. Redes e ativos são carregados do catálogo oficial; a execução depende de uma cotação disponível para o par e valor selecionados.
+          LI.FI agrega provedores de bridge e exchanges para encontrar rotas cross-chain entre redes EVM mainnet. Redes e ativos são carregados do catálogo oficial; a execução depende de uma cotação disponível para o par e valor selecionados. Testnets e Solana continuam no fluxo CCTP original.
           {lifiNetworksLoading || lifiTokensLoading ? <span className="block mt-2 text-primary">Carregando redes e ativos compatíveis...</span> : null}
           {lifiError ? <span className="block mt-2 text-amber-400">{lifiError}</span> : null}
           {!lifiNetworksLoading && !lifiNetworks.length && !lifiError ? <span className="block mt-2 text-amber-400">Nenhuma rede EVM desta configuração está disponível no catálogo LI.FI no momento.</span> : null}
