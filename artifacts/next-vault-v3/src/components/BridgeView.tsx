@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
+  ChevronDown,
   Loader2,
   Wallet,
 } from 'lucide-react';
@@ -95,6 +96,84 @@ function getBridgeTokenKey(token: LifiBridgeToken): string {
 function defaultBridgeToken(tokens: LifiBridgeToken[]): string {
   const preferred = tokens.find(token => token.symbol.toUpperCase() === 'USDC') ?? tokens[0];
   return preferred ? getBridgeTokenKey(preferred) : '';
+}
+
+interface TokenPickerProps {
+  label: string;
+  tokens: LifiBridgeToken[];
+  selectedKey: string;
+  disabled: boolean;
+  onChange: (key: string) => void;
+}
+
+function TokenLogo({ token }: { token: LifiBridgeToken }) {
+  return (
+    <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-primary/10 text-[10px] font-bold text-primary">
+      {token.symbol.slice(0, 2).toUpperCase()}
+      {token.logoURI ? (
+        <img
+          src={token.logoURI}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={event => { event.currentTarget.style.display = 'none'; }}
+          className="absolute inset-0 h-full w-full rounded-full bg-card object-cover"
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function TokenPicker({ label, tokens, selectedKey, disabled, onChange }: TokenPickerProps) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const selected = tokens.find(token => getBridgeTokenKey(token) === selectedKey);
+
+  return (
+    <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
+      <label className="mb-3 block text-xs uppercase tracking-widest text-muted-foreground/60">{label}</label>
+      <details ref={detailsRef} className="group relative" >
+        <summary
+          aria-label={label}
+          aria-disabled={disabled}
+          className={`flex w-full list-none items-center gap-3 rounded-xl border border-border/50 bg-background px-3 py-2.5 text-left outline-none transition-colors marker:hidden focus:border-primary/50 [&::-webkit-details-marker]:hidden ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-primary/40'}`}
+          onClick={event => { if (disabled) event.preventDefault(); }}
+        >
+          {selected ? <TokenLogo token={selected} /> : <span className="h-8 w-8 rounded-full bg-secondary" />}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-foreground">{selected?.symbol ?? (tokens.length ? 'Selecione um token' : 'Carregando tokens...')}</span>
+            <span className="block truncate text-[10px] text-muted-foreground">{selected?.name ?? 'Catálogo LI.FI'}</span>
+          </span>
+          <ChevronDown size={16} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-y-auto rounded-xl border border-border/60 bg-card p-1.5 shadow-2xl">
+          {tokens.map(token => {
+            const key = getBridgeTokenKey(token);
+            const addressLabel = token.address
+              ? `${token.address.slice(0, 6)}…${token.address.slice(-4)}`
+              : 'Token nativo';
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  onChange(key);
+                  if (detailsRef.current) detailsRef.current.open = false;
+                }}
+                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/70 ${key === selectedKey ? 'bg-primary/10' : ''}`}
+              >
+                <TokenLogo token={token} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold text-foreground">{token.symbol} <span className="font-normal text-muted-foreground">· {token.name}</span></span>
+                  <span className="block truncate font-mono text-[9px] text-muted-foreground/60">{addressLabel}</span>
+                </span>
+              </button>
+            );
+          })}
+          {!tokens.length ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhum token disponível nesta rede.</p> : null}
+        </div>
+      </details>
+    </div>
+  );
 }
 
 export function BridgeView({
@@ -632,37 +711,21 @@ export function BridgeView({
         </div>
 
         {routeProvider === 'lifi' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-            <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground/60 mb-3">Ativo de origem</label>
-              <select
-                value={sourceTokenKey}
-                onChange={event => { setSourceTokenKey(event.target.value); setStatus('idle'); setMessage(''); }}
-                disabled={lifiTokensLoading || status === 'processing'}
-                className="w-full bg-background border border-border/50 rounded-xl px-3 py-3 text-sm text-foreground outline-none focus:border-primary/50 disabled:opacity-50"
-              >
-                {lifiTokensFrom.map(token => (
-                  <option key={getBridgeTokenKey(token)} value={getBridgeTokenKey(token)}>
-                    {token.symbol} — {token.name}{token.address ? ` · ${token.address.slice(0, 6)}…${token.address.slice(-4)}` : ' · Native'}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground/60 mb-3">Ativo de destino</label>
-              <select
-                value={destinationTokenKey}
-                onChange={event => { setDestinationTokenKey(event.target.value); setStatus('idle'); setMessage(''); }}
-                disabled={lifiTokensLoading || status === 'processing'}
-                className="w-full bg-background border border-border/50 rounded-xl px-3 py-3 text-sm text-foreground outline-none focus:border-primary/50 disabled:opacity-50"
-              >
-                {lifiTokensTo.map(token => (
-                  <option key={getBridgeTokenKey(token)} value={getBridgeTokenKey(token)}>
-                    {token.symbol} — {token.name}{token.address ? ` · ${token.address.slice(0, 6)}…${token.address.slice(-4)}` : ' · Native'}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <TokenPicker
+              label="Ativo de origem"
+              tokens={lifiTokensFrom}
+              selectedKey={sourceTokenKey}
+              disabled={lifiTokensLoading || status === 'processing'}
+              onChange={key => { setSourceTokenKey(key); setStatus('idle'); setMessage(''); }}
+            />
+            <TokenPicker
+              label="Ativo de destino"
+              tokens={lifiTokensTo}
+              selectedKey={destinationTokenKey}
+              disabled={lifiTokensLoading || status === 'processing'}
+              onChange={key => { setDestinationTokenKey(key); setStatus('idle'); setMessage(''); }}
+            />
           </div>
         )}
 
