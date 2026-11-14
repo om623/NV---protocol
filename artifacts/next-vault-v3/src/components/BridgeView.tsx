@@ -198,7 +198,6 @@ export function BridgeView({
     if (!sourceNetwork || !destinationNetwork) return;
     let cancelled = false;
     setLifiTokensLoading(true);
-    setLifiError('');
     setLifiTokensFrom([]);
     setLifiTokensTo([]);
     Promise.all([
@@ -500,6 +499,7 @@ export function BridgeView({
           LI.FI agrega provedores de bridge e exchanges para encontrar rotas cross-chain. Redes e ativos são carregados do catálogo oficial; a execução depende de uma cotação disponível para o par e valor selecionados.
           {lifiNetworksLoading || lifiTokensLoading ? <span className="block mt-2 text-primary">Carregando redes e ativos compatíveis...</span> : null}
           {lifiError ? <span className="block mt-2 text-amber-400">{lifiError}</span> : null}
+          {!lifiNetworksLoading && !lifiNetworks.length && !lifiError ? <span className="block mt-2 text-amber-400">Nenhuma rede EVM desta configuração está disponível no catálogo LI.FI no momento.</span> : null}
         </div>
       )}
 
