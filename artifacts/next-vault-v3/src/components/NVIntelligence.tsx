@@ -63,6 +63,7 @@ import {
   getEditorialFocus,
 } from '../lib/intelligence';
 import { agentQuery }        from '../lib/agentApi';
+import { getNVAgentLocaleFallback } from '../lib/agentLocale';
 import { applyNVActionCorrection, applyNVActionDefaults, describeNVActionGuard, parseNVTurn, summarizeNVAction } from '../lib/nvAgentCore';
 import { buildFullContext }  from '../lib/agentContext';
 import type { NVAgentContext } from '../lib/agentContext';
@@ -784,19 +785,22 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
 
-  async function localizeText(text: string, targetLocale: string): Promise<string> {
-    if (!text.trim()) return text;
+  async function localizeText(text: string, targetLocale: string, sourceLocale?: string): Promise<string> {
+    if (!text.trim() || targetLocale === 'en') return text;
     try {
       const response = await fetch('/api/nv-agent-localize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, locale: targetLocale }),
+        body: JSON.stringify({ text, locale: targetLocale, sourceLocale }),
       });
-      if (!response.ok) return text;
+      if (!response.ok) return getNVAgentLocaleFallback(targetLocale);
       const payload = await response.json() as { text?: string };
-      return typeof payload.text === 'string' && payload.text.trim() ? payload.text : text;
+      return typeof payload.text === 'string' && payload.text.trim()
+        ? payload.text
+        : getNVAgentLocaleFallback(targetLocale);
     } catch {
-      return text;
+      // Never leak the source language when localization is unavailable.
+      return getNVAgentLocaleFallback(targetLocale);
     }
   }
 
@@ -936,7 +940,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const response = await fetch('/api/nv-agent-understand', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: question, history }),
+        body: JSON.stringify({ message: question, history, locale }),
       });
       if (!response.ok) return null;
       return await response.json() as {
@@ -1117,6 +1121,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       let response = agentCtx
         ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
         : agentQuery(normalizedQuestion, news, locale, t);
+      let answerOriginLocale = 'en';
       if (!response.action && !isFinancialActionIntent(semantic?.intent)) {
         const conversational = await askConversationalAgent(question);
         if (conversational?.answer) {
@@ -1124,6 +1129,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
             answer: conversational.answer,
             sources: conversational.sources ?? [],
           };
+          answerOriginLocale = locale;
         }
       }
       if (response.action && semantic) {
@@ -1141,7 +1147,9 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
       }
       const { answer, sources, action } = response;
       if (action) setPendingAction(action);
-      const localizedAnswer = await localizeText(answer, locale);
+      const localizedAnswer = answerOriginLocale === locale
+        ? answer
+        : await localizeText(answer, locale, answerOriginLocale);
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: localizedAnswer,
