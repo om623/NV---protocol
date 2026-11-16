@@ -129,11 +129,6 @@ const NEWS_KW = [
   'mercado hoje', 'market news', 'recent events',
 ];
 
-const LEARNING_KW = [
-  'aprender', 'learn', 'estudar', 'study', 'livro', 'book', 'explicar', 'explain',
-  'por que', 'porque', 'why', 'como funciona', 'how does',
-];
-
 const CAPABILITIES_KW = [
   'what can you do', 'what do you know', 'your capabilities', 'help me',
   'o que você faz', 'o que voce faz', 'o que você sabe', 'o que voce sabe',
@@ -612,35 +607,14 @@ function answerTransactionMode(mode: 'assisted' | 'authorized'): AgentResponse {
 
 function addSpontaneousGuidance(
   response: AgentResponse,
-  question: string,
-  intent: QueryIntent,
-  ctx: NVAgentContext,
-  locale: string,
+  _question: string,
+  _intent: QueryIntent,
+  _ctx: NVAgentContext,
+  _locale: string,
 ): AgentResponse {
-  const q = question.toLowerCase();
-  const learning = LEARNING_KW.some(k => q.includes(k));
-  const marketRelated = ['market_price', 'market_top', 'market_movers', 'market_status', 'news'].includes(intent);
-  if (learning || !marketRelated || !ctx.market?.assets?.length) return response;
-
-  // Deterministic variation keeps the Agent lively without pretending to have
-  // independent thoughts or interrupting transactional flows.
-  const seed = Array.from(question).reduce((n, ch) => n + ch.charCodeAt(0), 0) % 5;
-  const pt = [
-    'Se quiser, posso ir além dos números e separar sinais, riscos e hipóteses desse cenário.',
-    'Posso também comparar isso com outro ativo, período ou rede para dar mais contexto.',
-    'Quer uma referência para aprofundar? Posso sugerir um livro relacionado ao assunto e resumir por que ele pode ser útil.',
-    'Se preferir, posso transformar esses dados em uma leitura curta: o que mudou, o que importa e o que ainda não sabemos.',
-    'Há mais de uma forma de olhar para isso. Posso montar uma visão técnica, fundamental ou de risco usando os dados disponíveis no NV.',
-  ];
-  const en = [
-    'If you want, I can go beyond the numbers and separate signals, risks and hypotheses in this scenario.',
-    'I can also compare this with another asset, period or network to add context.',
-    'Want a reference to go deeper? I can suggest a relevant book and summarize why it may be useful.',
-    'If you prefer, I can turn these data into a short read: what changed, what matters, and what we still do not know.',
-    'There is more than one way to read this. I can build a technical, fundamental, or risk view using the data available in NV.',
-  ];
-  const suggestion = (locale === 'pt-BR' ? pt : en)[seed];
-  return { ...response, answer: response.answer + '\n\n' + suggestion };
+  // Do not append unsolicited or pseudo-random recommendations. Follow-ups
+  // must be relevant to the user's request and generated intentionally.
+  return response;
 }
 
 function answerUnknown(locale: string): AgentResponse {
