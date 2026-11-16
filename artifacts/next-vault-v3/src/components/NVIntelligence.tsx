@@ -706,14 +706,33 @@ function NVNewsPanel({ news }: { news: NewsItem[] }) {
 
 // ─── NV Agent Panel ───────────────────────────────────────────────────────────
 
+const NV_AGENT_GREETINGS: Record<string, string> = {
+ 'pt-BR':'Bem-vindo. Como posso servi-lo?', en:'Welcome. How may I serve you?',
+ es:'Bienvenido. ¿Cómo puedo ayudarle?', fr:'Bienvenue. Comment puis-je vous aider ?',
+ zh:'欢迎。有什么可以为您效劳？', ja:'ようこそ。どのようなお手伝いをいたしましょうか？',
+ ko:'환영합니다. 무엇을 도와드릴까요?', hi:'स्वागत है। मैं आपकी क्या सहायता कर सकता हूँ?',
+ ar:'مرحبًا بك. كيف يمكنني خدمتك؟'
+};
+const NV_AGENT_MODE_LABELS: Record<string, [string,string,string]> = {
+ 'pt-BR':['Conversa livre','Manual assistido','Modo autorizado'],
+ en:['Open conversation','Assisted mode','Authorized mode'],
+ es:['Conversación libre','Modo asistido','Modo autorizado'],
+ fr:['Conversation libre','Mode assisté','Mode autorisé'],
+ zh:['自由对话','辅助模式','授权模式'], ja:['通常の会話','アシストモード','承認モード'],
+ ko:['자유 대화','보조 모드','승인 모드'], hi:['सामान्य बातचीत','सहायता मोड','अधिकृत मोड'],
+ ar:['محادثة مفتوحة','الوضع المساعد','الوضع المصرّح']
+};
+
 function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentContext | null }) {
   const { t, locale } = useI18n();
   const [agentMode, setAgentModeState] = useState<NVAgentMode>(() => getNVAgentMode());
   const [voiceMuted, setVoiceMuted] = useState(() => isNVVoiceMuted());
+  const modeLabels = NV_AGENT_MODE_LABELS[locale] ?? NV_AGENT_MODE_LABELS.en;
+  const greeting = NV_AGENT_GREETINGS[locale] ?? NV_AGENT_GREETINGS.en;
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
       role: 'assistant',
-      content: locale === 'pt-BR' ? 'Bem-vindo. Como posso servi-lo?' : 'Welcome. How may I serve you?',
+      content: greeting,
       sources: [],
       timestamp: Date.now(),
     },
@@ -726,49 +745,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Suggested queries — locale-aware
-  const suggestions = useMemo(() => {
-    const byLocale: Record<string, string[]> = {
-      'pt-BR': [
-        'Preço do Bitcoin',
-        'Top 10 cripto por market cap',
-        'TVL do Ethereum',
-        'Minha carteira conectada',
-        'Como fazer bridge USDC?',
-        'O que está acontecendo nos mercados hoje?',
-      ],
-      'en': [
-        'Bitcoin price',
-        'Top 10 crypto by market cap',
-        'Ethereum TVL',
-        'My connected wallet',
-        'How to bridge USDC?',
-        "What's happening in markets today?",
-      ],
-      'es': [
-        'Precio de Bitcoin',
-        'Top 10 cripto por market cap',
-        'TVL de Ethereum',
-        'Mi cartera conectada',
-        '¿Cómo hacer bridge de USDC?',
-        '¿Qué pasa en los mercados hoy?',
-      ],
-      'fr': [
-        'Prix du Bitcoin',
-        'Top 10 crypto par market cap',
-        'TVL Ethereum',
-        'Mon portefeuille connecté',
-        'Comment bridger USDC?',
-        "Actualité des marchés aujourd'hui",
-      ],
-      'zh': ['比特币价格', '市值前10加密货币', '以太坊TVL', '我的钱包', '如何跨链USDC?', '今天市场发生了什么？'],
-      'ja': ['ビットコイン価格', 'トップ10暗号通貨', 'イーサリアムTVL', '接続中ウォレット', 'USDCブリッジ方法', '今日の市場ニュース'],
-      'ko': ['비트코인 가격', '시총 상위 10 코인', '이더리움 TVL', '내 연결된 지갑', 'USDC 브리지 방법', '오늘 시장 동향은?'],
-      'hi': ['Bitcoin की कीमत', 'Top 10 crypto market cap', 'Ethereum TVL', 'मेरा कनेक्टेड वॉलेट', 'USDC bridge कैसे करें?', 'आज बाज़ार में क्या हो रहा है?'],
-      'ar': ['سعر البيتكوين', 'أفضل 10 عملات رقمية', 'TVL إيثيريوم', 'محفظتي المتصلة', 'كيف أحول USDC؟', 'أخبار الأسواق اليوم'],
-    };
-    return byLocale[locale] ?? byLocale['en'];
-  }, [locale]);
+  // Opening screen intentionally avoids fixed suggestions.
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -778,7 +755,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   useEffect(() => {
     setMessages([{
       role: 'assistant',
-      content: locale === 'pt-BR' ? 'Bem-vindo. Como posso servi-lo?' : 'Welcome. How may I serve you?',
+      content: greeting,
       sources: [],
       timestamp: Date.now(),
     }]);
@@ -853,19 +830,38 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     setAgentModeState(mode);
     setNVAgentMode(mode);
     const isAssisted = mode === 'assisted';
-    const answer = locale === 'pt-BR'
-      ? isAssisted
-        ? 'Modo Manual Assistido ativado.\n\nNeste modo, você me solicita uma operação. Eu interpreto o pedido, verifico os dados disponíveis e preparo a transação para sua revisão. A execução só acontece depois que você revisar e assinar na carteira.\n\nComo posso servi-lo? Você pode dizer, por exemplo: “Envie 5 USDC para 0x…”'
-        : 'Modo Autorizado selecionado.\n\nEste modo foi criado para operações executadas dentro de uma autorização prévia, limitada e revogável. Antes de qualquer execução autônoma, você deverá definir e confirmar na carteira as redes, tokens, destinatários, limites por operação, limite acumulado e validade.\n\nNenhuma permissão financeira foi concedida apenas por selecionar este modo. Como posso servi-lo?'
-      : isAssisted
-        ? 'Assisted Manual Mode activated.\n\nAsk me for an operation and I will interpret it, verify available data and prepare the transaction for your review. Execution only happens after you review and sign in your wallet.\n\nHow may I serve you? For example: “Send 5 USDC to 0x…”'
-        : 'Authorized Mode selected.\n\nThis mode is designed for operations within a prior, limited and revocable authorization. Before autonomous execution, you must define and confirm in your wallet the networks, tokens, recipients, per-operation limits, cumulative limit and validity.\n\nSelecting this mode alone grants no financial permission. How may I serve you?';
+    const answer = isAssisted
+      ? (locale === 'pt-BR'
+          ? 'Modo Manual Assistido ativado. Você solicita uma operação; eu interpreto, verifico os dados e preparo a transação para sua revisão. A execução só acontece depois que você revisar e assinar na carteira.'
+          : locale === 'en'
+            ? 'Assisted Mode activated. Ask for an operation and I will interpret it, verify available data and prepare it for review. Execution only happens after you review and sign in your wallet.'
+            : ({
+                es:'Modo asistido activado. Puedes solicitar una operación; interpretaré tu petición, verificaré los datos y prepararé la transacción para que la revises y firmes en tu cartera.',
+                fr:'Mode assisté activé. Vous pouvez demander une opération ; je l’interpréterai, vérifierai les données et préparerai la transaction pour votre examen et signature dans le portefeuille.',
+                zh:'辅助模式已启用。您可以提出操作请求；我会理解请求、核实数据并准备交易，供您审核并在钱包中签名。',
+                ja:'アシストモードを有効にしました。操作を依頼できます。内容とデータを確認して取引を準備し、ウォレットで確認・署名した後に実行します。',
+                ko:'보조 모드가 활성화되었습니다. 작업을 요청하면 요청과 데이터를 확인하고 거래를 준비합니다. 지갑에서 검토하고 서명한 후 실행됩니다.',
+                hi:'सहायता मोड सक्रिय है। आप ऑपरेशन का अनुरोध कर सकते हैं; मैं डेटा जाँचकर समीक्षा और वॉलेट हस्ताक्षर के लिए लेन-देन तैयार करूँगा।',
+                ar:'تم تفعيل الوضع المساعد. يمكنك طلب عملية؛ سأفهم الطلب وأتحقق من البيانات وأجهز المعاملة لمراجعتها والتوقيع عليها في محفظتك.'
+              } as Record<string,string>)[locale] ?? 'Assisted Mode activated.')
+      : (locale === 'pt-BR'
+          ? 'Modo Autorizado selecionado. Ele exige autorização prévia, limitada e revogável, confirmada na carteira. Defina redes, tokens, destinatários, limites por operação, limite acumulado e validade. Selecionar o modo não concede permissão financeira.'
+          : locale === 'en'
+            ? 'Authorized Mode selected. It requires prior, limited and revocable authorization confirmed in your wallet. Define networks, tokens, recipients, per-operation and cumulative limits, and validity. Selecting this mode grants no financial permission.'
+            : ({
+                es:'Modo autorizado seleccionado. Requiere autorización previa, limitada y revocable, confirmada en tu cartera. Define redes, tokens, destinatarios, límites por operación, límite acumulado y vigencia. Seleccionarlo no concede permisos financieros.',
+                fr:'Mode autorisé sélectionné. Il exige une autorisation préalable, limitée et révocable, confirmée dans votre portefeuille. Définissez les réseaux, jetons, destinataires, limites par opération et cumulées, ainsi que la durée. Ce choix ne donne aucun droit financier.',
+                zh:'已选择授权模式。此模式需要在钱包中确认事先设定的有限且可撤销授权，包括网络、代币、接收方、单笔和累计限额及有效期。仅选择此模式不会授予资金权限。',
+                ja:'承認モードが選択されました。ウォレットで事前に限定的かつ取り消し可能な承認を確認する必要があります。ネットワーク、トークン、受取人、取引ごとと累積の上限、有効期間を設定してください。選択だけでは資金操作権限は付与されません。',
+                ko:'승인 모드가 선택되었습니다. 지갑에서 사전에 제한적이고 취소 가능한 권한을 확인해야 합니다. 네트워크, 토큰, 수신자, 작업별 및 누적 한도, 유효 기간을 설정하세요. 선택만으로 금융 권한이 부여되지는 않습니다.',
+                hi:'अधिकृत मोड चुना गया है। इसके लिए वॉलेट में पहले से सीमित और रद्द की जा सकने वाली अनुमति की पुष्टि आवश्यक है। नेटवर्क, टोकन, प्राप्तकर्ता, प्रति-ऑपरेशन और संचयी सीमाएँ तथा वैधता निर्धारित करें। केवल चयन से वित्तीय अनुमति नहीं मिलती।',
+                ar:'تم اختيار الوضع المصرّح. يتطلب تفويضًا مسبقًا ومحدودًا وقابلًا للإلغاء، مع تأكيده في المحفظة. حدد الشبكات والرموز والمستلمين والحدود لكل عملية والحد التراكمي ومدة الصلاحية. الاختيار وحده لا يمنح صلاحية مالية.'
+              } as Record<string,string>)[locale] ?? 'Authorized Mode selected.');
+
     rememberNVAgentIntent({ text: isAssisted ? 'mode:assisted' : 'mode:authorized', mode });
     setMessages(prev => [...prev, {
       role: 'user',
-      content: isAssisted
-        ? (locale === 'pt-BR' ? 'Ativar modo Manual Assistido' : 'Activate Assisted Manual Mode')
-        : (locale === 'pt-BR' ? 'Ativar Modo Autorizado' : 'Activate Authorized Mode'),
+      content: isAssisted ? (locale === 'pt-BR' ? 'Ativar modo Manual Assistido' : locale === 'en' ? 'Activate Assisted Mode' : modeLabels[1]) : (locale === 'pt-BR' ? 'Ativar Modo Autorizado' : locale === 'en' ? 'Activate Authorized Mode' : modeLabels[2]),
       timestamp: Date.now(),
     }, {
       role: 'assistant',
@@ -1174,19 +1170,24 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   }
 
   return (
-    <div className="flex flex-col min-h-[400px] max-h-[600px] rounded-2xl border border-border/40 bg-card/80 backdrop-blur overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border/30">
-        <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-          <Bot size={14} className="text-primary" />
-        </div>
-        <div>
-          <div className="text-xs font-semibold text-foreground">{t('intel.agent')}</div>
-          <div className="text-[9px] text-muted-foreground/50 font-mono">
-            {news.length} {t('intel.agentItems')}
-          </div>
-        </div>
+    <div className="flex h-[min(72vh,760px)] min-h-[460px] max-h-[760px] flex-col rounded-2xl border border-border/40 bg-card/80 backdrop-blur overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/30">
+        <div className="text-sm font-semibold text-foreground">{t('intel.agent')}</div>
         <div className="ml-auto flex items-center gap-2">
+          <select
+            value={agentMode ?? ''}
+            aria-label={modeLabels[0]}
+            onChange={event => {
+              const nextMode = event.target.value;
+              if (nextMode === 'assisted' || nextMode === 'authorized') activateTransactionMode(nextMode);
+              else { setAgentModeState(null); setNVAgentMode(null); }
+            }}
+            className="max-w-[150px] rounded-lg border border-border/40 bg-background/60 px-2 py-1.5 text-[10px] text-muted-foreground outline-none focus:border-primary/40"
+          >
+            <option value="">{modeLabels[0]}</option>
+            <option value="assisted">{modeLabels[1]}</option>
+            <option value="authorized">{modeLabels[2]}</option>
+          </select>
           <button
             type="button"
             aria-label={voiceMuted ? t('voice.enableFuture') : t('voice.silenceFuture')}
@@ -1196,76 +1197,22 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
               setVoiceMuted(nextMuted);
               setNVVoiceMuted(nextMuted);
             }}
-            className="flex items-center gap-1 rounded-lg border border-border/40 px-2 py-1 text-[10px] text-muted-foreground/70 hover:text-primary transition-colors"
+            className="flex items-center gap-1 rounded-lg border border-border/40 px-2 py-1.5 text-[10px] text-muted-foreground/70 hover:text-primary transition-colors"
           >
             {voiceMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
           </button>
-          <div className="flex items-center gap-1 text-[9px] text-primary/50 font-mono">
-            <Bot size={9} />
-            {t('intel.agentItems')} {news.length > 0 ? '●' : '○'}
-          </div>
         </div>
       </div>
 
-      {/* Disclaimer */}
-      <div className="mx-4 mt-3 mb-1 flex items-start gap-2 rounded-lg bg-amber-500/5 border border-amber-500/15 px-3 py-2">
-        <AlertTriangle size={10} className="text-amber-400 mt-0.5 shrink-0" />
-        <p className="text-[9px] text-amber-400/80 leading-relaxed">{t('intel.agentDisclaimer')}</p>
-      </div>
-
-      {/* Transaction mode selector — selection is stateful; no financial authorization is granted here */}
       {messages.length <= 1 && (
-        <div className="mx-4 mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
-          <div className="text-xs font-semibold text-foreground mb-2">
-            {locale === 'pt-BR' ? 'Deseja acionar o modo manual assistido ou o modo autorizado?' : 'Would you like Assisted Manual Mode or Authorized Mode?'}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button type="button" onClick={() => activateTransactionMode('assisted')}
-              className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-left hover:bg-cyan-500/10 transition-colors">
-              <div className="text-[11px] font-semibold text-cyan-400">1 · {locale === 'pt-BR' ? 'Manual assistido' : 'Assisted manual'}</div>
-              <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/70">
-                {locale === 'pt-BR'
-                  ? 'Você solicita a operação. Eu interpreto, verifico e preparo a transação; você revisa e assina na carteira antes da execução.'
-                  : 'You request the operation. I interpret, verify and prepare it; you review and sign in your wallet before execution.'}
-              </div>
-            </button>
-            <button type="button" onClick={() => activateTransactionMode('authorized')}
-              className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5 text-left hover:bg-violet-500/10 transition-colors">
-              <div className="text-[11px] font-semibold text-violet-400">2 · {locale === 'pt-BR' ? 'Modo autorizado' : 'Authorized mode'}</div>
-              <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/70">
-                {locale === 'pt-BR'
-                  ? 'Você define uma autorização limitada e revogável. Eu só poderei operar dentro das redes, tokens, destinatários, valores e validade confirmados por você.'
-                  : 'You define a limited, revocable authorization. I may only operate within the networks, tokens, recipients, amounts and validity you confirm.'}
-              </div>
-            </button>
-          </div>
-          <div className="mt-2 text-[8px] leading-relaxed text-muted-foreground/50">
-            {locale === 'pt-BR'
-              ? 'Escolher um modo não assina transações nem concede permissão financeira. Autorizações reais exigem confirmação explícita da carteira.'
-              : 'Choosing a mode does not sign transactions or grant financial permission. Real authorization requires explicit wallet confirmation.'}
-          </div>
-        </div>
-      )}
-
-      {/* Suggestion chips */}
-      {messages.length <= 1 && (
-        <div className="px-4 py-2 flex flex-wrap gap-1.5">
-          {suggestions.map((s, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => handleSend(s)}
-              className="text-[9px] font-mono px-2 py-1 rounded-lg bg-secondary/30 border border-border/30 text-muted-foreground/60 hover:border-primary/30 hover:text-primary transition-all text-left"
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
+          <p className="max-w-md text-base font-medium tracking-tight text-foreground/75">{greeting}</p>
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {messages.map((msg, i) => (
+      <div className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 ${messages.length <= 1 ? 'hidden' : ''}`}>
+        {messages.slice(1).map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
               className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
