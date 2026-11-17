@@ -18,6 +18,18 @@ export default async function handler(req:Req,res:Res){
  const key=process.env.OPENAI_API_KEY; if(!key){res.status(503).json({error:'agent_not_configured'});return;}
  const history=Array.isArray(b.history)?b.history.slice(-16).map((m:any)=>({role:m.role==='assistant'?'assistant':'user',content:String(m.content??'').slice(0,3500)})):[];
  const context=compactContext(b.context);
+ const promptContext={
+  locale:context.locale,
+  market:context.market?{isLive:context.market.isLive,fetchedAt:context.market.fetchedAt,sentiment:context.market.sentiment,loadedAssets:context.market.assets?.length??0}:null,
+  tvl:context.tvl?{status:context.tvl.status,fetchedAt:context.tvl.fetchedAt,loadedChains:context.tvl.entries?.length??0}:null,
+  wallet:{
+   evm:{connected:Boolean(context.wallet.evm?.connected),network:context.wallet.evm?.network??null},
+   solana:{connected:context.wallet.solana?.walletState?.status==='connected'}
+  },
+  payment:context.payment?{status:context.payment.status,productId:context.payment.productId,networkName:context.payment.networkName,tokenSymbol:context.payment.tokenSymbol}:null,
+  bridge:context.bridge?{step:context.bridge.step,fromNetwork:context.bridge.fromNetwork,toNetwork:context.bridge.toNetwork}:null,
+  news:context.news?{fetchedAt:context.news.fetchedAt,breakingCount:context.news.breakingCount,loadedItems:context.news.length}:null
+ };
  const instructions=`You are NV Agent, a general-purpose AI assistant and the intelligence core inside Next Vault Protocol (NV), a non-custodial multichain DeFi interface.
 You can help with practically any legitimate subject. Your strongest specialization is finance, economics, global markets, blockchain, DeFi, Web3 and the NV ecosystem, but these are not limits on what you can discuss.
 
@@ -62,7 +74,7 @@ NV ARCHITECTURE
 - You may explain these capabilities, but never claim an integration exists if it is unavailable.
 
 CURRENT NV CONTEXT (read-only; may contain live data):
-${JSON.stringify(context)}`;
+${JSON.stringify(promptContext)}`;
  try{
   const body:any={model:process.env.NV_AGENT_MODEL||'gpt-5.1',instructions,input:[...history,{role:'user',content:message}]};
   const financeTools:any[]=[
