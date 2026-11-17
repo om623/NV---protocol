@@ -939,7 +939,11 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: question, history, context: agentCtx, locale }),
       });
-      if (!response.ok) return null;
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        console.error('[NV Agent] conversational API failed:', response.status, detail.slice(0, 500));
+        return null;
+      }
       return await response.json() as {
         answer: string;
         sources?: { title: string; url: string; source: string; publishedAt: string }[];
@@ -1036,7 +1040,9 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         response = agentCtx
           ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
           : agentQuery(normalizedQuestion, news, locale, t);
-        answerOriginLocale = 'en';
+        // The deterministic legacy engine already receives the selected locale.
+        // Do not send its localized answer through the translation endpoint again.
+        answerOriginLocale = locale;
       }
       const { answer, sources, action } = response;
       if (action) setPendingAction(action);
