@@ -102,8 +102,30 @@ export async function ensureNetwork(prov: Eip1193Provider, params: {
 }
 
 function toHex(n: number, decimals: number): string {
-  const scaled = Math.round(n * Math.pow(10, decimals));
-  return '0x' + scaled.toString(16);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(decimals) || decimals < 0 || decimals > 36) {
+    throw new Error('Invalid token amount or decimals');
+  }
+
+  // Convert the shortest decimal representation directly to bigint.
+  // Avoid Number multiplication at 18 decimals, which can silently lose precision.
+  const [coefficient, exponentRaw] = n.toString().toLowerCase().split('e');
+  const exponent = exponentRaw ? Number(exponentRaw) : 0;
+  const [whole, fraction = ''] = coefficient.split('.');
+  const digits = (whole + fraction).replace(/^0+(?=\\d)/, '') || '0';
+  const scale = decimals - fraction.length + exponent;
+  let units = BigInt(digits);
+
+  if (scale >= 0) {
+    units *= 10n ** BigInt(scale);
+  } else {
+    const divisor = 10n ** BigInt(-scale);
+    if (units % divisor !== 0n) {
+      throw new Error('Amount has more decimal places than the token supports');
+    }
+    units /= divisor;
+  }
+
+  return '0x' + units.toString(16);
 }
 
 export async function transferNative(
