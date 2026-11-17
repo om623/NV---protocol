@@ -992,7 +992,7 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         return;
       }
 
-      if (['swap','bridge','transfer','payment'].includes(coreTurn.intent) || (pendingAction && correction.action)) {
+      if (['swap','bridge','transfer','payment'].includes(coreTurn.intent) || (pendingAction && correction.action && coreTurn.intent === pendingAction.type)) {
         let action = correction.action;
         if (action) {
           const prefs = getNVAgentAutomationPreferences();
@@ -1018,34 +1018,6 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
           if (!voiceMuted) enqueueNVVoice(msg, locale);
           return;
         }
-      }
-
-      // A pending operation is updated only when the deterministic parser
-      // recognizes an explicit slot reply for that operation. Ordinary questions
-      // remain ordinary conversation and never mutate the pending parameters.
-      const isPendingSlotUpdate = Boolean(
-        pendingAction && correction.action && coreTurn.intent === pendingAction.type
-      );
-      if (isPendingSlotUpdate && pendingAction && correction.action) {
-        const action = correction.action;
-        const progress = applyNVActionCorrection(action, '').progress;
-        setPendingAction(action);
-        const phrase = agentPhrase();
-        const issues = progress ? describeNVActionGuard(progress.guard) : [];
-        const msg = issues.length
-          ? summarizeNVAction(action) + '. ' + issues.join(' ')
-          : progress && !progress.complete
-            ? summarizeNVAction(action) + '. ' + phrase.stillMissing + ': ' + localizeAgentSlots(progress.missing).join(', ') + '.'
-            : summarizeNVAction(action) + '. ' + phrase.ready + '. ' + phrase.sayExecute + '.';
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: msg,
-          sources: [],
-          action: progress?.complete && progress.guard.valid ? action : undefined,
-          timestamp: Date.now(),
-        }]);
-        if (!voiceMuted) enqueueNVVoice(msg, locale);
-        return;
       }
 
       // General intelligence is the primary conversational path. The LLM receives
