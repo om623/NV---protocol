@@ -931,22 +931,6 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     recognition.start();
   }
 
-  async function understandSemantically(question: string) {
-    try {
-      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
-      const response = await fetch('/api/nv-agent-understand', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: question, history, locale }),
-      });
-      if (!response.ok) return null;
-      return await response.json() as {
-        intent: string; rewritten: string; amount: number | null; token: string | null;
-        sourceToken: string | null; destinationToken: string | null; recipient: string | null;
-        fromNetwork: string | null; toNetwork: string | null; product: string | null;
-        needsClarification: boolean; clarification: string | null;
-      };
-    } catch { return null; }
-  }
 
   async function askConversationalAgent(question: string) {
     if (!agentCtx) return null;
@@ -964,10 +948,6 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     } catch { return null; }
   }
 
-  function isFinancialActionIntent(intent?: string) {
-    return intent === 'action_transfer' || intent === 'action_swap' ||
-      intent === 'action_bridge' || intent === 'action_payment';
-  }
 
   async function handleSend(q = input) {
     const question = q.trim();
@@ -1040,106 +1020,53 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
         }
       }
 
-      // Normalize the question to English for intent detection, then localize the
-      // answer back into the user's selected language. The original user text is
-      // always kept in the chat, and financial identifiers remain unchanged.
-      const semantic = await understandSemantically(question);
-
-      // Core v3 already owns pending financial slot filling above. Avoid a second
-      // parser here so transaction state has one deterministic authority.
-
-      // Carry an unfinished operation across turns BEFORE honoring a generic
-      // semantic clarification. A short reply such as "valor: 0.001 de USDC
-      // para EURC" is a slot-fill for the pending Swap, not a new market query.
-      if (pendingAction && semantic) {
-        const patch: Record<string, string | number | null> = {
-          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
-          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
-          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
-          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
-          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
-          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
-          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
-          ...(semantic.product ? { product: semantic.product } : {}),
-        };
-        if (Object.keys(patch).length) {
-          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
-          setPendingAction(updated);
-          const params = updated.params ?? {};
-          const summary = updated.type === 'swap'
-            ? `Swap atualizado: ${params.amount ?? '?'} ${params.sourceToken ?? '?'} → ${params.destinationToken ?? '?'}.`
-            : locale === 'pt-BR'
-              ? 'Atualizei a operação pendente com os novos parâmetros.'
-              : 'I updated the pending operation with the new parameters.';
-          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: updated, timestamp: Date.now() }]);
-          if (!voiceMuted) enqueueNVVoice(summary, locale);
-          return;
-        }
-      }
-      if (semantic?.needsClarification && semantic.clarification) {
-        const clarification = await localizeText(semantic.clarification, locale);
-        setMessages(prev => [...prev, { role: 'assistant', content: clarification, sources: [], timestamp: Date.now() }]);
-        if (!voiceMuted) enqueueNVVoice(clarification, locale);
+      // A pending operation is updated only when the deterministic parser
+      // recognizes an explicit slot reply for that operation. Ordinary questions
+      // remain ordinary conversation and never mutate the pending parameters.
+      const isPendingSlotUpdate = Boolean(
+        pendingAction && correction.action && coreTurn.intent === pendingAction.type
+      );
+      if (isPendingSlotUpdate && pendingAction && correction.action) {
+        const action = correction.action;
+        const progress = applyNVActionCorrection(action, '').progress;
+        setPendingAction(action);
+        const phrase = agentPhrase();
+        const issues = progress ? describeNVActionGuard(progress.guard) : [];
+        const msg = issues.length
+          ? summarizeNVAction(action) + '. ' + issues.join(' ')
+          : progress && !progress.complete
+            ? summarizeNVAction(action) + '. ' + phrase.stillMissing + ': ' + localizeAgentSlots(progress.missing).join(', ') + '.'
+            : summarizeNVAction(action) + '. ' + phrase.ready + '. ' + phrase.sayExecute + '.';
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: msg,
+          sources: [],
+          action: progress?.complete && progress.guard.valid ? action : undefined,
+          timestamp: Date.now(),
+        }]);
+        if (!voiceMuted) enqueueNVVoice(msg, locale);
         return;
       }
-      // Carry an unfinished operation across turns. The user can say things like
-      // "mude para 0.01", "use Base Sepolia" or "para Base" without repeating
-      // the whole transaction request.
-      if (pendingAction && semantic && !isFinancialActionIntent(semantic.intent)) {
-        const patch: Record<string, string | number | null> = {
-          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
-          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
-          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
-          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
-          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
-          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
-          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
-          ...(semantic.product ? { product: semantic.product } : {}),
-        };
-        if (Object.keys(patch).length) {
-          const updated = { ...pendingAction, params: { ...pendingAction.params, ...patch } };
-          setPendingAction(updated);
-          const summary = locale === 'pt-BR'
-            ? 'Atualizei a operação pendente. Revise os parâmetros e execute quando estiver pronto.'
-            : 'I updated the pending operation. Review the parameters and execute when ready.';
-          setMessages(prev => [...prev, { role: 'assistant', content: summary, sources: [], action: updated, timestamp: Date.now() }]);
-          if (!voiceMuted) enqueueNVVoice(summary, locale);
-          return;
-        }
-      }
-      const semanticQuestion = semantic?.rewritten?.trim() || question;
-      const normalizedQuestion = locale === 'en' ? semanticQuestion : await localizeText(semanticQuestion, 'en');
+
+      // General intelligence is the primary conversational path. The LLM receives
+      // the original user language and selected locale; the deterministic legacy
+      // answer engine is used only when the provider is unavailable.
+      const normalizedQuestion = coreInput;
       rememberNVAgentIntent({ text: question, normalizedText: normalizedQuestion, mode: agentMode });
 
-      // Transactions remain behind the deterministic NV execution layer.
-      // Everything else is answered by the finance-first conversational brain,
-      // with the legacy deterministic engine as an offline/provider fallback.
-      let response = agentCtx
-        ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
-        : agentQuery(normalizedQuestion, news, locale, t);
-      let answerOriginLocale = 'en';
-      if (!response.action && !isFinancialActionIntent(semantic?.intent)) {
-        const conversational = await askConversationalAgent(question);
-        if (conversational?.answer) {
-          response = {
-            answer: conversational.answer,
-            sources: conversational.sources ?? [],
-          };
-          answerOriginLocale = locale;
-        }
-      }
-      if (response.action && semantic) {
-        response.action.params = {
-          ...response.action.params,
-          ...(semantic.amount != null ? { amount: semantic.amount } : {}),
-          ...(semantic.token ? { token: semantic.token.toUpperCase() } : {}),
-          ...(semantic.sourceToken ? { sourceToken: semantic.sourceToken.toUpperCase() } : {}),
-          ...(semantic.destinationToken ? { destinationToken: semantic.destinationToken.toUpperCase() } : {}),
-          ...(semantic.recipient ? { recipient: semantic.recipient } : {}),
-          ...(semantic.fromNetwork ? { fromNetwork: semantic.fromNetwork } : {}),
-          ...(semantic.toNetwork ? { toNetwork: semantic.toNetwork } : {}),
-          ...(semantic.product ? { product: semantic.product } : {}),
+      let response: { answer: string; sources: AgentMessage['sources']; action?: AgentAction };
+      let answerOriginLocale = locale;
+      const conversational = await askConversationalAgent(question);
+      if (conversational?.answer) {
+        response = {
+          answer: conversational.answer,
+          sources: conversational.sources ?? [],
         };
+      } else {
+        response = agentCtx
+          ? agentQuery(normalizedQuestion, agentCtx, { locale, t })
+          : agentQuery(normalizedQuestion, news, locale, t);
+        answerOriginLocale = 'en';
       }
       const { answer, sources, action } = response;
       if (action) setPendingAction(action);
