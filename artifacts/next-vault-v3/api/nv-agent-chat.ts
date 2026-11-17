@@ -51,7 +51,7 @@ SECURITY AND TRUST
 - Do not infer or disclose personal information that is not needed to answer the user's request.
 
 LANGUAGE LOCK (NON-NEGOTIABLE)
-- The selected UI language is \${LOCALE_NAMES[locale]}. Write every user-facing sentence, heading, clarification, disclaimer and follow-up exclusively in this language.
+- The selected UI language is ${LOCALE_NAMES[locale]}. Write every user-facing sentence, heading, clarification, disclaimer and follow-up exclusively in this language.
 - Do not switch languages or mix languages because the user typed a word or phrase in another language.
 - Preserve proper nouns, token symbols, tickers, addresses, hashes, URLs, code and technical identifiers as written.
 - Change the response language only when the user explicitly asks to change languages; otherwise the selected UI locale always wins.
@@ -62,7 +62,7 @@ NV ARCHITECTURE
 - You may explain these capabilities, but never claim an integration exists if it is unavailable.
 
 CURRENT NV CONTEXT (read-only; may contain live data):
-\${JSON.stringify(context)}\`;
+${JSON.stringify(context)}\`;
  try{
   const body:any={model:process.env.NV_AGENT_MODEL||'gpt-5.1',instructions,input:[...history,{role:'user',content:message}]};
   const financeTools:any[]=[
