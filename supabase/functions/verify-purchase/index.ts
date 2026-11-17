@@ -466,10 +466,11 @@ Deno.serve(async (req: Request) => {
         .eq("tx_hash", txHash)
         .maybeSingle();
 
+    if (existing && (existing.wallet_address?.toLowerCase() !== walletAddress.toLowerCase() || existing.product_id !== productId)) {
+      return failResponse("Transaction hash has already been used for a different wallet or product");
+    }
+
     if (existing?.status === "confirmed") {
-      if (existing.wallet_address?.toLowerCase() !== walletAddress.toLowerCase() || existing.product_id !== productId) {
-        return failResponse("Transaction hash has already been used for a different wallet or product");
-      }
       return new Response(
         JSON.stringify({
           verified: true,
@@ -554,9 +555,11 @@ Deno.serve(async (req: Request) => {
           currentBlockHex,
         );
 
+      // Include the mined block itself as confirmation #1.
       const confirmations =
-        currentBlock -
-        txBlockNumber;
+        currentBlock >= txBlockNumber
+          ? currentBlock - txBlockNumber + 1n
+          : 0n;
 
       if (
         confirmations <
@@ -631,6 +634,9 @@ Deno.serve(async (req: Request) => {
     if (
       config.tokenAddress === null
     ) {
+      if (tx.input && tx.input !== "0x") {
+        return failResponse("Native USDC payment must be a direct wallet transfer without contract calldata");
+      }
       if (
         tx.to?.toLowerCase() !==
         recipientLower
