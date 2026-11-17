@@ -933,7 +933,6 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
 
 
   async function askConversationalAgent(question: string) {
-    if (!agentCtx) return null;
     try {
       const history = messages.slice(-16).map(m => ({ role: m.role, content: m.content }));
       const response = await fetch('/api/nv-agent-chat', {
