@@ -48,5 +48,6 @@ assert.equal(amountReply.action?.params?.amount, 0.01);
 
 assert.equal(applyNVActionCorrection(pendingBridge, 'cancel').cancelled, true);
 assert.equal(applyNVActionCorrection(pendingBridge, 'confirm').confirmed, true);
+assert.notEqual(parseNVTurn('yes, what is Bitcoin?', pendingBridge).intent, 'confirm');
 
 console.log('NV Agent general-intelligence routing: all assertions passed');
