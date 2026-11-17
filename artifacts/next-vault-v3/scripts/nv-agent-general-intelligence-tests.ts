@@ -19,6 +19,8 @@ const pendingSwap: AgentAction = {
 assert.equal(parseNVTurn('Como fazer bridge USDC?').intent, 'chat');
 assert.equal(parseNVTurn('How do I bridge USDC?').intent, 'chat');
 assert.equal(parseNVTurn('What is a bridge?').intent, 'chat');
+assert.equal(parseNVTurn('I want to learn about bridges').intent, 'chat');
+assert.equal(parseNVTurn('How do I swap ETH to USDC?').intent, 'chat');
 assert.equal(parseNVTurn('Explain Bitcoin').intent, 'chat');
 
 const bridgeRequest = parseNVTurn('Bridge 5 USDC from Arc Mainnet to Base');
