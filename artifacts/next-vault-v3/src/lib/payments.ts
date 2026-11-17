@@ -3,26 +3,25 @@
 // then verifies the transaction on-chain through the verify-purchase edge function.
 // No product is unlocked without server-verified on-chain confirmation.
 
-import { transferErc20, transferNative, getTokensForNetwork, ensureBaseNetwork, getChainId, type Eip1193Provider } from "./arc";
+import { transferErc20, transferNative, getTokensForNetwork, ensureArcMainnet, getChainId, type Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
 import { createClient } from "@supabase/supabase-js";
 
-// ── Payment network: Base Mainnet (chainId 8453) ──────────────────────────
-// Payments run exclusively on Base Mainnet using official USDC.
-// The rest of the NV Protocol (swaps, pools, bridge, wallet) is unaffected.
-const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 8453)!;
+// ── Payment network: Arc Mainnet (chainId 5042) ───────────────────────────
+// Profile purchases are paid directly in native USDC on Arc Mainnet.
+// This is isolated from Swap, Bridge, WalletConnect and all other modules.
+const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 5042)!;
 
 // ── Payment configuration (display-only, from server) ────────────────────
 // The frontend fetches these from the server on init. They are used ONLY
 // for display and for constructing the on-chain transaction. The server
 // re-derives all of these from its own database during verification —
 // it never trusts the frontend's copy.
-export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 8453
-export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Base"
+export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 5042
+export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Arc"
 export const PAYMENT_TOKEN_SYMBOL = "USDC";
-export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.decimals ?? 6;
+// Arc native USDC uses 18 decimals for native transfers (its ERC-20 interface uses 6).
+export const PAYMENT_TOKEN_DECIMALS = 18;
 export const PAYMENT_TOKEN_ADDRESS = PAYMENT_NETWORK.tokens.find(
   (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
 )?.address ?? null;
@@ -78,12 +77,18 @@ export async function fetchServerPaymentConfig(): Promise<void> {
       console.warn(`[payments] Config endpoint returned HTTP ${res.status}: ${text}`);
       return;
     }
-    const data = await res.json() as { paymentWallet?: string; chainId?: number; tokenSymbol?: string };
-    if (data.paymentWallet) {
-      serverPaymentWallet = data.paymentWallet;
-      serverConfigLoaded = true;
-    } else {
-      console.warn("[payments] Config endpoint returned no paymentWallet field", data);
+    const data = await res.json() as { paymentWallet?: string; chainId?: number; tokenSymbol?: string; tokenDecimals?: number; beneficiaryName?: string; isConfigured?: boolean };
+    serverConfigLoaded = true;
+    if (data.chainId !== PAYMENT_CHAIN_ID || data.tokenSymbol !== PAYMENT_TOKEN_SYMBOL || data.tokenDecimals !== PAYMENT_TOKEN_DECIMALS) {
+      serverPaymentWallet = null;
+      console.error("[payments] Server payment configuration does not match Arc Mainnet native USDC", data);
+      return;
+    }
+    serverPaymentWallet = data.paymentWallet && /^0x[a-fA-F0-9]{40}$/.test(data.paymentWallet)
+      ? data.paymentWallet
+      : null;
+    if (!serverPaymentWallet) {
+      console.info("[payments] ARC beneficiary address has not been configured yet; purchases remain disabled.");
     }
   } catch (err) {
     console.warn("[payments] Failed to fetch payment config:", err instanceof Error ? err.message : err);
@@ -391,14 +396,14 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     };
   }
 
-  // Step 1: Switch wallet to Base Mainnet (chainId 8453) and verify
+  // Step 1: Switch wallet to Arc Mainnet (chainId 5042) and verify
   try {
-    await ensureBaseNetwork(provider);
+    await ensureArcMainnet(provider);
     const actualChainId = await getChainId(provider);
     if (actualChainId !== PAYMENT_CHAIN_ID) {
       return {
         success: false, txHash: null, verified: false,
-        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Base Mainnet), got ${actualChainId}`,
+        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Arc Mainnet), got ${actualChainId}`,
         productId,
       };
     }
@@ -408,7 +413,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
       success: false, txHash: null, verified: false,
       error: msg.includes("4001") || msg.includes("User rejected")
         ? "Network switch rejected by wallet"
-        : `Failed to switch to Base Mainnet: ${msg}`,
+        : `Failed to switch to Arc Mainnet: ${msg}`,
       productId,
     };
   }
