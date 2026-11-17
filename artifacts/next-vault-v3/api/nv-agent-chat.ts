@@ -6,7 +6,7 @@ function compactContext(raw:any){
  const assets=(raw?.market?.assets??[]).slice(0,120).map((a:any)=>({symbol:a.symbol,name:a.name,category:a.category,price:a.price,change24h:a.change24h,change7d:a.change7d,marketCap:a.marketCap,volume24h:a.volume24h,isLive:a.isLive}));
  const tvl=(raw?.tvl?.entries??[]).slice(0,60).map((e:any)=>({id:e.id,name:e.displayName,tvlUsd:e.tvlUsd,status:e.status}));
  const news=(raw?.news?.items??[]).slice(0,30).map((n:any)=>({title:n.title,summary:n.summary,source:n.source,publishedAt:n.publishedAt,url:n.url,category:n.category,country:n.country,priority:n.priority}));
- return {locale:raw?.locale,market:{isLive:raw?.market?.isLive,fetchedAt:raw?.market?.fetchedAt,sentiment:raw?.market?.sentiment,assets},tvl:{status:raw?.tvl?.status,fetchedAt:raw?.tvl?.fetchedAt,entries:tvl},wallet:{evm:raw?.evmWallet,solana:raw?.solanaWallet},payment:raw?.payment,bridge:raw?.bridge,news};
+ return {locale:raw?.locale,market:{isLive:raw?.market?.isLive,fetchedAt:raw?.market?.fetchedAt,sentiment:raw?.market?.sentiment,assets},tvl:{status:raw?.tvl?.status,fetchedAt:raw?.tvl?.fetchedAt,entries:tvl},wallet:{evm:raw?.evmWallet,solana:raw?.solanaWallet},payment:raw?.payment,bridge:raw?.bridge,news,newsFetchedAt:raw?.news?.fetchedAt,newsBreakingCount:raw?.news?.breakingCount};
 }
 export default async function handler(req:Req,res:Res){
  res.setHeader('Cache-Control','no-store'); if(req.method!=='POST'){res.status(405).json({error:'method_not_allowed'});return;}
@@ -28,7 +28,7 @@ export default async function handler(req:Req,res:Res){
   },
   payment:context.payment?{status:context.payment.status,productId:context.payment.productId,networkName:context.payment.networkName,tokenSymbol:context.payment.tokenSymbol}:null,
   bridge:context.bridge?{step:context.bridge.step,fromNetwork:context.bridge.fromNetwork,toNetwork:context.bridge.toNetwork}:null,
-  news:context.news?{fetchedAt:context.news.fetchedAt,breakingCount:context.news.breakingCount,loadedItems:context.news.length}:null
+  news:context.news?{fetchedAt:context.newsFetchedAt,breakingCount:context.newsBreakingCount,loadedItems:context.news.length}:null
  };
  const instructions=`You are NV Agent, a general-purpose AI assistant and the intelligence core inside Next Vault Protocol (NV), a non-custodial multichain DeFi interface.
 You can help with practically any legitimate subject. Your strongest specialization is finance, economics, global markets, blockchain, DeFi, Web3 and the NV ecosystem, but these are not limits on what you can discuss.
