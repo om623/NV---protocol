@@ -76,22 +76,46 @@ ${JSON.stringify(context)}\`;
   const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!upstream.ok){const detail=await upstream.text(); console.error('[NV Agent] provider',upstream.status,detail.slice(0,500));res.status(502).json({error:'agent_provider_failed'});return;}
   let data=await upstream.json() as any;
-  // Read-only NV tools: the model can request a focused slice of the supplied snapshot.
-  // No financial executor is exposed here; transaction actions remain client-side + deterministic.
-  const calls=(data.output??[]).filter((x:any)=>x.type==='function_call');
-  if(calls.length){
+  // Bounded tool loop. Only read-only NV inspection functions are executable here;
+  // financial executors, wallet signing and transaction broadcasting are not exposed.
+  for(let round=0;round<3;round++){
+    const calls=(data.output??[]).filter((x:any)=>x.type==='function_call');
+    if(!calls.length)break;
     const outputs:any[]=[];
     for(const call of calls){
-      let args:any={}; try{args=JSON.parse(call.arguments||'{}')}catch{}
-      let value:any=null;
-      if(call.name==='inspect_nv_market'){const all=context.market.assets??[];value=args.purpose==='movers'?all.slice().sort((a:any,b:any)=>Math.abs(b.change24h??0)-Math.abs(a.change24h??0)).slice(0,12):args.symbols?.length?all.filter((a:any)=>args.symbols.some((s:string)=>String(a.symbol).toLowerCase()===s.toLowerCase()||String(a.name).toLowerCase().includes(s.toLowerCase()))):context.market;}
-      else if(call.name==='inspect_nv_tvl'){const all=context.tvl.entries??[];value=args.ranking?all.slice(0,20):all.filter((e:any)=>args.chains.some((s:string)=>String(e.name??e.id).toLowerCase().includes(s.toLowerCase())));}
-      else if(call.name==='inspect_nv_wallet'){value=args.ecosystem==='evm'?context.wallet.evm:args.ecosystem==='solana'?context.wallet.solana:context.wallet;}
-      else if(call.name==='inspect_nv_news'){const topic=String(args.topic??'').toLowerCase();value=(context.news??[]).filter((n:any)=>!topic||JSON.stringify(n).toLowerCase().includes(topic)).slice(0,Math.max(1,Math.min(Number(args.limit)||8,20)));}
+      let args:any={};
+      try{args=JSON.parse(call.arguments||'{}')}catch{}
+      let value:any={error:'unsupported_tool'};
+      if(call.name==='inspect_nv_market'){
+        const all=context.market.assets??[];
+        value=args.purpose==='movers'
+          ? all.slice().sort((a:any,b:any)=>Math.abs(b.change24h??0)-Math.abs(a.change24h??0)).slice(0,12)
+          : Array.isArray(args.symbols)&&args.symbols.length
+            ? all.filter((a:any)=>args.symbols.some((s:string)=>String(a.symbol).toLowerCase()===s.toLowerCase()||String(a.name).toLowerCase().includes(s.toLowerCase()))).slice(0,30)
+            : context.market;
+      }else if(call.name==='inspect_nv_tvl'){
+        const all=context.tvl.entries??[];
+        value=args.ranking?all.slice(0,20):all.filter((e:any)=>Array.isArray(args.chains)&&args.chains.some((s:string)=>String(e.name??e.id).toLowerCase().includes(s.toLowerCase()))).slice(0,30);
+      }else if(call.name==='inspect_nv_wallet'){
+        value=args.ecosystem==='evm'?context.wallet.evm:args.ecosystem==='solana'?context.wallet.solana:context.wallet;
+      }else if(call.name==='inspect_nv_news'){
+        const topic=String(args.topic??'').toLowerCase();
+        value=(context.news??[]).filter((n:any)=>!topic||JSON.stringify(n).toLowerCase().includes(topic)).slice(0,Math.max(1,Math.min(Number(args.limit)||8,20)));
+      }
       outputs.push({type:'function_call_output',call_id:call.call_id,output:JSON.stringify(value)});
     }
-    const follow=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:body.model,instructions,previous_response_id:data.id,input:outputs,tools:financeTools})});
-    if(follow.ok)data=await follow.json(); else console.error('[NV Agent] tool follow-up',follow.status,(await follow.text()).slice(0,500));
+    const follow=await fetch('https://api.openai.com/v1/responses',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+      body:JSON.stringify({model:body.model,instructions,previous_response_id:data.id,input:outputs,tools:financeTools})
+    });
+    if(!follow.ok){
+      const detail=await follow.text();
+      console.error('[NV Agent] tool follow-up',follow.status,detail.slice(0,500));
+      res.status(502).json({error:'agent_tool_followup_failed'});
+      return;
+    }
+    data=await follow.json() as any;
   }
   const answer=(data.output_text??data.output?.flatMap((x:any)=>x.content??[]).filter((x:any)=>x.type==='output_text').map((x:any)=>x.text).join('\n')??'').trim();
   if(!answer){res.status(502).json({error:'empty_agent_response'});return;}
