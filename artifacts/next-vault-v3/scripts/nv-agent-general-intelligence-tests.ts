@@ -35,7 +35,7 @@ assert.equal(swapRequest.params.sourceToken, 'ETH');
 assert.equal(swapRequest.params.destinationToken, 'USDC');
 
 assert.equal(parseNVTurn('What is Base?', pendingBridge).intent, 'chat');
-assert.equal(parseNVTurn('Explain Bitcoin', pendingSwap).intent, 'chat');
+assert.equal(parseNVTurn('Explain Bitcoin', pendingSwap).intent, 'market');
 
 const destinationReply = applyNVActionCorrection(pendingBridge, 'Base');
 assert.equal(destinationReply.action?.type, 'bridge');
