@@ -1,9 +1,9 @@
 // ── Shop: REAL on-chain purchases (same flow and rules as before) ─────────────
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, CircleAlert as AlertCircle, Crown, Lock, ShoppingCart, Star } from 'lucide-react';
 import { useFormat, useI18n } from '../../i18n';
 import { SKINS, SWAP_XP_BASE, XP_PACKAGES, type BoostMultiplier } from '../../lib/gamification';
-import { PAYMENT_CHAIN_ID, PAYMENT_CHAIN_NAME, PAYMENT_TOKEN_SYMBOL, getServerPaymentWallet } from '../../lib/payments';
+import { PAYMENT_CHAIN_ID, PAYMENT_CHAIN_NAME, PAYMENT_TOKEN_SYMBOL, fetchServerPaymentConfig, getServerPaymentWallet } from '../../lib/payments';
 import { RARITY_COLOR, finishFor } from '../nvult/catalog';
 import { NvultFigure } from '../nvult/NvultFigure';
 import { LimitBadge, PurchaseStatusLine, buyLabel, canBuy, isBusy } from '../purchase';
@@ -15,6 +15,16 @@ export function Shop({ ctx }: { ctx: ProfileCtx }) {
   const { number } = useFormat();
   const { gamification: g, level, accent, nv, getLimit } = ctx;
   const wallet = !!ctx.walletAddress;
+  const [paymentWallet, setPaymentWallet] = useState<string | null>(getServerPaymentWallet());
+  const paymentReady = !!paymentWallet;
+
+  useEffect(() => {
+    let active = true;
+    void fetchServerPaymentConfig().then(() => {
+      if (active) setPaymentWallet(getServerPaymentWallet());
+    });
+    return () => { active = false; };
+  }, []);
 
   // Same behaviour as the previous screen: load limits when the shop opens with a wallet.
   useEffect(() => {
@@ -73,7 +83,7 @@ export function Shop({ ctx }: { ctx: ProfileCtx }) {
                   <PurchaseStatusLine state={ctx.purchaseState} productId={pkg.id} />
                 </div>
                 <div className="shrink-0 text-sm font-bold text-amber-300">${pkg.price}</div>
-                <button onClick={() => ctx.onBuyXp(pkg.id)} disabled={busy || !wallet || !buyable} data-testid={`buy-${pkg.id}`}
+                <button onClick={() => ctx.onBuyXp(pkg.id)} disabled={busy || !wallet || !buyable || !paymentReady} data-testid={`buy-${pkg.id}`}
                   className="shrink-0 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/[.05] disabled:cursor-not-allowed disabled:opacity-55" style={{ borderColor: `${accent}55`, color: accent }}>
                   {buyLabel(t, { wallet, canBuy: buyable, busy, idle: t('profile.buyXP') })}
                 </button>
@@ -103,7 +113,7 @@ export function Shop({ ctx }: { ctx: ProfileCtx }) {
                 {owned ? (
                   <div className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300"><Check size={12} />{t('purchase.purchased')}</div>
                 ) : (
-                  <button onClick={() => ctx.onBuySkin(skin.id)} disabled={busy || !wallet || !buyable} data-testid={`shop-buy-skin-${skin.id}`}
+                  <button onClick={() => ctx.onBuySkin(skin.id)} disabled={busy || !wallet || !buyable || !paymentReady} data-testid={`shop-buy-skin-${skin.id}`}
                     className="mt-2 w-full cursor-pointer rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-55">
                     {buyLabel(t, { wallet, canBuy: buyable, busy, idle: t('profile.buy') })}
                   </button>
@@ -120,8 +130,8 @@ export function Shop({ ctx }: { ctx: ProfileCtx }) {
         <div className="space-y-1">
           <div className="text-xs text-foreground">{t('profile.paymentTokens')}: {PAYMENT_TOKEN_SYMBOL}</div>
           <div className="text-[10px] font-mono text-muted-foreground/45">{t('purchase.network')}: {PAYMENT_CHAIN_NAME} (Chain ID: {PAYMENT_CHAIN_ID})</div>
-          <div className="text-[10px] font-mono text-muted-foreground/45">{t('profile.paymentWallet')}:</div>
-          <div className="max-w-[220px] truncate font-mono text-[10px] text-cyan-300/75 sm:max-w-none">{getServerPaymentWallet() ?? '—'}</div>
+          <div className="text-[10px] font-mono text-muted-foreground/45">ARC · {t('profile.paymentWallet')}:</div>
+          <div className="max-w-[220px] truncate font-mono text-[10px] text-cyan-300/75 sm:max-w-none">{paymentWallet ?? '—'}</div>
         </div>
       </div>
     </div>
