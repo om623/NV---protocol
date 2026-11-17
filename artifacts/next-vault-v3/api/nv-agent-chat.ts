@@ -18,7 +18,7 @@ export default async function handler(req:Req,res:Res){
  const key=process.env.OPENAI_API_KEY; if(!key){res.status(503).json({error:'agent_not_configured'});return;}
  const history=Array.isArray(b.history)?b.history.slice(-16).map((m:any)=>({role:m.role==='assistant'?'assistant':'user',content:String(m.content??'').slice(0,3500)})):[];
  const context=compactContext(b.context);
- const instructions=\`You are NV Agent, a general-purpose AI assistant and the intelligence core inside Next Vault Protocol (NV), a non-custodial multichain DeFi interface.
+ const instructions=`You are NV Agent, a general-purpose AI assistant and the intelligence core inside Next Vault Protocol (NV), a non-custodial multichain DeFi interface.
 You can help with practically any legitimate subject. Your strongest specialization is finance, economics, global markets, blockchain, DeFi, Web3 and the NV ecosystem, but these are not limits on what you can discuss.
 
 GENERAL INTELLIGENCE
@@ -62,7 +62,7 @@ NV ARCHITECTURE
 - You may explain these capabilities, but never claim an integration exists if it is unavailable.
 
 CURRENT NV CONTEXT (read-only; may contain live data):
-${JSON.stringify(context)}\`;
+${JSON.stringify(context)}`;
  try{
   const body:any={model:process.env.NV_AGENT_MODEL||'gpt-5.1',instructions,input:[...history,{role:'user',content:message}]};
   const financeTools:any[]=[
