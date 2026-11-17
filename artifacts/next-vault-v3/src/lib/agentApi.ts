@@ -620,8 +620,8 @@ function addSpontaneousGuidance(
 function answerUnknown(locale: string): AgentResponse {
   return {
     answer: locale === 'pt-BR'
-      ? 'Entendi. Quero responder com precisão em vez de presumir o que você quis dizer. Você pode me dizer se deseja analisar o mercado, consultar um ativo, verificar TVL ou carteira, acompanhar notícias ou preparar uma operação?'
-      : 'I understand. I would rather be precise than assume what you mean. Tell me whether you want to analyze the market, inspect an asset, check TVL or a wallet, follow news, or prepare an operation.',
+      ? 'Quero entender corretamente o que você precisa. Pode reformular a pergunta ou acrescentar um pouco de contexto?'
+      : 'I want to make sure I understand what you need. Could you rephrase the question or add a little context?',
     sources: [],
   };
 }
