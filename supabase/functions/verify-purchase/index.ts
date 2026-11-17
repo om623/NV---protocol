@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // ─── RPC endpoints by chain ID ───────────────────────────────────────────
 const CHAIN_RPCS: Record<number, string> = {
-  8453: "https://mainnet.base.org",
+  5042: "https://rpc.mainnet.arc.io",
 };
 
 // ─── Request interface ───────────────────────────────────────────────────
@@ -64,6 +64,7 @@ interface PaymentConfig {
   tokenDecimals: number;
   tokenAddress: string | null;
   chainId: number;
+  beneficiaryName: string;
 }
 
 // ─── ADMIN SUPABASE CLIENT ───────────────────────────────────────────────
@@ -118,12 +119,11 @@ async function loadPaymentConfig(
     cfg.set(row.key, row.value);
   }
 
-  const paymentWallet = cfg.get("payment_wallet");
-
-  if (!paymentWallet) {
-    throw new Error(
-      "payment_wallet not configured in payment_config table",
-    );
+  // The official ARC beneficiary is intentionally left unset until its
+  // treasury/payment address is confirmed. Never fall back to a user wallet.
+  const paymentWallet = (cfg.get("payment_wallet") ?? "").trim();
+  if (paymentWallet && !/^0x[a-fA-F0-9]{40}$/.test(paymentWallet)) {
+    throw new Error("payment_wallet must be a valid EVM address");
   }
 
   const minConfirmations = parseInt(
@@ -146,9 +146,11 @@ async function loadPaymentConfig(
       : tokenAddressRaw.trim();
 
   const chainId = parseInt(
-    cfg.get("chain_id") ?? "8453",
+    cfg.get("chain_id") ?? "5042",
     10,
   );
+
+  const beneficiaryName = cfg.get("beneficiary_name") ?? "ARC";
 
   return {
     paymentWallet,
@@ -157,6 +159,7 @@ async function loadPaymentConfig(
     tokenDecimals,
     tokenAddress,
     chainId,
+    beneficiaryName,
   };
 }
 
@@ -366,6 +369,10 @@ Deno.serve(async (req: Request) => {
           JSON.stringify({
             paymentWallet:
               config.paymentWallet,
+            beneficiaryName:
+              config.beneficiaryName,
+            isConfigured:
+              /^0x[a-fA-F0-9]{40}$/.test(config.paymentWallet),
             chainId:
               config.chainId,
             tokenSymbol:
@@ -408,6 +415,13 @@ Deno.serve(async (req: Request) => {
         supabase,
       );
 
+    if (config.chainId !== 5042 || config.tokenSymbol !== "USDC" || config.tokenDecimals !== 18 || config.tokenAddress !== null) {
+      return failResponse("Profile payments must be configured for native USDC on Arc Mainnet (chain 5042)", 503);
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(config.paymentWallet)) {
+      return failResponse("Official ARC beneficiary wallet is not configured yet", 503);
+    }
+
     // ── Read request ─────────────────────────────────────────────────────
     const body =
       await req.json() as VerifyRequest;
@@ -448,13 +462,15 @@ Deno.serve(async (req: Request) => {
     const { data: existing } =
       await supabase
         .from("gamification_purchases")
-        .select("id, status")
+        .select("id, status, wallet_address, product_id")
         .eq("tx_hash", txHash)
         .maybeSingle();
 
-    if (
-      existing?.status === "confirmed"
-    ) {
+    if (existing && (existing.wallet_address?.toLowerCase() !== walletAddress.toLowerCase() || existing.product_id !== productId)) {
+      return failResponse("Transaction hash has already been used for a different wallet or product");
+    }
+
+    if (existing?.status === "confirmed") {
       return new Response(
         JSON.stringify({
           verified: true,
@@ -539,9 +555,11 @@ Deno.serve(async (req: Request) => {
           currentBlockHex,
         );
 
+      // Include the mined block itself as confirmation #1.
       const confirmations =
-        currentBlock -
-        txBlockNumber;
+        currentBlock >= txBlockNumber
+          ? currentBlock - txBlockNumber + 1n
+          : 0n;
 
       if (
         confirmations <
@@ -616,6 +634,9 @@ Deno.serve(async (req: Request) => {
     if (
       config.tokenAddress === null
     ) {
+      if (tx.input && tx.input !== "0x") {
+        return failResponse("Native USDC payment must be a direct wallet transfer without contract calldata");
+      }
       if (
         tx.to?.toLowerCase() !==
         recipientLower

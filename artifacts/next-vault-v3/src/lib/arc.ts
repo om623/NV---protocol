@@ -1,4 +1,4 @@
-import { ARC_TESTNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
+import { ARC_TESTNET_CHAIN_PARAMS, ARC_MAINNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
 
 /** Build EIP-3085 chain params from any registered network config. */
 export function networkChainParams(net: NetworkConfig) {
@@ -65,7 +65,12 @@ export async function ensureArcNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, ARC_TESTNET_CHAIN_PARAMS);
 }
 
-/** Switch the injected wallet to Base Mainnet (chainId 8453) for real payments. */
+/** Switch the injected wallet to Arc Mainnet (chainId 5042) for Profile USDC payments. */
+export async function ensureArcMainnet(prov: Eip1193Provider): Promise<void> {
+  await ensureNetwork(prov, ARC_MAINNET_CHAIN_PARAMS);
+}
+
+/** Legacy Base Mainnet switch retained for existing callers. */
 export async function ensureBaseNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, BASE_MAINNET_CHAIN_PARAMS);
 }
@@ -97,8 +102,32 @@ export async function ensureNetwork(prov: Eip1193Provider, params: {
 }
 
 function toHex(n: number, decimals: number): string {
-  const scaled = Math.round(n * Math.pow(10, decimals));
-  return '0x' + scaled.toString(16);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(decimals) || decimals < 0 || decimals > 36) {
+    throw new Error('Invalid token amount or decimals');
+  }
+
+  // Convert the shortest decimal representation directly to bigint.
+  // Avoid Number multiplication at 18 decimals, which can silently lose precision.
+  const [coefficient, exponentRaw] = n.toString().toLowerCase().split('e');
+  const exponent = exponentRaw ? Number(exponentRaw) : 0;
+  const [whole, fraction = ''] = coefficient.split('.');
+  let digits = whole + fraction;
+  while (digits.length > 1 && digits.startsWith('0')) digits = digits.slice(1);
+  digits = digits || '0';
+  const scale = decimals - fraction.length + exponent;
+  let units = BigInt(digits);
+
+  if (scale >= 0) {
+    units *= 10n ** BigInt(scale);
+  } else {
+    const divisor = 10n ** BigInt(-scale);
+    if (units % divisor !== 0n) {
+      throw new Error('Amount has more decimal places than the token supports');
+    }
+    units /= divisor;
+  }
+
+  return '0x' + units.toString(16);
 }
 
 export async function transferNative(
