@@ -1,4 +1,5 @@
 import type { Locale } from '../i18n/types';
+import { cacheGet, cacheSet, dedupe, fetchJson, HOUR } from '../radar/adapters/http';
 
 export interface InflationQuote {
   countryCode: string;
@@ -7,7 +8,17 @@ export interface InflationQuote {
   source: 'World Bank';
 }
 
-const COUNTRY_BY_LOCALE: Record<Locale, { iso2: string; iso3: string }> = {
+interface InflationCountry {
+  iso2: string;
+  iso3: string;
+}
+
+/**
+ * Dashboard's default economic market by locale.
+ * Kept separate from translation metadata so geography can later become
+ * an explicit user preference without changing the app's language.
+ */
+const INFLATION_COUNTRY_BY_LOCALE: Record<Locale, InflationCountry> = {
   'pt-BR': { iso2: 'BR', iso3: 'BRA' },
   en: { iso2: 'US', iso3: 'USA' },
   es: { iso2: 'ES', iso3: 'ESP' },
@@ -16,49 +27,73 @@ const COUNTRY_BY_LOCALE: Record<Locale, { iso2: string; iso3: string }> = {
   ja: { iso2: 'JP', iso3: 'JPN' },
   ko: { iso2: 'KR', iso3: 'KOR' },
   hi: { iso2: 'IN', iso3: 'IND' },
-  ar: { iso2: 'SA', iso3: 'SAU' },
+  // Arabic dashboard market: United Arab Emirates (Dubai), not Saudi Arabia.
+  ar: { iso2: 'AE', iso3: 'ARE' },
 };
 
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const cache = new Map<string, { quote: InflationQuote; expiresAt: number }>();
+type WbRow = {
+  country?: { id?: string };
+  date?: string;
+  value?: number | null;
+};
+type WbResponse = [{ pages?: number }, WbRow[] | null] | null;
+
+const CACHE_TTL_MS = 6 * HOUR;
+const cacheKey = (iso2: string) => `dashboard.inflation.${iso2}.v1`;
 
 /**
- * Latest available annual CPI inflation rate from the World Bank.
- * This is an annual observation, not a live/intraday or monthly estimate.
- * Missing or unavailable data is returned as null; values are never fabricated.
+ * Latest available annual CPI inflation rate from World Bank Open Data.
+ * Annual observations are not live/monthly estimates. Missing values remain null.
  */
 export async function fetchInflation(locale: Locale): Promise<InflationQuote | null> {
-  const country = COUNTRY_BY_LOCALE[locale];
-  const cached = cache.get(country.iso3);
-  if (cached && cached.expiresAt > Date.now()) return cached.quote;
+  const country = INFLATION_COUNTRY_BY_LOCALE[locale];
+  const key = cacheKey(country.iso2);
+  const cached = cacheGet<InflationQuote>(key, CACHE_TTL_MS);
+  if (cached) return cached;
 
-  const url = `https://api.worldbank.org/v2/country/${country.iso3}/indicator/FP.CPI.TOTL.ZG?format=json&per_page=30&date=2018:2026`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  return dedupe(key, async () => {
+    const secondRead = cacheGet<InflationQuote>(key, CACHE_TTL_MS);
+    if (secondRead) return secondRead;
 
-  try {
-    const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
-    if (!response.ok) throw new Error(`World Bank HTTP ${response.status}`);
-    const payload: unknown = await response.json();
-    if (!Array.isArray(payload) || !Array.isArray(payload[1])) return null;
+    const currentYear = new Date().getFullYear();
+    const url = `https://api.worldbank.org/v2/country/${country.iso3}/indicator/FP.CPI.TOTL.ZG?format=json&per_page=30&date=2018:${currentYear}`;
 
-    const observations = payload[1] as Array<{ country?: { id?: string }; date?: string; value?: number | null }>;
-    const latest = observations
-      .filter(row => row.country?.id === country.iso2 && row.date && row.value !== null && Number.isFinite(row.value))
-      .sort((a, b) => Number(b.date) - Number(a.date))[0];
+    try {
+      const payload = await fetchJson<WbResponse>(url, { timeoutMs: 20000, retries: 2 });
+      if (!Array.isArray(payload) || !Array.isArray(payload[1])) {
+        console.warn('[NV Dashboard] World Bank returned an unexpected inflation payload', country.iso2);
+        return null;
+      }
 
-    if (!latest || typeof latest.value !== 'number' || !latest.date) return null;
-    const quote: InflationQuote = {
-      countryCode: country.iso2,
-      value: latest.value,
-      year: latest.date,
-      source: 'World Bank',
-    };
-    cache.set(country.iso3, { quote, expiresAt: Date.now() + CACHE_TTL_MS });
-    return quote;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
+      const latest = payload[1]
+        .filter((row) =>
+          row.country?.id === country.iso2 &&
+          typeof row.date === 'string' &&
+          row.value !== null &&
+          row.value !== undefined &&
+          Number.isFinite(row.value),
+        )
+        .sort((a, b) => Number(b.date) - Number(a.date))[0];
+
+      if (!latest || typeof latest.value !== 'number' || !latest.date) {
+        console.warn('[NV Dashboard] World Bank has no annual inflation observation for', country.iso2);
+        return null;
+      }
+
+      const quote: InflationQuote = {
+        countryCode: country.iso2,
+        value: latest.value,
+        year: latest.date,
+        source: 'World Bank',
+      };
+      cacheSet(key, quote);
+      return quote;
+    } catch (error) {
+      console.warn('[NV Dashboard] Inflation request failed', {
+        country: country.iso2,
+        error,
+      });
+      return null;
+    }
+  });
 }
