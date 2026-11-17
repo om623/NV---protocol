@@ -111,7 +111,9 @@ function toHex(n: number, decimals: number): string {
   const [coefficient, exponentRaw] = n.toString().toLowerCase().split('e');
   const exponent = exponentRaw ? Number(exponentRaw) : 0;
   const [whole, fraction = ''] = coefficient.split('.');
-  const digits = (whole + fraction).replace(/^0+(?=\\d)/, '') || '0';
+  let digits = whole + fraction;
+  while (digits.length > 1 && digits.startsWith('0')) digits = digits.slice(1);
+  digits = digits || '0';
   const scale = decimals - fraction.length + exponent;
   let units = BigInt(digits);
 
