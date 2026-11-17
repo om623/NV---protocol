@@ -26,16 +26,42 @@ function amount(q:string){
 }
 function tokens(q:string){return TOKENS.flatMap(t=>{const m=new RegExp('\\b'+t+'\\b','i').exec(q);return m?[{v:t==='MATIC'?'POL':t,i:m.index}]:[]}).sort((a,b)=>a.i-b.i).map(x=>x.v);}
 function networks(q:string){const out:{v:string;i:number}[]=[];let work=q;for(const [re,v] of NETS){const m=re.exec(work);if(m){out.push({v,i:m.index});work=work.slice(0,m.index)+' '.repeat(m[0].length)+work.slice(m.index+m[0].length)}}return out.sort((a,b)=>a.i-b.i).map(x=>x.v);}
+function isQuestionOrExplanation(q:string):boolean{
+ return /\b(how|what|why|when|where|who|explain|define|tell me about|como|o que|por que|porque|quando|onde|quem|explique|me explique|me fale|que significa)\b/i.test(q);
+}
+
+function isPendingSlotReply(q:string,pending:AgentAction,a:number|null,ts:string[],ns:string[],addr:string|null):boolean{
+ if(isQuestionOrExplanation(q))return false;
+ const p=pending.params??{};
+ const short=q.trim().split(/\s+/).length<=3;
+ const amountMissing=!(Number(p.amount)>0);
+ const amountLabel=/\b(amount|valor|quantia|montante|value)\b/i.test(q);
+ if(amountMissing&&a!==null&&(ts.length>0||amountLabel||/^\s*\d+(?:[.,]\d+)?\s*$/.test(q)))return true;
+ if(pending.type==='transfer'&&addr)return true;
+ const slotCue=/\b(source|origem|from|de|destination|destino|to|para|receive|receber|use|usar|network|rede|token|moeda|change|mude|troque|instead|na verdade)\b/i.test(q);
+ if(short&&ts.length>0&&(pending.type==='swap'||pending.type==='transfer')&&(slotCue||ts.length===1))return true;
+ if(short&&ns.length>0&&(pending.type==='bridge'||pending.type==='swap'||pending.type==='transfer')&&(slotCue||ns.length===1))return true;
+ return false;
+}
+
 export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  const q=text.trim(),l=q.toLowerCase(),ts=tokens(q),ns=networks(q),a=amount(q),addr=q.match(/0x[0-9a-fA-F]{40}/)?.[0]??null;
  if(/^(cancel(e|ar)?|cancela|desistir|pare|parar|stop|abortar|aborte|esquece|deixa pra l[aá]|n[aã]o execute|nao execute)\b/i.test(q))return{intent:'cancel',params:{},confidence:1};
  if(/^(confirm(e|ar)?|confirmo|execute|executar|pode executar|pode fazer|prossiga|prosseguir|continue|continuar|manda ver|sim|yes|go|ok|okay)\b/i.test(q))return{intent:'confirm',params:{},confidence:1};
  let intent:NVIntent|null=null;
- if(/\b(bridge|bridging|ponte|cross[- ]?chain|entre redes|outra rede)\b/i.test(q)||ns.length>=2)intent='bridge';
- else if(/\b(swap|trocar|troque|converter|converta|permutar|exchange)\b/i.test(q)||(a&&ts.length>=2&&/\b(para|por|to|for|em)\b/i.test(q)))intent='swap';
- else if(/\b(transferir|transfira|transferencia|transferência|enviar|envie|mandar|mande|remeter|send)\b/i.test(q)||addr)intent='transfer';
- else if(/\b(comprar|compre|buy|pagamento|payment)\b/i.test(q))intent='payment';
- else if(pending)intent=pending.type as NVIntent;
+ const asksForExplanation=isQuestionOrExplanation(q);
+ const bridgeMention=/\b(bridge|bridging|ponte|cross[- ]?chain|crosschain|entre redes|outra rede)\b/i.test(q);
+ const swapMention=/\b(swap|trocar|troque|converter|converta|permutar|exchange)\b/i.test(q);
+ const transferMention=/\b(transferir|transfira|transferencia|transferência|enviar|envie|mandar|mande|remeter|send)\b/i.test(q);
+ const paymentMention=/\b(comprar|compre|buy|pagamento|payment)\b/i.test(q);
+ const explicitRequest=/\b(i want to|i need to|quero|preciso|iniciar|execute|executar|start|send|enviar|envie|transfira|transferir|comprar|compre|buy|troque|trocar)\b/i.test(q);
+ const bridgeShape=bridgeMention&&((a!==null&&(ts.length>0||ns.length>=2))||ns.length>=2);
+ const swapShape=swapMention&&ts.length>=2&&/\b(para|por|to|for|em)\b/i.test(q);
+ if(!asksForExplanation&&bridgeMention&&(explicitRequest||bridgeShape||/^\s*(bridge|ponte)\b/i.test(q)))intent='bridge';
+ else if(!asksForExplanation&&swapMention&&(explicitRequest||swapShape||/^\s*swap\b/i.test(q)))intent='swap';
+ else if(!asksForExplanation&&transferMention&&(explicitRequest||addr||a!==null))intent='transfer';
+ else if(!asksForExplanation&&paymentMention&&explicitRequest)intent='payment';
+ else if(pending&&isPendingSlotReply(q,pending,a,ts,ns,addr))intent=pending.type as NVIntent;
  else if(/\b(tvl|total value locked)\b/i.test(q))intent='tvl';
  else if(/\b(carteira|wallet|saldo|balance)\b/i.test(q))intent='wallet';
  else if(/\b(noticias|notícias|news)\b/i.test(q))intent='news';
