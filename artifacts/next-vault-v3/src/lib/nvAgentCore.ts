@@ -47,7 +47,7 @@ function isPendingSlotReply(q:string,pending:AgentAction,a:number|null,ts:string
 export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  const q=text.trim(),l=q.toLowerCase(),ts=tokens(q),ns=networks(q),a=amount(q),addr=q.match(/0x[0-9a-fA-F]{40}/)?.[0]??null;
  if(/^(cancel(e|ar)?|cancela|desistir|pare|parar|stop|abortar|aborte|esquece|deixa pra l[aá]|n[aã]o execute|nao execute)\b/i.test(q))return{intent:'cancel',params:{},confidence:1};
- if(/^(confirm(e|ar)?|confirmo|execute|executar|pode executar|pode fazer|prossiga|prosseguir|continue|continuar|manda ver|sim|yes|go|ok|okay)\b/i.test(q))return{intent:'confirm',params:{},confidence:1};
+ if(/^(confirm(e|ar)?|confirmo|execute|executar|pode executar|prossiga|prosseguir|manda ver|sim|yes|go|ok|okay)[.!?]*$/i.test(q))return{intent:'confirm',params:{},confidence:1};
  let intent:NVIntent|null=null;
  const asksForExplanation=isQuestionOrExplanation(q);
  const bridgeMention=/\b(bridge|bridging|ponte|cross[- ]?chain|crosschain|entre redes|outra rede)\b/i.test(q);
