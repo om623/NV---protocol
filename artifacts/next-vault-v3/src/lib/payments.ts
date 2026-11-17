@@ -3,29 +3,25 @@
 // then verifies the transaction on-chain through the verify-purchase edge function.
 // No product is unlocked without server-verified on-chain confirmation.
 
-import { transferErc20, transferNative, getTokensForNetwork, ensureBaseNetwork, getChainId, type Eip1193Provider } from "./arc";
+import { transferErc20, transferNativeExact, getTokensForNetwork, ensureArcMainnetNetwork, getChainId, type Eip1193Provider } from "./arc";
 import { NETWORKS_CONFIG } from "../networks";
 import { createClient } from "@supabase/supabase-js";
 
-// ── Payment network: Base Mainnet (chainId 8453) ──────────────────────────
-// Payments run exclusively on Base Mainnet using official USDC.
-// The rest of the NV Protocol (swaps, pools, bridge, wallet) is unaffected.
-const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 8453)!;
+// ── Payment network: Arc Mainnet (chainId 5042) ──────────────────────────
+// Shop payments use Arc native USDC. Other NV modules and networks are untouched.
+const PAYMENT_NETWORK = NETWORKS_CONFIG.find(n => n.chainId === 5042)!;
 
 // ── Payment configuration (display-only, from server) ────────────────────
 // The frontend fetches these from the server on init. They are used ONLY
 // for display and for constructing the on-chain transaction. The server
 // re-derives all of these from its own database during verification —
 // it never trusts the frontend's copy.
-export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 8453
-export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Base"
+export const PAYMENT_CHAIN_ID = PAYMENT_NETWORK.chainId; // 5042
+export const PAYMENT_CHAIN_NAME = PAYMENT_NETWORK.name; // "Arc"
 export const PAYMENT_TOKEN_SYMBOL = "USDC";
-export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.decimals ?? 6;
-export const PAYMENT_TOKEN_ADDRESS = PAYMENT_NETWORK.tokens.find(
-  (t) => t.symbol === PAYMENT_TOKEN_SYMBOL,
-)?.address ?? null;
+// Shop transfers native USDC on Arc (18 decimals), not the ERC-20 interface (6).
+export const PAYMENT_TOKEN_DECIMALS = PAYMENT_NETWORK.nativeCurrency.decimals;
+export const PAYMENT_TOKEN_ADDRESS: string | null = null;
 
 // ── Supabase client (anon key, no auth) ──────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -391,14 +387,14 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     };
   }
 
-  // Step 1: Switch wallet to Base Mainnet (chainId 8453) and verify
+  // Step 1: Switch wallet to Arc Mainnet (chainId 5042) and verify
   try {
-    await ensureBaseNetwork(provider);
+    await ensureArcMainnetNetwork(provider);
     const actualChainId = await getChainId(provider);
     if (actualChainId !== PAYMENT_CHAIN_ID) {
       return {
         success: false, txHash: null, verified: false,
-        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Base Mainnet), got ${actualChainId}`,
+        error: `Wrong chain: expected ${PAYMENT_CHAIN_ID} (Arc Mainnet), got ${actualChainId}`,
         productId,
       };
     }
@@ -408,7 +404,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
       success: false, txHash: null, verified: false,
       error: msg.includes("4001") || msg.includes("User rejected")
         ? "Network switch rejected by wallet"
-        : `Failed to switch to Base Mainnet: ${msg}`,
+        : `Failed to switch to Arc Mainnet: ${msg}`,
       productId,
     };
   }
@@ -420,7 +416,7 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     const tokenCfg = tokenMap[PAYMENT_TOKEN_SYMBOL];
 
     if (tokenCfg?.isNative || !tokenCfg?.address) {
-      txHash = await transferNative(provider, walletAddress, paymentWallet, amountUsd);
+      txHash = await transferNativeExact(provider, walletAddress, paymentWallet, amountUsd, 18);
     } else {
       txHash = await transferErc20(
         provider,
@@ -444,19 +440,9 @@ export async function executePayment(params: ExecutePaymentParams): Promise<Exec
     };
   }
 
-  // Step 3: Insert pending purchase record
-  if (supabase) {
-    await supabase.from("gamification_purchases").insert({
-      wallet_address: walletAddress.toLowerCase(),
-      product_id: productId,
-      product_type: productType,
-      amount_usd: amountUsd,
-      token_symbol: PAYMENT_TOKEN_SYMBOL,
-      chain_id: PAYMENT_CHAIN_ID,
-      tx_hash: txHash,
-      status: "pending",
-    });
-  }
+  // Step 3: Ask the Edge Function to verify and persist the transaction.
+  // The server records pending/confirmed purchases with its privileged key;
+  // the public client is read-only for purchase and entitlement tables.
 
   // Step 4: Verify on-chain through the edge function
   // Only txHash, walletAddress, and productId are sent — the server derives

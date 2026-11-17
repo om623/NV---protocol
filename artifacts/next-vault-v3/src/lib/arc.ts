@@ -1,4 +1,4 @@
-import { ARC_TESTNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
+import { ARC_TESTNET_CHAIN_PARAMS, BASE_MAINNET_CHAIN_PARAMS, NETWORKS_CONFIG, type NetworkConfig, type TokenConfig, getNetworkTokens } from '../networks';
 
 /** Build EIP-3085 chain params from any registered network config. */
 export function networkChainParams(net: NetworkConfig) {
@@ -65,7 +65,14 @@ export async function ensureArcNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, ARC_TESTNET_CHAIN_PARAMS);
 }
 
-/** Switch the injected wallet to Base Mainnet (chainId 8453) for real payments. */
+/** Switch the injected wallet to Arc Mainnet (chainId 5042) for NV Shop payments. */
+export async function ensureArcMainnetNetwork(prov: Eip1193Provider): Promise<void> {
+  const network = NETWORKS_CONFIG.find((net) => net.chainId === 5042);
+  if (!network) throw new Error('Arc Mainnet is not configured');
+  await ensureNetwork(prov, networkChainParams(network));
+}
+
+/** Legacy helper retained for existing Base Mainnet integrations. */
 export async function ensureBaseNetwork(prov: Eip1193Provider): Promise<void> {
   await ensureNetwork(prov, BASE_MAINNET_CHAIN_PARAMS);
 }
@@ -111,6 +118,50 @@ export async function transferNative(
   return (await prov.request({
     method: 'eth_sendTransaction',
     params: [{ from, to, value: valueWei }],
+  })) as string;
+}
+
+/** Convert a JS decimal number's shortest decimal representation to exact base units. */
+function decimalToUnits(amount: number, decimals: number): bigint {
+  if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(decimals) || decimals < 0) {
+    throw new Error('Invalid native transfer amount');
+  }
+
+  const [mantissa, exponentText] = amount.toString().toLowerCase().split('e');
+  const exponent = exponentText ? Number(exponentText) : 0;
+  const [whole = '0', fraction = ''] = mantissa.split('.');
+  let digits = (whole + fraction).replace(/^0+(?=\d)/, '');
+  let scale = fraction.length - exponent;
+
+  if (scale < 0) {
+    digits += '0'.repeat(-scale);
+    scale = 0;
+  }
+  if (scale > decimals) {
+    const excess = scale - decimals;
+    const discarded = digits.slice(-excess);
+    if (/[1-9]/.test(discarded)) {
+      throw new Error(`Amount exceeds ${decimals} decimal places`);
+    }
+    digits = digits.slice(0, -excess) || '0';
+    scale = decimals;
+  }
+
+  return BigInt(digits || '0') * (10n ** BigInt(decimals - scale));
+}
+
+/** Send native currency using exact decimal-to-wei conversion (for Arc USDC payments). */
+export async function transferNativeExact(
+  prov: Eip1193Provider,
+  from: string,
+  to: string,
+  amount: number,
+  decimals = 18,
+): Promise<string> {
+  const value = '0x' + decimalToUnits(amount, decimals).toString(16);
+  return (await prov.request({
+    method: 'eth_sendTransaction',
+    params: [{ from, to, value }],
   })) as string;
 }
 
