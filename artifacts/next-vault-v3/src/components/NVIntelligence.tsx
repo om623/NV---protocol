@@ -957,11 +957,10 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
     setMessages(prev => [...prev, { role: 'user', content: question, timestamp: Date.now() }]);
     setLoading(true);
     try {
-      // NV Agent Core v3 is the transaction authority. It runs synchronously
-      // before translation, semantic AI, market data or conversational fallback.
-      // The transaction core understands the canonical financial vocabulary.
-      // Normalize any of the 9 supported UI languages before parsing, while
-      // preserving addresses, token symbols, amounts and network identifiers.
+      // Deterministic NV parsing owns financial action routing and confirmation.
+      // Informational and general-purpose questions continue to the LLM path below.
+      // Normalize supported UI languages before parsing while preserving wallet
+      // addresses, token symbols, amounts and network identifiers.
       const coreInput = locale === 'pt-BR' || locale === 'en'
         ? question
         : await translateToEnglish(question);
