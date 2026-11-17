@@ -52,9 +52,9 @@ export function parseNVTurn(text:string,pending?:AgentAction|null):ParsedNVTurn{
  const asksForExplanation=isQuestionOrExplanation(q);
  const bridgeMention=/\b(bridge|bridging|ponte|cross[- ]?chain|crosschain|entre redes|outra rede)\b/i.test(q);
  const swapMention=/\b(swap|trocar|troque|converter|converta|permutar|exchange)\b/i.test(q);
- const transferMention=/\b(transferir|transfira|transferencia|transferência|enviar|envie|mandar|mande|remeter|send)\b/i.test(q);
+ const transferMention=/\b(transfer|transferir|transfira|transferencia|transferência|enviar|envie|mandar|mande|remeter|send)\b/i.test(q);
  const paymentMention=/\b(comprar|compre|buy|pagamento|payment)\b/i.test(q);
- const explicitRequest=/\b(i want to|i need to|quero|preciso|iniciar|execute|executar|start|send|enviar|envie|transfira|transferir|comprar|compre|buy|troque|trocar)\b/i.test(q);
+ const explicitRequest=/\b(i want to|i need to|quero|preciso|iniciar|execute|executar|start|send|transfer|enviar|envie|transfira|transferir|comprar|compre|buy|troque|trocar|purchase|pay)\b/i.test(q);
  const bridgeShape=bridgeMention&&((a!==null&&(ts.length>0||ns.length>=2))||ns.length>=2);
  const swapShape=swapMention&&ts.length>=2&&/\b(para|por|to|for|em)\b/i.test(q);
  if(!asksForExplanation&&bridgeMention&&(explicitRequest||bridgeShape||/^\s*(bridge|ponte)\b/i.test(q)))intent='bridge';
