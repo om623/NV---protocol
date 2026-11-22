@@ -6,10 +6,10 @@ This directory is an isolated copy of support code that currently lives outside
 
 ## Copied areas
 
-- `backend/api/api/`: copies of the root `api/` handlers and their API tsconfig.
-- `backend/supabase/supabase/`: Supabase functions, migrations and config.
-- `shared/lib/lib/`: shared workspace libraries.
-- `tooling/scripts/scripts/`: repository scripts.
+- `backend/api/`: copies of the root `api/` handlers and their API tsconfig.
+- `backend/supabase/`: Supabase functions, migrations and config.
+- `shared/lib/`: shared workspace libraries.
+- `tooling/scripts/`: repository scripts.
 - `workspace-config/`: root package/workspace and TypeScript configuration snapshots.
 
 ## Safety boundary
@@ -22,8 +22,6 @@ mirror until the workspace is deliberately made self-contained and validated.
 ## Next validation
 
 1. Compare every mirrored file with its original.
-2. Decide the final target folder names and remove the duplicated source-root
-   segment during a controlled move/copy pass.
-3. Rewire workspace dependencies and API routes only after dependency mapping.
-4. Run typecheck, production build, WalletConnect, Bridge and module regression
+2. Rewire workspace dependencies and API routes only after dependency mapping.
+3. Run typecheck, production build, WalletConnect, Bridge and module regression
    checks before any merge.
