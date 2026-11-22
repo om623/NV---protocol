@@ -28,13 +28,13 @@ interface Env {
 }
 
 const handlers: Record<string, LegacyHandler> = {
-  "/api/b3-index-proxy": b3IndexProxy as LegacyHandler,
-  "/api/b3-official-index": b3OfficialIndex as LegacyHandler,
-  "/api/fed-brief": fedBrief as LegacyHandler,
-  "/api/radar-news": radarNews as LegacyHandler,
-  "/api/radar-sec": radarSec as LegacyHandler,
-  "/api/tech-trends": techTrends as LegacyHandler,
-  "/api/yf-proxy": yahooFinance as LegacyHandler,
+  "/api/b3-index-proxy": b3IndexProxy as unknown as LegacyHandler,
+  "/api/b3-official-index": b3OfficialIndex as unknown as LegacyHandler,
+  "/api/fed-brief": fedBrief as unknown as LegacyHandler,
+  "/api/radar-news": radarNews as unknown as LegacyHandler,
+  "/api/radar-sec": radarSec as unknown as LegacyHandler,
+  "/api/tech-trends": techTrends as unknown as LegacyHandler,
+  "/api/yf-proxy": yahooFinance as unknown as LegacyHandler,
 };
 
 function toQuery(searchParams: URLSearchParams): Record<string, QueryValue> {
