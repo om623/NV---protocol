@@ -12,7 +12,9 @@
     "test:walletconnect": "bun run scripts/walletconnect-tests.ts",
     "test:profile": "bun run scripts/profile-tests.ts && bun run scripts/profile-shop-tests.ts && bun run scripts/profile-3d-tests.ts",
     "agent:policy": "node cli/nv-agent-policy.mjs",
-    "test:bridge-lifi": "bun run scripts/bridge-lifi-tests.ts"
+    "test:bridge-lifi": "bun run scripts/bridge-lifi-tests.ts",
+    "test:nv-agent-locale": "bun run scripts/nv-agent-locale-tests.ts",
+    "test:nv-agent-general-intelligence": "bun run scripts/nv-agent-general-intelligence-tests.ts"
   },
   "dependencies": {
     "@solana/kit": "^8.4.0",
