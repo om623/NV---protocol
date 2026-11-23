@@ -1,6 +1,7 @@
 // NV Agent — finance-first conversational brain.
 // Server-side only. Uses the OpenAI Responses API and never exposes credentials.
 type Req={method?:string;body?:unknown}; type Res={status:(n:number)=>Res;json:(b:unknown)=>void;setHeader:(n:string,v:string)=>void};
+const LOCALE_NAMES:Record<string,string>={'pt-BR':'Brazilian Portuguese',en:'English',es:'Spanish',fr:'French',zh:'Simplified Chinese',ja:'Japanese',ko:'Korean',hi:'Hindi',ar:'Modern Standard Arabic'};
 function compactContext(raw:any){
  const assets=(raw?.market?.assets??[]).slice(0,120).map((a:any)=>({symbol:a.symbol,name:a.name,category:a.category,price:a.price,change24h:a.change24h,change7d:a.change7d,marketCap:a.marketCap,volume24h:a.volume24h,isLive:a.isLive}));
  const tvl=(raw?.tvl?.entries??[]).slice(0,60).map((e:any)=>({id:e.id,name:e.displayName,tvlUsd:e.tvlUsd,status:e.status}));
@@ -10,6 +11,9 @@ function compactContext(raw:any){
 export default async function handler(req:Req,res:Res){
  res.setHeader('Cache-Control','no-store'); if(req.method!=='POST'){res.status(405).json({error:'method_not_allowed'});return;}
  const b=(req.body&&typeof req.body==='object'?req.body:{}) as {message?:unknown;history?:unknown;context?:unknown;locale?:unknown};
+ const requestedLocale=typeof b.locale==='string'?b.locale:'';
+ const contextLocale=typeof (b.context as any)?.locale==='string'?(b.context as any).locale:'';
+ const locale=requestedLocale in LOCALE_NAMES?requestedLocale:contextLocale in LOCALE_NAMES?contextLocale:'en';
  const message=typeof b.message==='string'?b.message.trim():''; if(!message||message.length>6000){res.status(400).json({error:'invalid_request'});return;}
  const key=process.env.OPENAI_API_KEY; if(!key){res.status(503).json({error:'agent_not_configured'});return;}
  const history=Array.isArray(b.history)?b.history.slice(-16).map((m:any)=>({role:m.role==='assistant'?'assistant':'user',content:String(m.content??'').slice(0,3500)})):[];
@@ -27,7 +31,8 @@ BEHAVIOR
 - Do not give individualized regulated financial advice as a certainty; provide decision-support, risks, assumptions and alternatives.
 - Never claim a transaction executed unless the NV transaction executor reports it. Never ask for seed phrases or private keys.
 - If the user asks to transfer, swap, bridge, or buy an NV product, do NOT simulate execution here. Briefly acknowledge the request; the deterministic transaction layer handles execution separately.
-- Respect the user's language. Default to the locale in context.
+- LANGUAGE LOCK (NON-NEGOTIABLE): The selected UI language is ${LOCALE_NAMES[locale]}. Write every user-facing sentence, heading, clarification, disclaimer, and follow-up exclusively in this language. Do not switch languages or mix languages because the user typed a word or phrase in another language. Preserve only proper nouns, token/network names, tickers, addresses, hashes, URLs, and technical identifiers as written.
+- Change the response language only when the user explicitly asks to change languages; otherwise the selected UI locale always wins.
 - Be concise by default but expand when the question requires depth.
 - NV architecture: the Agent is the single AI inside Intelligence. Dashboard presenter is separate. Swap, Bridge, wallets, market data, TVL, news, payments, reports/history and gamification are NV capabilities.
 - Do not invent unavailable NV capabilities.
