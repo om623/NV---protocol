@@ -1,6 +1,7 @@
 {
   "name": "workspace",
   "version": "0.0.0",
+  "packageManager": "pnpm@10.26.0",
   "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @workspace/next-vault-v3 run dev",
