@@ -873,18 +873,52 @@ function NVAgentPanel({ news, agentCtx }: { news: NewsItem[]; agentCtx: NVAgentC
   }
 
   function executeAgentAction(action: NonNullable<AgentMessage['action']>) {
+    const actionNetwork = String(action.params?.network ?? '').toLowerCase();
+    const requiresEvmWallet = action.type === 'swap' && !actionNetwork.includes('solana');
+    const evmWalletConnected = agentCtx?.evmWallet?.connected === true;
+
+    // Do not hand an EVM swap to the executor while its wallet is disconnected.
+    // Keep pendingAction intact so the user can connect and type "execute" again.
+    if (requiresEvmWallet && !evmWalletConnected) {
+      const pendingMessage: Record<string, string> = {
+        'pt-BR': 'A carteira EVM está desconectada. Mantive o swap pendente; conecte a carteira e digite “execute” novamente para retomar. Nenhuma transação foi enviada.',
+        en: 'Your EVM wallet is disconnected. I’ve kept the swap pending; connect your wallet and type “execute” again to resume. No transaction was sent.',
+        es: 'La cartera EVM está desconectada. Mantengo el swap pendiente; conecta tu cartera y escribe “execute” de nuevo para reanudar. No se ha enviado ninguna transacción.',
+        fr: 'Le portefeuille EVM est déconnecté. Je garde le swap en attente ; connectez votre portefeuille puis saisissez « execute » pour reprendre. Aucune transaction n’a été envoyée.',
+        zh: '您的 EVM 钱包尚未连接。我已保留待处理的兑换；连接钱包后再次输入“execute”即可继续。尚未发送任何交易。',
+        ja: 'EVMウォレットが接続されていません。スワップは保留のままです。ウォレットを接続し、もう一度「execute」と入力して再開してください。トランザクションは送信されていません。',
+        ko: 'EVM 지갑이 연결되어 있지 않습니다. 스왑은 대기 상태로 유지됩니다. 지갑을 연결한 후 “execute”를 다시 입력해 재개하세요. 트랜잭션은 전송되지 않았습니다.',
+        hi: 'आपका EVM वॉलेट कनेक्ट नहीं है। स्वैप लंबित रखा है; वॉलेट कनेक्ट करें और फिर से “execute” लिखकर जारी रखें। कोई ट्रांज़ैक्शन भेजा नहीं गया।',
+        ar: 'محفظة EVM غير متصلة. أبقيت عملية المبادلة معلّقة؛ وصّل محفظتك واكتب “execute” مرة أخرى للمتابعة. لم يتم إرسال أي معاملة.',
+      };
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: pendingMessage[locale] ?? pendingMessage.en,
+        timestamp: Date.now(),
+      }]);
+      return;
+    }
+
     const id = `agent-action-${Date.now()}`;
     setExecutingActionId(id);
     requestAgentExecution({ id, type: action.type, params: action.params ?? {} });
+    const executionMessage: Record<string, string> = {
+      'pt-BR': 'Solicitação encaminhada ao executor do NV. Revise qualquer solicitação exibida pela sua carteira antes de assinar.',
+      en: 'The request has been sent to NV execution. Review any wallet prompt before signing.',
+      es: 'La solicitud se envió al ejecutor de NV. Revisa cualquier solicitud de tu cartera antes de firmar.',
+      fr: 'La demande a été transmise à l’exécuteur NV. Vérifiez toute demande de votre portefeuille avant de signer.',
+      zh: '执行请求已发送至 NV。签名前请检查钱包显示的任何请求。',
+      ja: '実行リクエストをNVに送信しました。署名前にウォレットの確認内容を確認してください。',
+      ko: '실행 요청을 NV에 전달했습니다. 서명하기 전에 지갑 요청 내용을 확인하세요.',
+      hi: 'अनुरोध NV निष्पादन प्रणाली को भेज दिया गया है। हस्ताक्षर करने से पहले वॉलेट के अनुरोध की समीक्षा करें।',
+      ar: 'تم إرسال طلب التنفيذ إلى NV. راجع أي طلب يظهر في محفظتك قبل التوقيع.',
+    };
     setMessages(prev => [...prev, {
       role: 'assistant',
-      content: locale === 'pt-BR'
-        ? 'Entendido. Vou encaminhar esta operação para a infraestrutura do NV. Revise qualquer solicitação exibida pela sua carteira antes de assinar.'
-        : 'Understood. I am sending this operation to NV execution infrastructure. Review any wallet prompt before signing.',
+      content: executionMessage[locale] ?? executionMessage.en,
       timestamp: Date.now(),
     }]);
   }
-
   useEffect(() => subscribeAgentExecutionResult(result => {
     setExecutingActionId(current => current === result.id ? null : current);
     if (result.ok) setPendingAction(null);
