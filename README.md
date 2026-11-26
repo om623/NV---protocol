@@ -56,7 +56,7 @@ Responsive web interface
 Nexling interactive interface element
 O projeto é construído e financiado de forma independente.
 
-Não recebemos financiamento anterior da Circle ou da Arc.
+Não recebemos financiamento anterior da Circle ou da Arc. 
 
 Visão
 Nossa visão de longo prazo é construir um ambiente unificado onde infraestrutura USDC, interoperabilidade multichain e inteligência em tempo real trabalhem juntas.
